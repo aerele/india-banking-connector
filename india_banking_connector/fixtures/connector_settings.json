@@ -1,0 +1,18 @@
+[
+ {
+  "connectors": [
+   {
+    "bank": "ICICI Bank",
+    "bulk_transaction": 0,
+    "connector": "ICICI Connector",
+    "parent": "Connector Settings",
+    "parentfield": "connectors",
+    "parenttype": "Connector Settings"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Connector Settings",
+  "modified": "2024-09-05 11:18:48.785336",
+  "name": "Connector Settings"
+ }
+]

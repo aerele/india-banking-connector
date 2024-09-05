@@ -1,0 +1,51 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-09-04 18:11:46.751661",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "bank",
+  "connector",
+  "bulk_transaction"
+ ],
+ "fields": [
+  {
+   "fieldname": "bank",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Bank",
+   "options": "Bank",
+   "reqd": 1
+  },
+  {
+   "fieldname": "connector",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Connector",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "default": "0",
+   "fieldname": "bulk_transaction",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Bulk Transaction"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2024-09-05 10:56:44.084340",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "Connector Map",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

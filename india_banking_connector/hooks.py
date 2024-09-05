@@ -4,6 +4,28 @@ app_publisher = "Aerele Technologies Private Limited"
 app_description = "India Banking Connector is a unified platform that allows seamless integration with multiple bank APIs for efficient and secure financial operations."
 app_email = "hello@aerele.in"
 app_license = "mit"
+
+
+fixtures = [
+    {
+		"dt": "Connector Settings",
+		"filters": [
+			[
+            "name", "in", [
+                "Connector Settings"
+            ]
+        ]
+    ]},
+    {
+		"dt": "Bank",
+		"filters": [
+			[
+            "name", "in", [
+                "ICICI Bank"
+            ]
+        ]
+    ]}
+]
 # required_apps = []
 
 # Includes in <head>
