@@ -12,8 +12,20 @@ def connect(**payload):
 
         payload = frappe._dict(payload)
 
-        connector = get_connector(payload.doc)
-        response = connector.get_response(payload.method)
+        print("============================payload======================================")
+        print(payload)
+        print("============================payload======================================")
+
+
+        connector = get_connector(payload.doc, payload.bulk_transaction)
+
+        print(connector, "==============connector========================")
+
+        if isinstance(connector, frappe.model.document.Document):
+            response = connector.get_response(payload.method)
+        else:
+            return connector
+            response = connector.message
 
         return response
 

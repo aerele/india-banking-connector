@@ -8,7 +8,8 @@
  "field_order": [
   "section_break_fhpe",
   "amended_from",
-  "account_number"
+  "account_number",
+  "corp_id"
  ],
  "fields": [
   {
@@ -30,12 +31,17 @@
    "fieldtype": "Data",
    "label": "Account Number",
    "unique": 1
+  },
+  {
+   "fieldname": "corp_id",
+   "fieldtype": "Data",
+   "label": "CORP ID"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-09-05 16:01:15.422875",
+ "modified": "2024-09-11 13:40:20.966420",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
