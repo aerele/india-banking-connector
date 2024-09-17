@@ -13,7 +13,6 @@ class ICICIConnector(BankConnector):
 	BLOCK_SIZE = 16
 
 	def __init__(self, *args, **kwargs):
-		print(kwargs, "kwargs")
 		kwargs.update(bank = self.bank, BLOCK_SIZE = self.BLOCK_SIZE)
 		super().__init__(*args, **kwargs)
 
@@ -157,10 +156,6 @@ class ICICIConnector(BankConnector):
 		return "OAuth Token Not Implemented"
 
 	def generate_otp(self):
-		print('==================================================================')
-		print("Generating OTP")
-		print('==================================================================')
-
 		account_config = {
 			'CORPID': self.corp_id,
 			'USERID': self.payment_creator_user_id,

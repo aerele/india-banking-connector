@@ -2,8 +2,9 @@
 # For license information, please see license.txt
 
 import frappe
+import json
 from frappe.model.document import Document
-
+from requests.models import Response
 
 class BankRequestLog(Document):
 	pass

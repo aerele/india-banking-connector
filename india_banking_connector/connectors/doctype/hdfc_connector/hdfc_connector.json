@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2024-09-13 10:12:09.734914",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_ap68",
+  "account_number",
+  "login_id",
+  "business_prod",
+  "scope",
+  "column_break_nmnn",
+  "amended_from",
+  "cert_file",
+  "sign_key",
+  "private_key",
+  "public_key",
+  "section_break_pfdf",
+  "client_key",
+  "client_secret"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_ap68",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "HDFC Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "login_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "LOGIN ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "business_prod",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Business Prod",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_nmnn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sign_key",
+   "fieldtype": "Attach",
+   "label": "Sign Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "public_key",
+   "fieldtype": "Attach",
+   "label": "Public Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scope",
+   "fieldtype": "Data",
+   "label": "Scope",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_pfdf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "client_key",
+   "fieldtype": "Password",
+   "label": "Client Key"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret"
+  },
+  {
+   "fieldname": "cert_file",
+   "fieldtype": "Attach",
+   "label": "Cert File",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-09-17 17:50:45.800458",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "HDFC Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

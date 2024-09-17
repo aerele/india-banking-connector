@@ -3,34 +3,24 @@ import json
 from india_banking_connector.connectors import get_connector
 
 @frappe.whitelist()
-def connect(**payload):
-    if not payload:
-        return "Payload is required"
-    try:
-        if isinstance(payload, str):
-            payload = json.loads(payload)
+def connect(**kwargs):
+	if not kwargs: return None
 
-        payload = frappe._dict(payload)
+	if isinstance(kwargs, str):
+		payload = frappe._dict(json.loads(kwargs))
+	else:
+		payload = frappe._dict(kwargs)
 
-        print("============================payload======================================")
-        print(payload)
-        print("============================payload======================================")
+	try:
+		connector = get_connector(payload, payload.bulk_transaction)
 
+		if isinstance(connector, frappe.model.document.Document):
+			response = connector.get_response(payload.method)
+		else:
+			return connector
 
-        connector = get_connector(payload.doc, payload.bulk_transaction)
+		return response
 
-        print(connector, "==============connector========================")
-
-        if isinstance(connector, frappe.model.document.Document):
-            response = connector.get_response(payload.method)
-        else:
-            return connector
-            response = connector.message
-
-        return response
-
-    except:
-        frappe.log_error("Connector Error", frappe.get_traceback())
-        return {'connector_status': 'failed', "message": frappe.get_traceback()}
-    else:
-        return response
+	except:
+		frappe.log_error("Connector Error", frappe.get_traceback())
+		return {'connector_status': 'failed', "message": frappe.get_traceback()}

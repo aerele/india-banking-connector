@@ -4,9 +4,15 @@ from base64 import b64decode, b64encode
 from random import randint
 import json
 import rsa
+import re
+import random, string
 from Crypto.Cipher import AES
 from frappe.model.document import Document
-
+from jose import jws, jwe
+from cryptography.hazmat.primitives import serialization
+import hashlib
+import base64
+from cryptography.hazmat.backends import default_backend
 
 class BankConnector(Document):
 	unpad_pkcs5 = lambda s: s[:-ord(s[len(s) - 1:])]
@@ -17,12 +23,71 @@ class BankConnector(Document):
 		self.bank = kwargs.get('bank')
 		self.BLOCK_SIZE = kwargs.get('BLOCK_SIZE')
 
-	def get_basic_defaults(self, BLOCK_SIZE=16):
-		return frappe._dict({
-			"block_size" : self.BLOCK_SIZE,
-			"aes_key": self.generate_aes_key(self.BLOCK_SIZE),
-			"iv": self.generate_aes_key(self.BLOCK_SIZE).encode("utf-8"),
-		})
+	def encrypt_payload(self, payload, bank):
+		if bank == 'HDFC Bank':
+			jws_signed = self.generate_jws_with_rs256(payload, self.get_file_content(self.private_key), kid= self.generate_kid(self.sign_key))
+
+			encrypted_payload = jwe.encrypt(
+				plaintext= jws_signed,
+				key= self.get_file_content(self.public_key),
+				encryption="A256GCM",
+				algorithm="RSA-OAEP-256",
+				cty="JWE",
+				kid= self.generate_kid(self.public_key)
+			)
+
+			return encrypted_payload
+	
+	def generate_kid(self, file_name):
+		file_path = frappe.get_doc("File", {"file_url": file_name}).get_full_path()
+		with open(file_path, 'r') as f:
+			public_key_pem_str = f.read()
+
+		public_key_pem_bytes = public_key_pem_str.encode('utf-8')
+
+		public_key = serialization.load_pem_public_key(public_key_pem_bytes, backend=default_backend())
+
+		public_key_der = public_key.public_bytes(
+			encoding=serialization.Encoding.DER,
+			format=serialization.PublicFormat.SubjectPublicKeyInfo
+		)
+
+		sha256_hash = hashlib.sha256(public_key_der).digest()
+
+		kid = base64.urlsafe_b64encode(sha256_hash).decode('utf-8').rstrip('=')
+
+		return kid
+
+	def get_file_content(self, file_name):
+		file_path = frappe.get_doc("File", {"file_url": file_name}).get_full_path()
+		with open(file_path) as file:
+			return file.read()
+
+	# Generate JWS with RS256
+	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
+		headers = {"typ": "JWS", 'kid': kid}
+
+		# Convert content to bytes
+		if isinstance(content, dict):
+			content_bytes = json.dumps(content).encode('utf-8')
+		else:
+			content_bytes = content.encode('utf-8')
+
+		return jws.sign(content_bytes, private_key, algorithm='RS256', headers=headers)
+
+	def decrypt_response(self, response, bank):
+		if bank == 'HDFC Bank':
+			jwe_decrypted = jwe.decrypt(response.text.encode('utf-8'), self.get_file_content(self.private_key))
+			jws_verified = jws.verify(jwe_decrypted, self.get_file_content(self.public_key), algorithms=['RS256'])
+			return jws_verified.decode('utf-8')
+
+	def get_basic_defaults(self, bank):
+		if bank == "ICICI Bank":
+			return frappe._dict({
+				"block_size" : 16,
+				"aes_key": self.generate_aes_key(16),
+				"iv": self.generate_aes_key(16).encode("utf-8"),
+			})
 
 	def validate_user_permission(self):
 		if not frappe.has_permission("Bank Request Log", "write"):
@@ -62,7 +127,7 @@ class BankConnector(Document):
 		}
 
 	def get_file_relative_path(self, file_name):
-		file = frappe.get_doc("File", {"file_url": file_name}).get_full_path()
+		return frappe.get_doc("File", {"file_url": file_name}).get_full_path()
 
 	def encrypt_data(self, data: str):
 		if isinstance(data, str):
@@ -84,7 +149,7 @@ class BankConnector(Document):
 			private_key = rsa.PrivateKey.load_pkcs1(p.read())
 			decrypted_key = rsa.decrypt(b64decode(key), private_key)
 			return decrypted_key.decode('utf-8')
-	
+
 	def generate_aes_key(self, num_chars= 16):
 		lower_bound = 10 ** (num_chars - 1)
 		upper_bound = 10 ** num_chars - 1
