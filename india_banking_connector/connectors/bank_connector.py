@@ -37,7 +37,7 @@ class BankConnector(Document):
 			)
 
 			return encrypted_payload
-	
+
 	def generate_kid(self, file_name):
 		file_path = frappe.get_doc("File", {"file_url": file_name}).get_full_path()
 		with open(file_path, 'r') as f:

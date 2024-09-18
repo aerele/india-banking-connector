@@ -1,6 +1,6 @@
 # Copyright (c) 2024, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
-
+ref_no = ""
 import frappe, requests, json
 from frappe.utils import getdate
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -39,7 +39,7 @@ class HDFCConnector(BankConnector):
 	@property
 	def headers(self):
 		return {
-			"apikey": self.apikey,
+			"apikey": self.get_password('client_key'),
 			"scope": self.scope,
 			"transactionId": utils.get_id(),
 			"Content-Type": "application/jose",
@@ -50,9 +50,14 @@ class HDFCConnector(BankConnector):
 		url = self.urls.make_payment
 		headers = self.headers
 		payload = self.get_encrypted_payload(method= 'make_payment')
-
+		#print("URL: ", url)
+		#print("Headers: ", headers)
+		#print("Payload: ", payload)
+		#print("Account Config: ", self.get_account_config("make_payment"))
 		response = requests.post(url, headers=headers, data= payload)
-
+		#print("Response: ", response.text)
+		#import pdb
+		#pdb.set_trace()
 		create_api_log(
 			response, action= "Initiate Payment",
 	  		account_config = self.get_account_config("make_payment"),
@@ -85,22 +90,23 @@ class HDFCConnector(BankConnector):
 				decrypted_response = self.decrypt_response(response, bank= self.bank)
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
-				res_dict.status = 'success'
+				res_dict.status = 'ACCEPTED'
 				res_dict.message = decrypted_response.get('Transaction')
 			elif method == "payment_status":
 				decrypted_response = self.decrypt_response(response, bank= self.bank)
+				print("decrypted_response: ", decrypted_response)
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
-				res_dict.status = 'success'
-				msg, utr = self.get_msg_utr_number(decrypted_response)
+				res_dict.status = 'Processed'
+				msg, utr, sts = self.get_msg_utr_number(decrypted_response)
 				if not utr:
-					res_dict.status = 'error'
+					res_dict.status = sts
 				res_dict.message = msg
 				res_dict.utr_number = utr
 		else:
-			res_dict.status = 'failed'
+			res_dict.status = 'Request Failure'
 			res_dict.error = response.text
-
+		print("Res Dict: ", res_dict)
 		return res_dict
 
 	def get_msg_utr_number(self, data):
@@ -109,8 +115,9 @@ class HDFCConnector(BankConnector):
 			if records:
 				record = records[0]
 				utr = record.get("UTR_NO")
-				msg = record.get("TXN_STATUS")
-				return msg, utr
+				msg = record.get("OD_STATUS_DESC")
+				sts = record.get("TXN_STATUS")
+				return msg, utr, sts
 		return "Transaction Status Not Available", ""
 
 	def get_encrypted_payload(self, method):
@@ -122,17 +129,28 @@ class HDFCConnector(BankConnector):
 	def get_account_config(self, method):
 		conector_doc = self
 		payment_details = self.payment_doc
+
+		if 'A2A' in payment_details.mode_of_transfer:
+			mode_of_transfer = "Intra Bank Transfer"
+		else:
+			mode_of_transfer = payment_details.mode_of_transfer
+
 		if method == 'make_payment':
+			#print("payment_details: ", payment_details)
+			if 'A2A' in payment_details.mode_of_transfer:
+				mode_of_transfer = "Intra Bank Transfer"
+			else:
+				mode_of_transfer = payment_details.mode_of_transfer
 			return {
 				"LOGIN_ID": conector_doc.login_id,
 				"INPUT_GCIF": conector_doc.scope,
-				"TRANSFER_TYPE_DESC": payment_details.mode_of_payment,
+				"TRANSFER_TYPE_DESC": mode_of_transfer,
 				"BENE_BANK": payment_details.bank,
 				"INPUT_DEBIT_AMOUNT": payment_details.amount,
 				"INPUT_VALUE_DATE": getdate().strftime("%d/%m/%Y"),
 				"TRANSACTION_TYPE": "SINGLE",
 				"INPUT_DEBIT_ORG_ACC_NO": conector_doc.account_number,
-				"INPUT_BUSINESS_PROD": "",
+				"INPUT_BUSINESS_PROD": conector_doc.business_prod,
 				"BENE_ID": "",
 				"BENE_ACC_NAME": "",
 				"BENE_ACC_NO": payment_details.bank_account_no,
@@ -140,15 +158,15 @@ class HDFCConnector(BankConnector):
 				"BENE_BRANCH": "",
 				"BENE_IDN_CODE": payment_details.branch_code,
 				"EMAIL_ADDR_VIEW": payment_details.email,
-				"PAYMENT_REF_NO": conector_doc.doc.name
+				"PAYMENT_REF_NO": ref_no or payment_details.name,
 			}
 		elif method == "payment_status":
 			return {
 					"LOGIN_ID": conector_doc.login_id,
 					"INPUT_GCIF": conector_doc.scope,
 					"TXNDATE": getdate(payment_details.payment_date).strftime("%Y-%m-%d"),
-					"FILTER1_VALUE_TXT": payment_details.mode_of_payment,
-					"CBX_API_REF_NO": conector_doc.doc.name
+					"FILTER1_VALUE_TXT": mode_of_transfer,
+					"CBX_API_REF_NO": payment_details.name
 				}
 
 
