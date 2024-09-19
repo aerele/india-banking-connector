@@ -9,20 +9,17 @@ def import_connector(connector_path, connector_name):
 	return getattr(module, connector_name)
 
 def check_connector(bank, bulk_transaction):
-	connector, is_active = frappe.get_value(
+	connector = frappe.get_value(
     	"Connector Map",
     	{
 			"parent": "Connector Settings",
 			"bank": bank,
 			"bulk_transaction": cint(bulk_transaction)
 		},
-		"connector", "active"
+		"connector"
 	)
 	if not connector:
 		frappe.throw("There is no connector map in the connector settings.")
-
-	if not is_active:
-		frappe.throw("Connector is not active.")
 
 	return connector
 
@@ -45,6 +42,10 @@ def get_connector(payload, bulk_transaction = None):
 	BankConnector, connector_name = get_bank_connector(doc.company_bank)
 
 	class Connector(BankConnector):
+		def __init__(*args, **kwargs):
+			super(Connector, self).__init__(*args, **kwargs)
+			self.is_active()
+
 		def get_response(self, method):
 			if method and hasattr(self, method):
 				return getattr(self, method)()

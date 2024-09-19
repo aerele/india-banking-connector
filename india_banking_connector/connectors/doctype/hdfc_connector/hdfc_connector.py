@@ -21,6 +21,10 @@ class HDFCConnector(BankConnector):
 		self.doc = frappe._dict(kwargs.get('doc', {}))
 		self.payment_doc = frappe._dict(kwargs.get('payment_doc', {}))
 
+	def is_active(self):
+		if not self.active:
+			frappe.throw("Connector not active. Please contact admin.")
+
 	@property
 	def urls(self):
 		if self.bulk_transaction:
