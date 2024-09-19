@@ -8,7 +8,7 @@ def import_connector(connector_path, connector_name):
 	module = importlib.import_module(connector_path)
 	return getattr(module, connector_name)
 
-def check_connector(bank):
+def check_connector(bank, bulk_transaction):
 	connector, is_active = frappe.get_value(
     	"Connector Map",
     	{
@@ -27,7 +27,7 @@ def check_connector(bank):
 	return connector
 
 def get_bank_connector(bank, bulk_transaction=False):
-	connector = check_connector(bank)
+	connector = check_connector(bank, bulk_transaction)
 
 	try:
 		path = scrub(connector) + "."+ scrub(connector)
