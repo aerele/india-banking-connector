@@ -42,6 +42,10 @@ def get_connector(payload, bulk_transaction = None):
 	BankConnector, connector_name = get_bank_connector(doc.company_bank)
 
 	class Connector(BankConnector):
+		def __init__(self, *args, **kwargs):
+			super().__init__(*args, **kwargs)
+			self.is_active()
+
 		def get_response(self, method):
 			if method and hasattr(self, method):
 				return getattr(self, method)()
