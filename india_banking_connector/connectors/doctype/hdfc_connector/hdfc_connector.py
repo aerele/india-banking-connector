@@ -26,15 +26,26 @@ class HDFCConnector(BankConnector):
 		if self.bulk_transaction:
 			pass
 		else:
-			return frappe._dict({
-				"oauth_token": "https://api-uat.hdfcbank.com/auth/oauth/v1/token",
-				"make_payment" : "https://api-uat.hdfcbank.com/api/v1/corp-initiatePayment",
-				"payment_status" : "https://api-uat.hdfcbank.com/api/v1/corp-paymentInq",
-				"generate_otp" : "",
-				"bank_balance": "",
-				"bank_statement": "",
-				"bank_statement_paginated": ""
-			})
+			if self.testing:
+				return frappe._dict({
+					"oauth_token": "https://api-uat.hdfcbank.com/auth/oauth/v1/token",
+					"make_payment" : "https://api-uat.hdfcbank.com/api/v1/corp-initiatePayment",
+					"payment_status" : "https://api-uat.hdfcbank.com/api/v1/corp-paymentInq",
+					"generate_otp" : "",
+					"bank_balance": "",
+					"bank_statement": "",
+					"bank_statement_paginated": ""
+				})
+			else:
+				return frappe._dict({
+					"oauth_token": "https://api.hdfcbank.com/auth/oauth/v1/token",
+					"make_payment" : "https://api.hdfcbank.com/api/v1/corp-initiatePayment",
+					"payment_status" : "https://api.hdfcbank.com/api/v1/corp-paymentInq",
+					"generate_otp" : "",
+					"bank_balance": "",
+					"bank_statement": "",
+					"bank_statement_paginated": ""
+				})
 
 	@property
 	def headers(self):
@@ -97,10 +108,10 @@ class HDFCConnector(BankConnector):
 				print("decrypted_response: ", decrypted_response)
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
-				res_dict.status = 'Processed'
+
 				msg, utr, sts = self.get_msg_utr_number(decrypted_response)
-				if not utr:
-					res_dict.status = sts
+
+				res_dict.status = sts
 				res_dict.message = msg
 				res_dict.utr_number = utr
 		else:
@@ -110,15 +121,21 @@ class HDFCConnector(BankConnector):
 		return res_dict
 
 	def get_msg_utr_number(self, data):
-		if "ALL_RECORDS" in data:
-			records = data.get("ALL_RECORDS")
-			if records:
-				record = records[0]
-				utr = record.get("UTR_NO")
-				msg = record.get("OD_STATUS_DESC")
-				sts = record.get("TXN_STATUS")
-				return msg, utr, sts
-		return "Transaction Status Not Available", ""
+		if "ALL_RECORDS" in data and data["ALL_RECORDS"]:
+			record = data["ALL_RECORDS"][0] or {}
+
+			if record:
+				if "TXN_STATUS" in record and record["TXN_STATUS"]:
+					sts = record.get("TXN_STATUS")
+					utr = record.get("UTR_NO", None)
+					if not utr and record["TXN_STATUS"] == 'Processed' and record["TRANSFER_TYPE"] == 'Intra Bank Transfer':
+						utr = record['PAYMENTREFNO']
+
+					msg = self.get_status_description(record.get("OD_STATUS"))
+					return msg, utr, sts
+			else:
+				raise Exception(f"Error in processing payment status: {data}")
+			return
 
 	def get_encrypted_payload(self, method):
 		if method == 'make_payment':
@@ -136,11 +153,6 @@ class HDFCConnector(BankConnector):
 			mode_of_transfer = payment_details.mode_of_transfer
 
 		if method == 'make_payment':
-			#print("payment_details: ", payment_details)
-			if 'A2A' in payment_details.mode_of_transfer:
-				mode_of_transfer = "Intra Bank Transfer"
-			else:
-				mode_of_transfer = payment_details.mode_of_transfer
 			return {
 				"LOGIN_ID": conector_doc.login_id,
 				"INPUT_GCIF": conector_doc.scope,
@@ -201,3 +213,31 @@ class HDFCConnector(BankConnector):
 
 	def get_balance(self):
 		return "Balance Not Implemented"
+
+	def get_status_description(self, od_status):
+		return {
+			"CI": "Cancel Requested",
+			"D": "Deleted",
+			"EX": "Expired",
+			"IO": "Pending Additional Approval",
+			"LK": "Parked",
+			"RA": "Pending Approval",
+			"RE": "Rejected by Entitlement",
+			"RN": "Rule Setup Required",
+			"RO": "Rejected by Verifier / Approver",
+			"RR": "Pending Release",
+			"RV": "Pending Verification",
+			"TXBVSU": "Transaction Business Validation Successful",
+			"TXCOMP": "Payment Completed",
+			"TXDBPR": "Debit in progress",
+			"TXPDST": "Pending for Settlement",
+			"TXREJE": "Payment Rejected",
+			"TXVLSU": "Processed",
+			"TXWRHD": "Payment Warehoused",
+			"TXAWRB": "Transaction Awaiting Rebulking",
+			"TXEXPD": "Transaction Expired",
+			"TXSIP": "Settlement in Progress",
+			"DEBFL": "Debit Failed",
+			"DEBREJE": "Debit Rejected",
+			"MANREJE": "Manually Rejected"
+		}.get(od_status, f"{od_status} Description Not Available")

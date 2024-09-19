@@ -8,11 +8,19 @@
     "parent": "Connector Settings",
     "parentfield": "connectors",
     "parenttype": "Connector Settings"
+   },
+   {
+    "bank": "HDFC Bank",
+    "bulk_transaction": 0,
+    "connector": "HDFC Connector",
+    "parent": "Connector Settings",
+    "parentfield": "connectors",
+    "parenttype": "Connector Settings"
    }
   ],
   "docstatus": 0,
   "doctype": "Connector Settings",
-  "modified": "2024-09-05 11:18:48.785336",
+  "modified": "2024-09-19 13:03:12.184811",
   "name": "Connector Settings"
  }
 ]

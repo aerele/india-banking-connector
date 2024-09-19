@@ -8,18 +8,27 @@ def import_connector(connector_path, connector_name):
 	module = importlib.import_module(connector_path)
 	return getattr(module, connector_name)
 
-def get_bank_connector(bank, bulk_transaction=False):
-	connector = frappe.get_value(
+def check_connector(bank):
+	connector, is_active = frappe.get_value(
     	"Connector Map",
     	{
 			"parent": "Connector Settings",
 			"bank": bank,
 			"bulk_transaction": cint(bulk_transaction)
 		},
-		"connector"
+		"connector", "active"
 	)
 	if not connector:
 		frappe.throw("There is no connector map in the connector settings.")
+
+	if not is_active:
+		frappe.throw("Connector is not active.")
+
+	return connector
+
+def get_bank_connector(bank, bulk_transaction=False):
+	connector = check_connector(bank)
+
 	try:
 		path = scrub(connector) + "."+ scrub(connector)
 		connector_path = "india_banking_connector.connectors.doctype."+ path

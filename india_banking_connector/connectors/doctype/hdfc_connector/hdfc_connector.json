@@ -6,6 +6,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "active",
+  "column_break_lshz",
+  "testing",
   "section_break_ap68",
   "account_number",
   "login_id",
@@ -105,12 +108,28 @@
    "fieldtype": "Attach",
    "label": "Cert File",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_lshz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-09-17 17:50:45.800458",
+ "modified": "2024-09-19 13:13:04.355446",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "HDFC Connector",
