@@ -6,6 +6,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "active",
+  "column_break_ofih",
+  "testing",
   "section_break_oeso",
   "account_number",
   "user_id",
@@ -70,12 +73,28 @@
   {
    "fieldname": "section_break_emcr",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_ofih",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-09-21 13:50:41.297659",
+ "modified": "2024-09-21 14:17:39.211247",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "YES BANK Connector",
