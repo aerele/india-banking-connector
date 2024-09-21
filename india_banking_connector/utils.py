@@ -1,5 +1,5 @@
 import frappe, re, random, string, json
-DEFAULT_CONNECTOR = ['ICICI Connector', 'HDFC Connector']
+DEFAULT_CONNECTOR = ['ICICI Connector', 'HDFC Connector', 'YES Bank Connector']
 
 @frappe.whitelist()
 def get_default_connectors():

@@ -5,5 +5,19 @@
   "doctype": "Bank",
   "modified": "2024-09-05 11:18:27.803636",
   "name": "ICICI Bank"
+ },
+ {
+  "bank": "HDFC Bank",
+  "docstatus": 0,
+  "doctype": "Bank",
+  "modified": "2024-09-21 12:02:50.852689",
+  "name": "HDFC Bank"
+ },
+ {
+  "bank": "YES Bank",
+  "docstatus": 0,
+  "doctype": "Bank",
+  "modified": "2024-09-21 12:03:05.864596",
+  "name": "YES Bank"
  }
 ]

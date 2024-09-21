@@ -16,11 +16,19 @@
     "parent": "Connector Settings",
     "parentfield": "connectors",
     "parenttype": "Connector Settings"
+   },
+   {
+    "bank": "YES Bank",
+    "bulk_transaction": 0,
+    "connector": "YES BANK Connector",
+    "parent": "Connector Settings",
+    "parentfield": "connectors",
+    "parenttype": "Connector Settings"
    }
   ],
   "docstatus": 0,
   "doctype": "Connector Settings",
-  "modified": "2024-09-19 13:03:12.184811",
+  "modified": "2024-09-21 12:37:50.173970",
   "name": "Connector Settings"
  }
 ]
