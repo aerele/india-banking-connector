@@ -1,11 +1,13 @@
 # Copyright (c) 2024, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
 from frappe.model.document import Document
+from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import create_api_log
 from india_banking_connector.connectors.bank_connector import BankConnector
 import india_banking_connector.utils as utils
-import json
+import json, base64, requests
+
 
 class YESBANKConnector(BankConnector):
 	bank = "YES Bank"
@@ -169,7 +171,6 @@ class YESBANKConnector(BankConnector):
 
 	def get_status_payload(self):
 		conector_doc = self
-		payment_details = self.payment_doc
 
 		return json.dumps({
 			"Data": {
@@ -219,11 +220,11 @@ class YESBANKConnector(BankConnector):
 					utr = data["Data"]["Initiation"]["EndToEndIdentification"]
 			if "Status" in data["Data"] and data["Data"]["Status"]:
 				msg = data["Data"]["Status"]
-				if response_status in ["SettlementInProcess", "Pending"]:
+				if data in ["SettlementInProcess", "Pending"]:
 					sts = "Approval Pending"
-				elif response_status == "SettlementCompleted":
+				elif data == "SettlementCompleted":
 					sts = "Processed"
-				elif response_status in ["SettlementReversed", "FAILED"]:
+				elif data in ["SettlementReversed", "FAILED"]:
 					sts = "Failed"
 
 		return msg, utr, sts
