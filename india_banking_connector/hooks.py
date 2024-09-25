@@ -21,7 +21,7 @@ fixtures = [
 		"filters": [
 			[
             "name", "in", [
-                "ICICI Bank"
+                "ICICI Bank", "HDFC Bank", "YES Bank"
             ]
         ]
     ]}

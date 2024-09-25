@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2024-09-21 11:51:18.447004",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "active",
+  "column_break_ofih",
+  "testing",
+  "section_break_oeso",
+  "account_number",
+  "user_id",
+  "amended_from",
+  "column_break_ggvd",
+  "cert_file",
+  "private_key",
+  "section_break_emcr",
+  "client_key",
+  "client_secret"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_oeso",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "client_key",
+   "fieldtype": "Password",
+   "label": "Client Key"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "YES BANK Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "user_id",
+   "fieldtype": "Data",
+   "label": "User ID"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "label": "Account Number",
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_ggvd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cert_file",
+   "fieldtype": "Attach",
+   "label": "Cert File"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private Key"
+  },
+  {
+   "fieldname": "section_break_emcr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_ofih",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-09-21 14:17:39.211247",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "YES BANK Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
