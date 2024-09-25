@@ -76,8 +76,8 @@ class HDFCConnector(BankConnector):
 		create_api_log(
 			response, action= "Initiate Payment",
 	  		account_config = self.get_account_config("make_payment"),
-			ref_doctype= self.payment_doc.doctype,
-			ref_docname= self.payment_doc.name
+			ref_doctype= self.payment_doc.parenttype,
+			ref_docname= self.payment_doc.parent
 		)
 
 		return self.get_decrypted_response(response, method= "make_payment")
@@ -92,8 +92,8 @@ class HDFCConnector(BankConnector):
 		create_api_log(
 			response, action= "Payment Status",
 	  		account_config = self.get_account_config("payment_status"),
-			ref_doctype= self.payment_doc.doctype,
-			ref_docname= self.payment_doc.name
+			ref_doctype= self.payment_doc.parenttype,
+			ref_docname= self.payment_doc.parent
 		)
 
 		return self.get_decrypted_response(response, method= "payment_status")
