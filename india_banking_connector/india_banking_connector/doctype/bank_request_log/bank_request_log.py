@@ -36,3 +36,4 @@ def create_api_log(res, action= None, account_config = None, ref_doctype= None, 
 		frappe.log_error(title='Error in creating API Log', message=frappe.get_traceback())
 	else:
 		frappe.db.commit()
+		return log_doc.name

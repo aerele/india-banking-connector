@@ -15,12 +15,14 @@
   "response",
   "status_code",
   "reference_doctype",
-  "reference_docname"
+  "reference_docname",
+  "decrypted_response"
  ],
  "fields": [
   {
    "fieldname": "method",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Method"
   },
   {
@@ -30,6 +32,7 @@
   {
    "fieldname": "config_details",
    "fieldtype": "Code",
+   "in_list_view": 1,
    "label": "Config Details"
   },
   {
@@ -50,6 +53,7 @@
   {
    "fieldname": "response",
    "fieldtype": "Code",
+   "in_list_view": 1,
    "label": "Response"
   },
   {
@@ -70,12 +74,19 @@
   {
    "fieldname": "action",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Action"
+  },
+  {
+   "fieldname": "decrypted_response",
+   "fieldtype": "Code",
+   "in_list_view": 1,
+   "label": "Decrypted Response"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-11 11:55:21.193015",
+ "modified": "2024-09-27 16:33:59.851398",
  "modified_by": "Administrator",
  "module": "India Banking Connector",
  "name": "Bank Request Log",
