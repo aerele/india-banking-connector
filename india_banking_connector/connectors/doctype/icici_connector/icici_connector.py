@@ -2,215 +2,302 @@
 # For license information, please see license.txt
 
 import frappe
-import json
-from frappe.model.document import Document
-from india_banking_connector.connectors.bank_connector import BankConnector
-import india_banking_connector.utils as utils
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import create_api_log
+from india_banking_connector.connectors.bank_connector import BankConnector
+import requests, json
+from base64 import b64decode, b64encode
+from frappe.utils import cstr, getdate
 
 class ICICIConnector(BankConnector):
 	bank = "ICICI Bank"
+	IV = "0000000000000000".encode("utf-8")
+	AES_KEY = "1234567887654321".encode("utf-8")
 	BLOCK_SIZE = 16
 
+	__all__ = ['intiate_payment', 'get_payment_status']
+
 	def __init__(self, *args, **kwargs):
-		kwargs.update(bank = self.bank, BLOCK_SIZE = self.BLOCK_SIZE)
+		kwargs.update(bank = self.bank)
+		kwargs.update(block_size = self.BLOCK_SIZE)
+		kwargs.update(iv = self.IV)
+		kwargs.update(aes_key = self.AES_KEY)
+
 		super().__init__(*args, **kwargs)
 
 		self.bulk_transaction = kwargs.get('bulk_transaction')
+		self.doc = frappe._dict(kwargs.get('doc', {}))
 		self.payment_doc = frappe._dict(kwargs.get('payment_doc', {}))
 
-	def intiate_payment(self):
-		account_config = {
-			"FILE_DESCRIPTION": payment_doc.file_reference_id,
-			"CORP_ID": connector_doc.corp_id,
-			"USER_ID": connector_doc.payment_creator_user_id,
-			"AGGR_ID": connector_doc.aggr_id,
-			"AGGR_NAME": connector_doc.aggr_name,
-			"URN": connector_doc.urn,
-			"UNIQUE_ID": payment_doc.unique_id,
-			"AGOTP": str(payload.otp),
-			"FILE_NAME":f"{payment_doc.file_reference_id}.txt",
-			"FILE_CONTENT": utils.construct_payment_details_content(payment_doc,connector_doc)
+	def is_active(self):
+		if not self.active:
+			frappe.throw("Connector inactive. Please contact admin.")
+
+	@property
+	def urls(self):
+		if self.bulk_transaction:
+			pass
+		else:
+			if self.testing:
+				return frappe._dict({
+					"host": "apibankingonesandbox.icicibank.com",
+					"oauth_token": "",
+					"make_payment" : "https://apibankingonesandbox.icicibank.com/api/v1/composite-payment",
+					"payment_status" : "https://apibankingonesandbox.icicibank.com/api/v1/composite-status",
+					"generate_otp" : "",
+					"bank_balance": "",
+					"bank_statement": "",
+					"bank_statement_paginated": ""
+				})
+			else:
+				return frappe._dict({
+					"host": "apibankingone.icicibank.com",
+					"oauth_token": "",
+					"make_payment" : "https://apibankingone.icicibank.com/api/v1/composite-payment",
+					"payment_status" : "https://apibankingone.icicibank.com/api/v1/composite-status",
+					"generate_otp" : "",
+					"bank_balance": "",
+					"bank_statement": "",
+					"bank_statement_paginated": ""
+				})
+
+
+	def headers(self, mode_of_transfer=None):
+		return {
+			"accept": "application/json",
+			"content-type": "application/json",
+			"apikey": self.get_password('client_key'),
+			"": self,
+			"host": self.urls.host,
+			"x-priority": self.get_priority(mode_of_transfer)
 		}
 
-		res_dict = frappe._dict({})
+	def intiate_payment(self):
+		url = self.urls.make_payment
+		mode_of_transfer = self.payment_doc.mode_of_transfer
+		headers = self.headers(mode_of_transfer)
+		payload = self.get_encrypted_payload(method= 'make_payment')
+		response = requests.post(url, headers=headers, data= payload)
 
-		basic_defaults = self.get_basic_defaults()
-
-		encrypted_data = self.encrypt_data(
-			data = json.dumps(account_config).encode("UTF-8"),
-			key =  basic_defaults.aes_key,
-			IV = basic_defaults.iv,
-			BLOCK_SIZE = basic_defaults.block_size
+		log_id = create_api_log(
+			response, action= "Initiate Payment",
+	  		account_config = self.get_account_config("make_payment"),
+			ref_doctype= self.payment_doc.parenttype,
+			ref_docname= self.payment_doc.parent
 		)
 
-		encrypted_key = self.encrypt_key(basic_defaults.aes_key, self.get_file_relative_path(self.bank_public_key))
-
-		payload = self.get_payload(encrypted_key, encrypted_data)
-
-		response = requests.post(self.urls.make_payment, headers=self.headers, data=json.dumps(payload))
-
-		create_api_log(response, action=  "Initiate Payment", account_config = account_config, ref_doctype= payment_doc.doctype, ref_docname= payment_doc.name)
-
-		if response.ok:
-			decrypted_key = decrypt_key(response.get("encryptedKey"), self.get_file_relative_path(self.private_key))
-			decrypted_response = self.decrypt_data(response.get('encryptedData'), decrypted_key.encode("utf-8"))
-
-			res_dict.res_text = decrypted_response
-			res_dict.res_status = response.status_code
-			res_dict.api_method = "make_payment"
-			res_dict.config_details = account_config
-			res_dict.payload = payload
-
-			if decrypted_response.get('FILE_SEQUENCE_NUM'):
-				res_dict.server_status = "success"
-				res_dict.server_message = decrypted_response.get('MESSAGE_DESC')
-				res_dict.file_sequence_number = decrypted_response.get('FILE_SEQUENCE_NUM')
-
-			elif decrypted_response.get('errormessage') or decrypted_response.get('ErrorCode'):
-				res_dict.server_status="failed"
-				err_msg=None
-				if decrypted_response.get('ErrorCode'):
-					err_msg = utils.get_error_message(decrypted_response.get('ErrorCode'))
-
-				res_dict.server_message = err_msg or decrypted_response.get('errormessage') or decrypted_response.get('Message')
-		else:
-			res_dict.res_text = response.text
-			res_dict.res_status = response.status_code
-			res_dict.api_method = "make_payment"
-			res_dict.config_details = account_config
-			res_dict.payload = payload
-			res_dict.server_status="failed"
+		return self.get_decrypted_response(response, method= "make_payment", log_id=log_id)
 
 	def get_payment_status(self):
-		account_config = {
-			"CORPID": connector_doc.corp_id,
-			"USERID": connector_doc.payment_status_checker_user_id or connector_doc.payment_creator_user_id,
-			"AGGRID": connector_doc.aggr_id,
-			"URN":connector_doc.urn,
-			"FILESEQNUM": payment_doc.file_sequence_number,
-			"ISENCRYPTED":"N"
-		}
+		payment_details = self.payment_doc
+		url = self.urls.payment_status
+		mode_of_transfer = payment_details.mode_of_transfer
+		headers = self.headers(mode_of_transfer)
+		payload = self.get_encrypted_payload(method= 'payment_status')
 
-		basic_defaults = self.get_basic_defaults()
+		response = requests.post(url, headers=headers, data= payload)
 
-		encrypted_data = utils.encrypt_data(
-			data = json.dumps(account_config).encode("UTF-8"),
-			key = basic_defaults.aes_key,
-			IV = basic_defaults.iv,
-			BLOCK_SIZE = basic_defaults.block_size
+		log_id = create_api_log(
+			response, action= "Payment Status",
+	  		account_config = self.get_account_config("payment_status"),
+			ref_doctype= self.payment_doc.parenttype,
+			ref_docname= self.payment_doc.parent
 		)
 
-		encrypted_key = self.encrypt_key(basic_defaults.aes_key, self.get_file_relative_path(self.bank_public_key))
+		return self.get_decrypted_response(response, method= "payment_status", log_id=log_id)
 
-		payload = self.get_payload(encrypted_key, encrypted_data)
-
-		response = requests.post(self.urls.get_payment_status, headers=self.headers, data=json.dumps(payload))
-
-		create_api_log(response, action=  "Initiate Payment", account_config = account_config, ref_doctype= payment_doc.doctype, ref_docname= payment_doc.name)
-
-		res_dict = frappe._dict({})
-
-		if response.ok:
-			decrypted_key = self.decrypt_key(response.get("encryptedKey"), self.get_file_relative_path(self.private_key))
-			decrypted_response = self.decrypt_data(response.get('encryptedData'), decrypted_key.encode("utf-8"))
-
-			res_dict.res_text = decrypted_response
-			res_dict.res_status = response.status_code
-			res_dict.api_method = "get_payment_status"
-			res_dict.config_details = account_config
-			res_dict.payload = payload
-
-			if decrypted_response.get('XML',{}).get('FILE_STATUS'):
-				res_dict.server_status = "success"
-				res_dict.file_status = decrypted_response.get('XML').get('FILE_STATUS')
-				res_dict.server_message = utils.get_file_status(decrypted_response.get('XML').get('FILE_STATUS'))
-				res_dict.payment_status = {}
-
-				if decrypted_response.get('XML').get('FILEUPLOAD_BINARY_OUTPUT').get('Records').get('Record'):
-					res_dict.payment_status = utils.format_payment_status(
-						decrypted_response.get('XML').get('FILEUPLOAD_BINARY_OUTPUT').get('Records').get('Record')
-					)
-			
-			elif decrypted_response.get('errormessage') or decrypted_response.get('ErrorCode'):
-				res_dict.server_status="failed"
-				err_msg=None
-				if decrypted_response.get('ErrorCode'):
-					err_msg = utils.get_error_message(decrypted_response.get('ErrorCode'))
-				res_dict.server_message=err_msg or decrypted_response.get('errormessage') or decrypted_response.get('Message')
+	def get_priority(self, mode_of_transfer):
+		if mode_of_transfer == "RTGS":
+			return "0001"
+		elif mode_of_transfer == "IMPS":
+			return "0100"
 		else:
-			res_dict.res_text = response.text
-			res_dict.res_status = response.status_code
-			res_dict.api_method = "get_payment_status"
-			res_dict.config_details = account_config
-			res_dict.payload = payload
-			res_dict.server_status="failed"
+			return "0010"
+
+	def get_encrypted_payload(self, method):
+		connector_doc = self
+		payment_details = self.payment_doc
+		encrypted_key = self.rsa_encrypt_key(self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)),
+		data = self.get_account_config(method)
+		payment_payload = {
+			"requestId": payment_details.name,
+			"service": "",
+			"oaepHashingAlgorithm": "NONE",
+			"encryptedKey": encrypted_key,
+			"encryptedData": self.rsa_encrypt_data(data, encrypted_key ),
+			"clientInfo": "",
+			"optionalParam": "",
+			"iv": b64encode(self.IV).decode("utf-8")
+		}
+
+		return json.dumps(payment_payload)
+
+	def get_account_config(self, method):
+		payment_details = self.payment_doc
+
+		if 'A2A' in payment_details.mode_of_transfer:
+			payment_details.mode_of_transfer = "Intra Bank Transfer"
+
+		data = {}
+		if method == "make_payment":
+			self.set_payment_data(data, payment_details)
+		elif method == "payment_status":
+			self.set_payment_status_data(data, payment_details)
+
+		return data
+
+	def set_payment_data(self, data):
+		connector_doc = self
+		payment_details = self.payment_doc
+		bank_doc = self.doc
+
+		if payment_details.mode_of_transfer == "RTGS":
+			data.update({
+				"AGGRID": connector_doc.aggr_id,
+				"CORPID": connector_doc.corp_id,
+				"USERID": connector_doc.corp_usr,
+				"URN": connector_doc.urn,
+				"AGGRNAME": connector_doc.aggr_name,
+				"UNIQUEID": payment_details.name,
+				"DEBITACC": connector_doc.account_number,
+				"CREDITACC": payment_details.bank_account_no,
+				"IFSC": payment_details.branch_code,
+				"AMOUNT": cstr(payment_details.amount),
+				"CURRENCY": "INR",
+				"TXNTYPE": "TPA" if payment_details.bank == "ICICI Bank" else "RTG",
+				"PAYEENAME": payment_details.account_name,
+				"REMARKS": f"{payment_details.party_type} - {payment_details.party}",
+				"WORKFLOW_REQD": "N"
+			})
+
+		elif payment_details.mode_of_transfer == "IMPS":
+			if not connector_doc.enable_imps:
+				res_dict = frappe._dict({})
+				res_dict.status = "Request Failure"
+				res_dict.message = "IMPS is not enabled for this {} account.".format(connector_doc.account_number)
+				return
+			data ={
+				"localTxnDtTime": frappe.utils.now_datetime().strftime("%Y%m%d%H%M%S"),
+				"beneAccNo": payment_details.bank_account_no,
+				"beneIFSC": payment_details.branch_code,
+				"amount": cstr(payment_details.amount),
+				"tranRefNo": payment_details.name,
+				"paymentRef": payment_details.name,
+				"senderName": bank_doc.company_bank_account_name,
+				"mobile": bank_doc.mobile_number,
+				"retailerCode": connector_doc.retailer_code,
+				"passCode": connector_doc.pass_code,
+				"bcID": connector_doc.bcid,
+				"aggrId": connector_doc.aggr_id,
+				"crpId": connector_doc.corp_id,
+				"crpUsr": connector_doc.corp_usr
+				}
+
+			frappe.log_error("Data - IMPS", data )
+		else:
+			data = {
+				"tranRefNo": payment_details.name,
+				"amount": cstr(payment_details.amount),
+				"senderAcctNo": connector_doc.account_number,
+				"beneAccNo": payment_details.bank_account_no,
+				"beneName": payment_details.account_name,
+				"beneIFSC": payment_details.branch_code,
+				"narration1": payment_details.party_name,
+				"narration2": connector_doc.aggr_id,
+				"crpId": connector_doc.corp_id,
+				"crpUsr": connector_doc.corp_usr,
+				"aggrId": connector_doc.aggr_id,
+				"urn": connector_doc.urn,
+				"aggrName": connector_doc.aggr_name,
+				"txnType": "TPA" if payment_details.bank == "ICICI Bank" else "RTG",
+				"WORKFLOW_REQD": "N"
+			}
+			frappe.log_error("Data - NEFT", data )
+
+	def set_payment_status_data(self):
+		payment_details = self.payment_doc
+		connector_doc = self.doc
+		if payment_details.mode_of_transfer == "IMPS":
+			return {
+				"transRefNo": payment_details.name,
+				"date": payment_details.payment_date,
+				"recon360": "N",
+				"passCode": connector_doc.pass_code,
+				"bcID": connector_doc.bcid
+			}
+
+		return {
+			"AGGRID": connector_doc.aggr_id,
+			"CORPID": connector_doc.corp_id,
+			"USERID": connector_doc.corp_usr,
+			"URN": connector_doc.urn,
+			"UNIQUEID": payment_details.name
+		}
+
+
+	def get_decrypted_response(self, response, method, log_id= None):
+		connector_doc = self
+		res_dict = frappe._dict({})
+		if response.ok:
+			response=json.loads(response.text)
+			decrypted_key= self.rsa_decrypt_key(response.get("encryptedKey"), connector_doc)
+			decrypted_data = self.rsa_decrypt_data(response.get('encryptedData'), decrypted_key.encode("utf-8"))
+
+			self.set_decrypted_response(log_id, decrypted_data)
+			if method == "make_payment" and decrypted_data:
+				if isinstance(decrypted_data, str):
+					decrypted_response =json.loads(decrypted_data)
+
+				response= frappe._dict(decrypted_response)
+				if response.STATUS == "SUCCESS":
+					res_dict.status = "ACCEPTED"
+					res_dict.message = response.MESSAGE
+				elif response.STATUS == "PENDING":
+					res_dict.status = "ACCEPTED"
+					res_dict.message = response.MESSAGE
+				elif response.STATUS == "DUPLICATE":
+					res_dict.status = "FAILURE"
+					res_dict.message = response.MESSAGE
+				elif  response.errorCode == "997":
+					res_dict.status = "Request Failure"
+					res_dict.message = response.errorCode + " : " + response.description
+				else:
+					res_dict.status = "FAILURE"
+					res_dict.message = response.MESSAGE
+
+			elif method == "payment_status" and decrypted_data:
+				if isinstance(decrypted_data, str):
+					decrypted_response = json.loads(decrypted_data)
+				response= frappe._dict(decrypted_response)
+
+				if response.STATUS == "SUCCESS":
+						res_dict.status = "Processed"
+						res_dict.reference_number = response.UTRNUMBER
+						res_dict.message = "Success"
+				elif response.STATUS == "PENDING":
+						res_dict.status = "Pending"
+						res_dict.message = response.MESSAGE
+				else:
+						res_dict.status = "FAILURE"
+						res_dict.message = response.MESSAGE
+
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.message = response.text or response.status_code
+
+		return res_dict
+
+	def set_decrypted_response(self, log_id, response_data):
+		if isinstance(response_data, str):
+			response_data = json.loads(response_data)
+		response_data = json.dumps(response_data, indent=4)
+		if frappe.db.exists("Bank Request Log", log_id):
+			frappe.db.set_value("Bank Request Log", log_id,"decrypted_response" , response_data)
+
+	def get_cert(self):
+		return (self.get_file_relative_path(self.cert_file), self.get_file_relative_path(self.private_key))
 
 	def get_transaction_history(self):
 		return "Transaction History Not Implemented"
 
 	def get_balance(self):
 		return "Balance Not Implemented"
-
-	def get_oauth_token(self):
-		return "OAuth Token Not Implemented"
-
-	def generate_otp(self):
-		account_config = {
-			'CORPID': self.corp_id,
-			'USERID': self.payment_creator_user_id,
-			'AGGRID': self.aggr_id,
-			'AGGRNAME': self.aggr_name,
-			'URN': self.urn,
-			'UNIQUEID': self.payment_doc.unique_id,
-			'AMOUNT': str(self.payment_doc.total)
-		}
-
-		basic_defaults = self.get_basic_defaults()
-
-		encrypted_data = self.encrypt_data(
-			data = json.dumps(account_config).encode("UTF-8"),
-			key = basic_defaults.aes_key,
-			IV = basic_defaults.iv,
-			BLOCK_SIZE = basic_defaults.block_size
-		)
-
-		encrypted_key = self.encrypt_key(basic_defaults.aes_key, self.get_file_relative_path(self.bank_public_key))
-
-		payload = self.get_payload(encrypted_key, encrypted_data)
-
-		response = requests.post(self.urls.generate_otp, headers=self.headers, data=json.dumps(payload))
-
-		create_api_log(response, action=  "Initiate Payment", account_config = account_config, ref_doctype= payment_doc.doctype, ref_docname= payment_doc.name)
-
-		res_dict = frappe._dict({})
-
-		if response.ok:
-			decrypted_key = decrypt_key(response.get("encryptedKey"), self.get_file_relative_path(self.private_key))
-			decrypted_response = self.decrypt_data(response.get('encryptedData'), decrypted_key.encode("utf-8"))
-
-			res_dict.res_text = decrypted_response
-			res_dict.res_status = response.status_code
-			res_dict.api_method = "generate_otp"
-			res_dict.config_details = account_config
-			res_dict.payload = payload
-
-			if decrypted_response.get('RESPONSE') and decrypted_response.get('RESPONSE') == "Success":
-				res_dict.server_status="success"
-				res_dict.server_message= decrypted_response.get('MESSAGE')
-
-			elif decrypted_response.get('errormessage'):
-				res_dict.server_status="failed"
-				err_msg=None
-				if decrypted_response.get('ErrorCode'):
-					err_msg = utils.get_error_message(decrypted_response.get('ErrorCode'))
-
-				res_dict.server_message=err_msg or decrypted_response.get('errormessage') or decrypted_response.get('Message')
-		else:
-			res_dict.res_text = response.text
-			res_dict.res_status = response.status_code
-			res_dict.api_method = "generate_otp"
-			res_dict.config_details = account_config
-			res_dict.payload = payload
-			res_dict.server_status="failed"
-	

@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import serialization
 import hashlib
 import base64
 from cryptography.hazmat.backends import default_backend
+from Crypto.Util.Padding import unpad
 
 class BankConnector(Document):
 	unpad_pkcs5 = lambda s: s[:-ord(s[len(s) - 1:])]
@@ -21,7 +22,9 @@ class BankConnector(Document):
 		super().__init__(*args, **kwargs)
 		self.validate_user_permission()
 		self.bank = kwargs.get('bank')
-		self.BLOCK_SIZE = kwargs.get('BLOCK_SIZE')
+		self.BLOCK_SIZE = kwargs.get('block_size')
+		self.IV = kwargs.get('iv')
+		self.AES_KEY = kwargs.get('aes_key')
 
 	def encrypt_payload(self, payload, bank):
 		if bank == 'HDFC Bank':
@@ -80,6 +83,40 @@ class BankConnector(Document):
 			jwe_decrypted = jwe.decrypt(response.text.encode('utf-8'), self.get_file_content(self.private_key))
 			jws_verified = jws.verify(jwe_decrypted, self.get_file_content(self.public_key), algorithms=['RS256'])
 			return jws_verified.decode('utf-8')
+	''''''''''''''''''''''''''''''''''''''''''''''' HDFC '''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+	def rsa_encrypt_key(self, key, key_path):
+		with open(key_path, "rb") as file:
+			public_key = rsa.PublicKey.load_pkcs1(file.read())
+			encrypted_key = rsa.encrypt(key, public_key)
+			return b64encode(encrypted_key).decode('utf-8')
+
+	def rsa_decrypt_key(self, key, key_path):
+		with open(key_path, 'rb') as file:
+				private_key = rsa.PrivateKey.load_pkcs1(file.read())
+				return rsa.decrypt(b64decode(key), private_key).decode('utf-8')
+
+	def rsa_encrypt_data(self, data, encrypted_key):
+		if isinstance(data, dict):
+			byte_data = json.dumps(data).encode("utf-8")
+
+		padded = pad(byte_data, self.BLOCK_SIZE)
+
+		cipher = AES.new(encrypted_key, AES.MODE_CBC, self.IV)
+
+		encrypted = cipher.encrypt(padded)
+
+		return  b64encode(encrypted).decode('utf-8')
+
+	def rsa_decrypt_data(self, data, encrypted_key):
+		message = b64decode(data)
+
+		cipher= AES.new(encrypted_key, AES.MODE_CBC, self.IV)
+		decrypted = cipher.decrypt(message)
+
+		unpaded = unpad(decrypted, self.BLOCK_SIZE)
+
+		return json.loads(unpaded[self.BLOCK_SIZE:])
+	''''''''''''''''''''''''''''''''''''''''''''''''''''' ICICI '''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 	def get_basic_defaults(self, bank):
 		if bank == "ICICI Bank":
