@@ -163,7 +163,7 @@ class ICICIConnector(BankConnector):
 		if self.bulk_transaction:
 			payment_details = self.doc
 
-		encrypted_key = self.rsa_encrypt_key(self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)),
+		encrypted_key = self.rsa_encrypt_key(self.AES_KEY, self.get_file_relative_path(connector_doc.public_key))
 		data = self.get_account_config(method)
 
 		payment_payload = {
@@ -171,7 +171,7 @@ class ICICIConnector(BankConnector):
 			"service": "",
 			"oaepHashingAlgorithm": "NONE",
 			"encryptedKey": encrypted_key,
-			"encryptedData": self.rsa_encrypt_data(data, encrypted_key ),
+			"encryptedData": self.rsa_encrypt_data(data, self.AES_KEY),
 			"clientInfo": "",
 			"optionalParam": "",
 			"iv": b64encode(self.IV).decode("utf-8")

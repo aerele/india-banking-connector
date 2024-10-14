@@ -1,5 +1,5 @@
 import frappe
-from Crypto.Util.Padding import pad
+from Crypto.Util.Padding import pad, unpad
 from base64 import b64decode, b64encode
 from random import randint
 import json
@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives import serialization
 import hashlib
 import base64
 from cryptography.hazmat.backends import default_backend
-from Crypto.Util.Padding import unpad
 
 class BankConnector(Document):
 	unpad_pkcs5 = lambda s: s[:-ord(s[len(s) - 1:])]
@@ -97,7 +96,9 @@ class BankConnector(Document):
 
 	def rsa_encrypt_data(self, data, encrypted_key):
 		if isinstance(data, dict):
-			byte_data = json.dumps(data).encode("utf-8")
+			data = json.dumps(data)
+
+		byte_data = data.encode('utf-8')
 
 		padded = pad(byte_data, self.BLOCK_SIZE)
 
