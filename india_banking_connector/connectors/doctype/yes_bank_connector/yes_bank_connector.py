@@ -85,18 +85,15 @@ class YESBANKConnector(BankConnector):
 
 	@property
 	def headers(self):
-		client_key = self.get_password('client_key')
-		client_secret = self.get_password('client_secret')
-
 		return {
-			'X-IBM-Client-Id': client_key,
+			'X-IBM-Client-Id': self.get_password('client_key'),
 			'X-IBM-Client-Secret': self.get_password('client_secret'),
-			'Authorization': self.get_authorization(client_key, client_secret),
+			'Authorization': self.get_authorization(self.get_password('user_name'), self.get_password('password')),
 			'Content-Type': 'application/json'
 		}
 
-	def get_authorization(self, key, secret):
-		auth_string = key + ":" + secret
+	def get_authorization(self, usr, pwd):
+		auth_string = usr + ":" + pwd
 		encoded_credintial = "Basic "+ base64.b64encode(auth_string.encode()).decode()
 		return encoded_credintial
 
@@ -111,7 +108,7 @@ class YESBANKConnector(BankConnector):
 		payment_details = self.payment_doc
 
 		if 'A2A' in payment_details.mode_of_transfer:
-			mode_of_transfer = "Intra Bank Transfer"
+			mode_of_transfer = "FT"
 		else:
 			mode_of_transfer = payment_details.mode_of_transfer
 
@@ -151,32 +148,19 @@ class YESBANKConnector(BankConnector):
 				}
 			},
 			"Risk": {
-				"DeliveryAddress": {
-					"AddressLine": [
-						"Flat 7",
-						"Acacia Lodge"
-					],
-					"StreetName": "Acacia Avenue",
-					"BuildingNumber": "27",
-					"PostCode": "600524",
-					"TownName": "MUM",
-					"CountySubDivision": [
-						"MH"
-					],
-					"Country": "IN"
-				}
+				"DeliveryAddress": json.loads(payment_details.get('address', '{}')),
 			}
 		}
 	)
 
 	def get_status_payload(self):
 		conector_doc = self
-
+		payment_details = self.payment_doc
 		return json.dumps({
 			"Data": {
-				"InstrId": utils.get_id(),
+				"InstrId": payment_details.name,
 				"ConsentId": conector_doc.user_id,
-				"SecondaryIdentification": conector_doc.account_number
+				"SecondaryIdentification": conector_doc.user_id
 			}
 		}
 	)
