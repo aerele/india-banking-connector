@@ -17,6 +17,9 @@
   "cert_file",
   "private_key",
   "section_break_emcr",
+  "user_name",
+  "password",
+  "column_break_rrbb",
   "client_key",
   "client_secret"
  ],
@@ -89,12 +92,26 @@
    "fieldname": "testing",
    "fieldtype": "Check",
    "label": "Testing"
+  },
+  {
+   "fieldname": "user_name",
+   "fieldtype": "Data",
+   "label": "User Name"
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "column_break_rrbb",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-09-21 14:17:39.211247",
+ "modified": "2024-10-15 12:43:07.579928",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "YES BANK Connector",

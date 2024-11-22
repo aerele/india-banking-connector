@@ -6,6 +6,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "active",
+  "column_break_twws",
+  "testing",
   "section_break_fhpe",
   "account_number",
   "corp_id",
@@ -130,12 +133,28 @@
    "fieldname": "ip_address",
    "fieldtype": "Data",
    "label": "IP Address"
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_twws",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-09-28 16:42:28.725530",
+ "modified": "2024-10-14 11:10:46.919671",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
