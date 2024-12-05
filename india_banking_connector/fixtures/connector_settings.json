@@ -24,11 +24,19 @@
     "parent": "Connector Settings",
     "parentfield": "connectors",
     "parenttype": "Connector Settings"
+   },
+   {
+    "bank": "Kotak Mahindra Bank",
+    "bulk_transaction": 0,
+    "connector": "Kotak Mahindra Connector",
+    "parent": "Connector Settings",
+    "parentfield": "connectors",
+    "parenttype": "Connector Settings"
    }
   ],
   "docstatus": 0,
   "doctype": "Connector Settings",
-  "modified": "2024-09-21 12:37:50.173970",
+  "modified": "2024-11-25 15:27:27.029733",
   "name": "Connector Settings"
  }
 ]
