@@ -83,6 +83,38 @@ class BankConnector(Document):
 			jws_verified = jws.verify(jwe_decrypted, self.get_file_content(self.public_key), algorithms=['RS256'])
 			return jws_verified.decode('utf-8')
 	''''''''''''''''''''''''''''''''''''''''''''''' HDFC '''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+	def aes_encrypt(self, data, key):
+		if isinstance(key, str):
+			key = key.encode('utf-8')
+		if isinstance(data, str):
+			data = data.encode('utf-8')
+
+		data= self.IV + data
+
+		cipher = AES.new(key, AES.MODE_CBC, self.IV)
+
+		padded = pad(data, AES.block_size)
+
+		encrypted = cipher.encrypt(padded)
+		return base64.b64encode(encrypted).decode('utf-8')
+
+	def aes_decrypt(self, data, key):
+		if isinstance(key, str):
+			key = key.encode('utf-8')
+
+		encrypted_bytes = base64.b64decode(data)
+
+		IV = encrypted_bytes[:16]
+
+		encrypted_data = encrypted_bytes[16:]
+
+		cipher = AES.new(key, AES.MODE_CBC, IV)
+
+		decrypted_padded = cipher.decrypt(encrypted_data)
+
+		return unpad(decrypted_padded, AES.block_size).decode('utf-8')
+
+	''''''''''''''''''''''''''''''''''''''''''''''' Kotak '''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 	def rsa_encrypt_key(self, key, key_path):
 		with open(key_path, "rb") as file:
 			public_key = rsa.PublicKey.load_pkcs1(file.read())
