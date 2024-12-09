@@ -177,7 +177,7 @@ class KotakMahindraConnector(BankConnector):
 				res_dict.status = 'Failed'
 
 			res_dict.message = message
-		
+
 		elif method == "payment_status":
 			root = ET.fromstring(data)
 
@@ -196,7 +196,7 @@ class KotakMahindraConnector(BankConnector):
 				status_desc = detail.find('ns0:Status_Desc', namespace).text
 				utr = detail.find('ns0:UTR', namespace).text
 				if msg_id:
-					msg, sts = self.get_status_description(detail.find('ns0:Status_Code', namespace).text)
+					sts, msg = self.get_status_description(detail.find('ns0:Status_Code', namespace).text)
 					payment_status_details.update({
 						msg_id: {
 							"status":msg,
