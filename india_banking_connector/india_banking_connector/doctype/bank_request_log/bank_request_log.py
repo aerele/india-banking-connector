@@ -22,12 +22,17 @@ def create_api_log(res, action= None, account_config = None, ref_doctype= None, 
 	try:
 		log_doc = frappe.new_doc("Bank Request Log")
 		log_doc.action = action
-		log_doc.config_details = json.dumps(account_config, indent=4)
 		log_doc.url = res.request.url
 		log_doc.payload = cstr(res.request.body)
 		log_doc.method =  res.request.method
 		log_doc.header = json.dumps(dict(res.request.headers), indent=4)
-		log_doc.response = json.dumps(res.text, indent=4)
+		try:
+			log_doc.response = json.dumps(res.text, indent=4)
+			log_doc.config_details = json.dumps(account_config, indent=4)
+		except:
+			log_doc.response = res.text
+			log_doc.config_details = account_config
+
 		log_doc.status_code = res.status_code
 		log_doc.reference_doctype = ref_doctype
 		log_doc.reference_docname = ref_docname
