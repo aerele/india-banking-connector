@@ -12,10 +12,11 @@ def after_install():
 	click.secho("* Updating India Banking Connector Customisations")
 	create_default_bank()
 	create_connector_settings()
+	create_bank_doctype()
 
 
 def create_default_bank():
-	click.secho("* Creating Default Banks")
+	click.echo(" -> Creating Default Banks")
 	for bank in STD_BANK_LIST:
 		if not frappe.db.exists("Bank", bank):
 			bank_doc = frappe.new_doc("Bank")
@@ -25,7 +26,7 @@ def create_default_bank():
 
 
 def create_connector_settings():
-	click.echo("* Updating Connector Settings")
+	click.echo(" -> Updating Connector Settings")
 	settings_doc = frappe.get_doc("Connector Settings")
 	connector_map = [
 		{
@@ -46,3 +47,45 @@ def create_connector_settings():
 	if connector_map:
 		settings_doc.extend("connectors", connector_map)
 		settings_doc.save()
+
+
+def create_bank_doctype():
+	if "erpnext" not in frappe.get_installed_apps() and not frappe.db.exists(
+		"DocType", "Bank"
+	):
+		click.echo(" -> Creating Bank Doctype")
+		doc = {
+			"doctype": "DocType",
+			"name": "Bank",
+			"module": "India Banking Connector",
+			"is_submittable": 0,
+			"istable": 0,
+			"editable_grid": 0,
+			"issingle": 0,
+			"is_tree": 0,
+			"custom": 1,
+			"permissions": [
+				{
+					"create": 1,
+					"delete": 1,
+					"email": 1,
+					"export": 1,
+					"print": 1,
+					"read": 1,
+					"report": 1,
+					"role": "System Manager",
+					"share": 1,
+					"write": 1,
+					"submit": 0,
+				}
+			],
+			"fields": [
+				{"fieldtype": "Section Break"},
+				{
+					"label": "Bank Name",
+					"fieldname": "bank_name",
+					"fieldtype": "Data",
+				},
+			],
+		}
+		frappe.call("frappe.client.insert", doc=doc)
