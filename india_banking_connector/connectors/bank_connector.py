@@ -1,7 +1,6 @@
-import base64
 import hashlib
 import json
-from base64 import b64decode, b64encode
+from base64 import b64decode, b64encode, urlsafe_b64encode
 
 import frappe
 import rsa
@@ -73,7 +72,7 @@ class BankConnector(Document):
 
 		sha256_hash = hashlib.sha256(public_key_der).digest()
 
-		kid = base64.urlsafe_b64encode(sha256_hash).decode("utf-8").rstrip("=")
+		kid = urlsafe_b64encode(sha256_hash).decode("utf-8").rstrip("=")
 
 		return kid
 
@@ -86,6 +85,32 @@ class BankConnector(Document):
 
 	"""""" """""" """""" """""" """""" """""" """""" """'' HDFC """ """""" """""" """""" """""" """""" """""" """""" """""" """"""
 
+	def aes_encrypt(self, data, key):
+		if isinstance(key, str):
+			key = key.encode("utf-8")
+		if isinstance(data, str):
+			data = data.encode("utf-8")
+
+		cipher = AES.new(key, AES.MODE_CBC, self.IV)
+		encrypted = cipher.encrypt(pad(data, AES.block_size))
+		return b64encode(encrypted).decode("utf-8")
+
+	def aes_decrypt(self, data, key):
+		if isinstance(key, str):
+			key = key.encode("utf-8")
+
+		encrypted_bytes = b64decode(data)
+
+		IV, encrypted_data = encrypted_bytes[:16], encrypted_bytes[16:]
+
+		cipher = AES.new(key, AES.MODE_CBC, IV)
+
+		decrypted_padded = cipher.decrypt(encrypted_data)
+
+		return unpad(decrypted_padded, AES.block_size).decode("utf-8")
+
+	"""""" """""" """""" """""" """""" """""" """""" """'' Kotak """ """""" """""" """""" """""" """""" """""" """""" """""" """"""
+
 	# Generate JWS with RS256
 	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
 		headers = {"typ": "JWS", "kid": kid}
@@ -97,39 +122,6 @@ class BankConnector(Document):
 			content_bytes = content.encode("utf-8")
 
 		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
-
-	def aes_encrypt(self, data, key):
-		if isinstance(key, str):
-			key = key.encode("utf-8")
-		if isinstance(data, str):
-			data = data.encode("utf-8")
-
-		data = self.IV + data
-
-		cipher = AES.new(key, AES.MODE_CBC, self.IV)
-
-		padded = pad(data, AES.block_size)
-
-		encrypted = cipher.encrypt(padded)
-		return base64.b64encode(encrypted).decode("utf-8")
-
-	def aes_decrypt(self, data, key):
-		if isinstance(key, str):
-			key = key.encode("utf-8")
-
-		encrypted_bytes = base64.b64decode(data)
-
-		IV = encrypted_bytes[:16]
-
-		encrypted_data = encrypted_bytes[16:]
-
-		cipher = AES.new(key, AES.MODE_CBC, IV)
-
-		decrypted_padded = cipher.decrypt(encrypted_data)
-
-		return unpad(decrypted_padded, AES.block_size).decode("utf-8")
-
-	"""""" """""" """""" """""" """""" """""" """""" """'' Kotak """ """""" """""" """""" """""" """""" """""" """""" """""" """"""
 
 	def rsa_encrypt_key(self, key, key_path):
 		with open(key_path, "rb") as file:
