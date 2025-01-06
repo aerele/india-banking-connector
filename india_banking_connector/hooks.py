@@ -5,7 +5,7 @@ app_description = "India Banking Connector is a unified platform that allows sea
 app_email = "hello@aerele.in"
 app_license = "mit"
 
-after_install = ["india_banking.install.after_install"]
+after_install = ["india_banking_connector.install.after_install"]
 
 # required_apps = []
 
