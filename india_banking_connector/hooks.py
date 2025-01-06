@@ -5,27 +5,8 @@ app_description = "India Banking Connector is a unified platform that allows sea
 app_email = "hello@aerele.in"
 app_license = "mit"
 
+after_install = ["india_banking.install.after_install"]
 
-fixtures = [
-    {
-		"dt": "Connector Settings",
-		"filters": [
-			[
-            "name", "in", [
-                "Connector Settings"
-            ]
-        ]
-    ]},
-    {
-		"dt": "Bank",
-		"filters": [
-			[
-            "name", "in", [
-                "ICICI Bank", "HDFC Bank", "YES Bank", "Kotak Mahindra Bank"
-            ]
-        ]
-    ]}
-]
 # required_apps = []
 
 # Includes in <head>
@@ -248,4 +229,3 @@ fixtures = [
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-

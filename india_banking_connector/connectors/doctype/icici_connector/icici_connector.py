@@ -76,7 +76,7 @@ class ICICIConnector(BankConnector):
 
 	def headers(self, mode_of_transfer=None):
 		headers =  {
-			"accept": "application/json",
+			"accept": "*/*",
 			"content-type": "application/json",
 			"apikey": self.get_password('client_key'),
 			"host": self.urls.host,
@@ -240,7 +240,7 @@ class ICICIConnector(BankConnector):
 				"UNIQUEID": payment_details.name,
 				"DEBITACC": connector_doc.account_number,
 				"CREDITACC": payment_details.bank_account_no,
-				"IFSC": payment_details.branch_code,
+				"IFSC": connector_doc.ifsc_code if payload.bank == "ICICI Bank" else payment_details.branch_code,
 				"AMOUNT": cstr(payment_details.amount),
 				"CURRENCY": "INR",
 				"TXNTYPE": "TPA" if payment_details.bank == "ICICI Bank" else "RTG",
@@ -258,7 +258,7 @@ class ICICIConnector(BankConnector):
 			data.update({
 				"localTxnDtTime": frappe.utils.now_datetime().strftime("%Y%m%d%H%M%S"),
 				"beneAccNo": payment_details.bank_account_no,
-				"beneIFSC": payment_details.branch_code,
+				"beneIFSC": connector_doc.ifsc_code if payload.bank == "ICICI Bank" else payment_details.branch_code,
 				"amount": cstr(payment_details.amount),
 				"tranRefNo": payment_details.name,
 				"paymentRef": payment_details.name,
@@ -280,7 +280,7 @@ class ICICIConnector(BankConnector):
 				"senderAcctNo": connector_doc.account_number,
 				"beneAccNo": payment_details.bank_account_no,
 				"beneName": payment_details.account_name,
-				"beneIFSC": payment_details.branch_code,
+				"beneIFSC": connector_doc.ifsc_code if payload.bank == "ICICI Bank" else payment_details.branch_code,
 				"narration1": payment_details.party_name,
 				"narration2": connector_doc.aggr_id,
 				"crpId": connector_doc.corp_id,
