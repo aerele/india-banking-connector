@@ -2,15 +2,12 @@
 # For license information, please see license.txt
 
 import base64
-import json
 import xml.etree.ElementTree as ET
 
 import frappe
 import requests
 from frappe.utils import cstr, getdate
-from xmltodict import parse as xml_to_dict
 
-import india_banking_connector.utils as utils
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
 	create_api_log,
@@ -202,8 +199,9 @@ class KotakMahindraConnector(BankConnector):
 				res_dict.status = "Processed"
 				res_dict.payment_status_details = payment_status_details
 			else:
-				return res_dict.update(payment_status_details.get(self.payment_doc.name, {}))
-
+				return res_dict.update(
+					payment_status_details.get(self.payment_doc.name, {})
+				)
 
 	def get_encrypted_payload(self, method):
 		return self.aes_encrypt(
@@ -218,7 +216,7 @@ class KotakMahindraConnector(BankConnector):
 			"""Convert a dictionary to an XML element."""
 			if namespaces:
 				element = ET.Element(
-					tag, {f"{prefix}": uri for prefix, uri in namespaces.items()}
+					tag, {f"xmlns:{prefix}": uri for prefix, uri in namespaces.items()}
 				)
 			else:
 				element = ET.Element(tag)

@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import json
+import re
 from xml.dom.minidom import parseString
 
 import frappe
@@ -20,28 +21,27 @@ def format_with_indent(data):
 	Format the given data with indentation for better readability.
 
 	Note:
-			- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
-			- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
-			- If the input is an XML string, it is converted to a pretty-printed XML string.
-			- If formatting fails, the original data is returned and an error is logged.
+		- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
+		- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
+		- If the input is an XML string, it is converted to a pretty-printed XML string.
+		- If formatting fails, the original data is returned and an error is logged.
 	"""
 	try:
-		if isinstance(data, dict):
+		if not data:
+			return ""
+		elif isinstance(data, dict):
 			return json.dumps(data, indent=4)
 		elif isinstance(data, CaseInsensitiveDict):
 			return json.dumps(dict(data), indent=4)
-		else:
-			return format_with_indent(json.loads(data))
-	except:
-		try:
+		elif (data := data.strip()) and data.startswith("{") and data.endswith("}"):
+			return format_with_indent(json.loads(data or ""))
+		elif re.compile(r"^\s*<[^>]+>").match(data):
 			return parseString(data).toprettyxml(indent=" " * 4)
-		except:
-			pass
-
+		return data
+	except:
 		frappe.log_error(
 			title="Error in formatting data", message=frappe.get_traceback()
 		)
-		return data
 
 
 @frappe.whitelist()
@@ -51,8 +51,8 @@ def create_api_log(
 	"""Can create API log From response
 
 	Args:
-			res (response object): It is used to obtain an API response.
-			request_from (str): It is optional for the purposes of the API...
+		res (response object): It is used to obtain an API response.
+		request_from (str): It is optional for the purposes of the API...
 	"""
 	if not isinstance(res, Response):
 		return
