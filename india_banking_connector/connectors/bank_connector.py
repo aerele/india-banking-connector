@@ -100,7 +100,7 @@ class BankConnector(Document):
 		if isinstance(data, str):
 			data = data.encode("utf-8")
 
-		data = data + self.IV
+		data = self.IV + data
 
 		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 		encrypted = cipher.encrypt(pad(data, AES.block_size))
