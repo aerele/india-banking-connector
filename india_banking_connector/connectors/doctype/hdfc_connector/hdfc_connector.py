@@ -22,7 +22,6 @@ class HDFCConnector(BankConnector):
 	__all__ = ["intiate_payment", "get_payment_status"]
 
 	def __init__(self, *args, **kwargs):
-		kwargs.update(bank=self.bank)
 		super().__init__(*args, **kwargs)
 
 		self.bulk_transaction = kwargs.get("bulk_transaction", 0)
@@ -63,17 +62,20 @@ class HDFCConnector(BankConnector):
 		}
 
 	def intiate_payment(self):
+		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+
 		url = self.urls.make_payment
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="make_payment")
+
 		response = requests.post(url, headers=headers, data=payload)
 
 		log_id = create_api_log(
 			response,
 			action="Initiate Payment",
 			account_config=self.get_account_config("make_payment"),
-			ref_doctype=self.payment_doc.parenttype,
-			ref_docname=self.payment_doc.parent,
+			ref_doctype=payment_details.parenttype or payment_details.doctype,
+			ref_docname=payment_details.parent or payment_details.name,
 		)
 
 		return self.get_decrypted_response(
@@ -102,7 +104,9 @@ class HDFCConnector(BankConnector):
 	def set_decrypted_response(self, log_id, response_data):
 		if isinstance(response_data, str):
 			response_data = json.loads(response_data)
+
 		response_data = json.dumps(response_data, indent=4)
+
 		if frappe.db.exists("Bank Request Log", log_id):
 			frappe.db.set_value(
 				"Bank Request Log", log_id, "decrypted_response", response_data
@@ -114,13 +118,17 @@ class HDFCConnector(BankConnector):
 			if method == "make_payment":
 				decrypted_response = self.decrypt_response(response, bank=self.bank)
 				self.set_decrypted_response(log_id, decrypted_response)
+
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
+
 				res_dict.status = "ACCEPTED"
 				res_dict.message = decrypted_response.get("Transaction")
+
 			elif method == "payment_status":
 				decrypted_response = self.decrypt_response(response, bank=self.bank)
 				self.set_decrypted_response(log_id, decrypted_response)
+
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
 
@@ -160,7 +168,7 @@ class HDFCConnector(BankConnector):
 
 	def get_account_config(self, method):
 		conector_doc = self
-		payment_details = self.payment_doc
+		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		mode_of_transfer = (
 			"Intra Bank Transfer"

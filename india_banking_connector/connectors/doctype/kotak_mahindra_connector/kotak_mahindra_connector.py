@@ -17,15 +17,12 @@ from india_banking_connector.utils import get_id
 
 class KotakMahindraConnector(BankConnector):
 	bank = "Kotak Mahindra Bank"
+
 	IV = "0000000000000000".encode("utf-8")
 
 	__all__ = ["intiate_payment", "get_payment_status"]
 
 	def __init__(self, *args, **kwargs):
-		kwargs.update(bank=self.bank)
-
-		kwargs.update(iv=self.IV)
-
 		super().__init__(*args, **kwargs)
 
 		self.bulk_transaction = kwargs.get("bulk_transaction")
@@ -62,9 +59,7 @@ class KotakMahindraConnector(BankConnector):
 		}
 
 	def intiate_payment(self):
-		payment_details = self.payment_doc
-		if self.bulk_transaction:
-			payment_details = self.doc
+		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.make_payment
 		headers = self.headers
@@ -265,10 +260,7 @@ class KotakMahindraConnector(BankConnector):
 
 	def get_formated_payload_json(self, method):
 		conector_doc = self
-		if self.bulk_transaction:
-			payment = self.doc
-		else:
-			payment = self.payment_doc
+		payment = self.payment_doc if not self.bulk_transaction else self.doc
 
 		if method == "make_payment":
 			return {
@@ -364,7 +356,6 @@ class KotakMahindraConnector(BankConnector):
 				"pay:TelephoneNo": "",
 				"pay:PaymentRef": "",
 				"pay:ChgBorneBy": "",
-				"pay:PaymentRef": "",
 				"pay:CreditRefNo": "",
 				"pay:PaymentDtl": "",
 				"pay:PaymentDtl1": "",

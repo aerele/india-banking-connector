@@ -16,14 +16,23 @@ class BankConnector(Document):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.validate_user_permission()
-		self.bank = kwargs.get("bank")
-		self.BLOCK_SIZE = kwargs.get("block_size")
-		self.IV = kwargs.get("iv")
-		self.AES_KEY = kwargs.get("aes_key")
 
 	def validate_user_permission(self):
 		if not frappe.has_permission("Bank Request Log", "write"):
 			frappe.throw("Not permitted", frappe.PermissionError)
+
+	# HDFC Encryption and Decryption
+	# Generate JWS with RS256
+	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
+		headers = {"typ": "JWS", "kid": kid}
+
+		# Convert content to bytes
+		if isinstance(content, dict):
+			content_bytes = json.dumps(content).encode("utf-8")
+		else:
+			content_bytes = content.encode("utf-8")
+
+		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
 
 	def encrypt_payload(self, payload, bank):
 		if bank == "HDFC Bank":
@@ -83,13 +92,15 @@ class BankConnector(Document):
 	def get_file_relative_path(self, file_url):
 		return frappe.get_doc("File", {"file_url": file_url}).get_full_path()
 
-	"""""" """""" """""" """""" """""" """""" """""" """'' HDFC """ """""" """""" """""" """""" """""" """""" """""" """""" """"""
+	# Kotak Encryption and Decryption
 
 	def aes_encrypt(self, data, key):
 		if isinstance(key, str):
 			key = key.encode("utf-8")
 		if isinstance(data, str):
 			data = data.encode("utf-8")
+
+		data = data + self.IV
 
 		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 		encrypted = cipher.encrypt(pad(data, AES.block_size))
@@ -109,21 +120,12 @@ class BankConnector(Document):
 
 		return unpad(decrypted_padded, AES.block_size).decode("utf-8")
 
-	"""""" """""" """""" """""" """""" """""" """""" """'' Kotak """ """""" """""" """""" """""" """""" """""" """""" """""" """"""
-
-	# Generate JWS with RS256
-	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
-		headers = {"typ": "JWS", "kid": kid}
-
-		# Convert content to bytes
-		if isinstance(content, dict):
-			content_bytes = json.dumps(content).encode("utf-8")
-		else:
-			content_bytes = content.encode("utf-8")
-
-		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
+	# ICICI Encryption and Decryption
 
 	def rsa_encrypt_key(self, key, key_path):
+		if isinstance(key, str):
+			key = key.encode("utf-8")
+
 		with open(key_path, "rb") as file:
 			public_key = rsa.PublicKey.load_pkcs1(file.read())
 			encrypted_key = rsa.encrypt(key, public_key)
@@ -134,26 +136,29 @@ class BankConnector(Document):
 			private_key = rsa.PrivateKey.load_pkcs1(file.read())
 			return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
 
-	def rsa_encrypt_data(self, data, encrypted_key):
+	def rsa_encrypt_data(self, data, key):
 		if isinstance(data, dict):
 			data = json.dumps(data)
 
-		byte_data = data.encode("utf-8")
+		if isinstance(key, str):
+			key = key.encode("utf-8")
 
-		padded = pad(byte_data, self.BLOCK_SIZE)
+		padded = pad(data.encode("utf-8"), self.BLOCK_SIZE)
 
-		cipher = AES.new(encrypted_key, AES.MODE_CBC, self.IV)
+		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
 		encrypted = cipher.encrypt(padded)
 
 		return b64encode(encrypted).decode("utf-8")
 
-	def rsa_decrypt_data(self, data, encrypted_key):
-		message = b64decode(data)
+	def rsa_decrypt_data(self, data, key):
+		if isinstance(key, str):
+			key = key.encode("utf-8")
 
-		cipher = AES.new(encrypted_key, AES.MODE_CBC, self.IV)
-		decrypted = cipher.decrypt(message)
+		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
-		unpaded = unpad(decrypted, self.BLOCK_SIZE)
+		decrypted = cipher.decrypt(b64decode(data))
 
-		return json.loads(unpaded[self.BLOCK_SIZE :])
+		size = self.BLOCK_SIZE
+
+		return json.loads(unpad(decrypted, size)[size:])
