@@ -37,11 +37,11 @@ def format_with_indent(data):
 			return format_with_indent(json.loads(data or ""))
 		elif re.compile(r"^\s*<[^>]+>").match(data):
 			return parseString(data).toprettyxml(indent=" " * 4)
-		return data
 	except:
 		frappe.log_error(
 			title="Error in formatting data", message=frappe.get_traceback()
 		)
+	return data
 
 
 @frappe.whitelist()

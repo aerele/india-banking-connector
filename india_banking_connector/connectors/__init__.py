@@ -11,13 +11,16 @@ def import_connector(connector_path, connector_name):
 
 
 def check_connector(bank, bulk_transaction):
+	filters = {
+		"parent": "Connector Settings",
+		"bank": bank,
+	}
+	if bulk_transaction:
+		filters.update({"bulk_transaction": cint(bulk_transaction)})
+
 	connector = frappe.get_value(
 		"Connector Map",
-		{
-			"parent": "Connector Settings",
-			"bank": bank,
-			"bulk_transaction": cint(bulk_transaction),
-		},
+		filters,
 		"connector",
 	)
 	if not connector:
