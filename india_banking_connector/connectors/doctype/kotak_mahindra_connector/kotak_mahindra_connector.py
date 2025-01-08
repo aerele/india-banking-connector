@@ -62,6 +62,10 @@ class KotakMahindraConnector(BankConnector):
 		}
 
 	def intiate_payment(self):
+		payment_details = self.payment_doc
+		if self.bulk_transaction:
+			payment_details = self.doc
+
 		url = self.urls.make_payment
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="make_payment")
@@ -72,8 +76,8 @@ class KotakMahindraConnector(BankConnector):
 			response,
 			action="Initiate Payment",
 			account_config=self.get_account_config("make_payment"),
-			ref_doctype=self.payment_doc.parenttype,
-			ref_docname=self.payment_doc.parent,
+			ref_doctype=payment_details.parenttype or payment_details.doctype,
+			ref_docname=payment_details.parent or payment_details.name,
 		)
 
 		return self.get_decrypted_response(
@@ -330,19 +334,44 @@ class KotakMahindraConnector(BankConnector):
 					len(payment_details.name), payment_details.name
 				),
 				"pay:CompanyId": connector.client_code,
+				"pay:CompBatchId": "",
+				"pay:ConfidentialInd": "N",
 				"pay:MyProdCode": connector.prod_code,
 				"pay:PayMode": self.get_mode_of_transfer(
 					payment_details.mode_of_transfer
 				),
 				"pay:TxnAmnt": payment_details.amount,
 				"pay:AccountNo": connector.account_number,
+				"pay:DrRefNmbr": "DEBITREF",
 				"pay:DrDesc": payment_details.desc,
 				"pay:PaymentDt": getdate().strftime("%Y-%m-%d"),
+				"pay:BankCdInd": "N",
 				"pay:RecBrCd": payment_details.branch_code,
 				"pay:BeneAcctNo": payment_details.bank_account_no,
 				"pay:BeneName": payment_details.party_name,
 				"pay:BeneCode": payment_details.party,
 				"pay:BeneEmail": payment_details.email,
+				"pay:BeneMb": "",
+				"pay:BeneAddr1": "",
+				"pay:BeneAddr2": "",
+				"pay:BeneAddr3": "",
+				"pay:BeneAddr4": "",
+				"pay:BeneAddr5": "",
+				"pay:city": "",
+				"pay:zip": "",
+				"pay:Country": "INDIA",
+				"pay:State": "",
+				"pay:TelephoneNo": "",
+				"pay:PaymentRef": get_id(
+					len(payment_details.name), payment_details.name
+				),
+				"pay:ChgBorneBy": "N",
+				"pay:PaymentRef": "",
+				"pay:CreditRefNo": "",
+				"pay:PaymentDtl": "",
+				"pay:PaymentDtl1": "",
+				"pay:PaymentDtl2": "",
+				"pay:PaymentDtl3": "",
 				"pay:EnrichmentSet": {"pay:Enrichment": payment_details.desc},
 			}
 		}
