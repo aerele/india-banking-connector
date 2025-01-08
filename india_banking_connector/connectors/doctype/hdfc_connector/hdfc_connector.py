@@ -6,6 +6,7 @@ import json
 
 import frappe
 import requests
+from frappe import _
 from frappe.utils import getdate
 
 import india_banking_connector.utils as utils
@@ -208,17 +209,32 @@ class HDFCConnector(BankConnector):
 			"Content-Type": "application/x-www-form-urlencoded",
 			"Authorization": encoded_credintial,
 		}
+		try:
+			response = requests.post(
+				self.urls.oauth_token,
+				params=params,
+				headers=headers,
+				cert=self.get_cert(),
+			)
 
-		response = requests.post(
-			self.urls.oauth_token, params=params, headers=headers, cert=self.get_cert()
-		)
+			create_api_log(response, action="Get OAuth Token")
 
-		create_api_log(response, action="Get OAuth Token")
-
-		if response.ok:
-			return response.json().get("access_token")
-		else:
-			frappe.throw("Error in getting OAuth Token. Please check your credentials.")
+			if response.ok:
+				return response.json().get("access_token")
+		except requests.exceptions.SSLError:
+			frappe.log_error("Oauth Failed", frappe.get_traceback(with_context=True))
+			frappe.throw(
+				_(
+					"Connection failed due to a certificate mismatch. Verify the certificate and try again."
+				)
+			)
+		except:
+			frappe.log_error("Oauth Failed", frappe.get_traceback(with_context=True))
+			frappe.throw(
+				_(
+					"Connection failed. Unable to authenticate with the connector. Please verify your credentials"
+				)
+			)
 
 	def get_cert(self):
 		return (
