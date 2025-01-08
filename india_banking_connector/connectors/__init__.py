@@ -21,7 +21,11 @@ def check_connector(bank, bulk_transaction):
 		"connector",
 	)
 	if not connector:
-		frappe.throw(_("There is no connector map in the connector settings."))
+		frappe.throw(
+			_("There is no connector map in the connector settings."),
+			title=_("Connection failed"),
+		)
+
 	return connector
 
 
@@ -35,9 +39,10 @@ def get_bank_connector(bank, bulk_transaction=False):
 	except ImportError:
 		frappe.log_error(
 			_("Connector not found for bank {bank}").format(bank=bank),
-			frappe.get_traceback(),
+			frappe.get_traceback(with_context=True),
 		)
-		return _("Not Implemented")
+
+		frappe.throw(_("Not Implemented"), title=_("Connection failed"))
 
 
 def get_connector(payload, bulk_transaction=None):
@@ -64,10 +69,12 @@ def get_connector(payload, bulk_transaction=None):
 			payment_doc=payload,
 		)
 	except frappe.exceptions.DoesNotExistError:
-		return {
-			"message": _("Bank Connector not found for Account Number {0}").format(
+		frappe.throw(
+			title=_("Connection failed"),
+			msg=_("Bank Connector not found for Account Number {0}").format(
 				doc.company_account_number
-			)
-		}
+			),
+		)
+
 	except Exception:
 		return {"message": frappe.get_traceback()}

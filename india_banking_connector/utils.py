@@ -13,6 +13,16 @@ def get_default_connectors():
 
 
 def get_id(length: int = 10, text: str = "") -> str:
+	"""
+	Generate a random string ID of a specified length, optionally prefixed with a given text.
+	If the `length` parameter is a string, it will be used as the prefix text, and the length of the generated ID will be equal to the length of this string.
+	Args:
+					length (int): The desired length of the generated ID. Defaults to 10.
+					text (str): An optional prefix text to include in the generated ID. Defaults to an empty string.
+	Returns:
+					str: A randomly generated string ID of the specified length, optionally prefixed with the given text.
+	"""
+
 	if isinstance(length, str):
 		text = length
 		length = len(length)
