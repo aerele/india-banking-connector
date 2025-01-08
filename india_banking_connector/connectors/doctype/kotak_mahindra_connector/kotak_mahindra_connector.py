@@ -341,7 +341,7 @@ class KotakMahindraConnector(BankConnector):
 				"pay:RecBrCd": payment_details.branch_code,
 				"pay:BeneAcctNo": payment_details.bank_account_no,
 				"pay:BeneName": payment_details.party_name,
-				"pay:BeneCode": payment_details.party,
+				"pay:BeneCode": "",
 				"pay:BeneEmail": payment_details.email,
 				"pay:BeneMb": "",
 				"pay:BeneAddr1": "",
