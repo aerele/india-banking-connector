@@ -187,7 +187,7 @@ class KotakMahindraConnector(BankConnector):
 				status_code = detail.find("ns0:Status_Code", namespace).text
 
 				if msg_id:
-					sts, msg = self.get_status_description(status_code)
+					msg, sts = self.get_status_description(status_code)
 					payment_status_details[msg_id] = {
 						"status": sts,
 						"message": msg,
@@ -404,5 +404,5 @@ class KotakMahindraConnector(BankConnector):
 			"DC": ("Debited", "Pending"),
 			"CN": ("Cancelled", "Failed"),
 			"O": ("Draft", "Pending"),
-			"R": ("Rejected", "Failed"),
+			"R": ("Rejected", "Failure"),
 		}.get(cstr(status_code), (f"{status_code} Description Not Available", ""))
