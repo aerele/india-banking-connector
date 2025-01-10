@@ -96,7 +96,7 @@ class YESBANKConnector(BankConnector):
 
 		return self.get_verified_response(response, method="payment_status")
 
-	def get_balance(self):
+	def get_bank_balance(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.bank_balance
