@@ -28,10 +28,6 @@ class HDFCConnector(BankConnector):
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
 
-	def is_active(self):
-		if not self.active:
-			frappe.throw("Connector not active. Please contact admin.")
-
 	@property
 	def urls(self):
 		if self.bulk_transaction:
@@ -83,6 +79,8 @@ class HDFCConnector(BankConnector):
 		)
 
 	def get_payment_status(self):
+		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+
 		url = self.urls.payment_status
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="payment_status")
@@ -93,8 +91,8 @@ class HDFCConnector(BankConnector):
 			response,
 			action="Payment Status",
 			account_config=self.get_account_config("payment_status"),
-			ref_doctype=self.payment_doc.parenttype,
-			ref_docname=self.payment_doc.parent,
+			ref_doctype=payment_details.parenttype or payment_details.doctype,
+			ref_docname=payment_details.parent or payment_details.name,
 		)
 
 		return self.get_decrypted_response(
