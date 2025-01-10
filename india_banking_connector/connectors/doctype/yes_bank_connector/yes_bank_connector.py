@@ -1,27 +1,29 @@
 # Copyright (c) 2024, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
-import frappe
-from frappe.model.document import Document
-from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import create_api_log
-from india_banking_connector.connectors.bank_connector import BankConnector
-import india_banking_connector.utils as utils
-import json, requests
+import json
 from base64 import b64encode
-from india_banking_connector.utils import get_id
+
+import frappe
+import requests
+
+from india_banking_connector.connectors.bank_connector import BankConnector
+from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
+	create_api_log,
+)
 
 
 class YESBANKConnector(BankConnector):
 	bank = "YES Bank"
 
-	__all__ = ['intiate_payment', 'get_payment_status']
+	__all__ = ["intiate_payment", "get_payment_status"]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
-		self.bulk_transaction = kwargs.get('bulk_transaction')
-		self.doc = frappe._dict(kwargs.get('doc', {}))
-		self.payment_doc = frappe._dict(kwargs.get('payment_doc', {}))
+		self.bulk_transaction = kwargs.get("bulk_transaction")
+		self.doc = frappe._dict(kwargs.get("doc", {}))
+		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
 
 	@property
 	def urls(self):
@@ -35,17 +37,23 @@ class YESBANKConnector(BankConnector):
 		}
 
 		env = "uat" if self.testing else "live"
-		base_url = "https://uatskyway.yesbank.in" if self.testing else "https://skyway.yesbank.in"
+		base_url = (
+			"https://uatskyway.yesbank.in"
+			if self.testing
+			else "https://skyway.yesbank.in"
+		)
 
-		return frappe._dict({key: base_url + value.format(env=env) for key, value in urls_map.items()})
+		return frappe._dict(
+			{key: base_url + value.format(env=env) for key, value in urls_map.items()}
+		)
 
 	@property
 	def headers(self):
 		return {
-			'X-IBM-Client-Id': self.get_password('client_key'),
-			'X-IBM-Client-Secret': self.get_password('client_secret'),
-			'Authorization': f"Basic {b64encode(f"{self.get_password('user_name')}:{self.get_password('password')}".encode()).decode()}",
-			'Content-Type': 'application/json'
+			"X-IBM-Client-Id": self.get_password("client_key"),
+			"X-IBM-Client-Secret": self.get_password("client_secret"),
+			"Authorization": f"Basic {b64encode(f"{self.get_password('user_name')}:{self.get_password('password')}".encode()).decode()}",
+			"Content-Type": "application/json",
 		}
 
 	def intiate_payment(self):
@@ -53,59 +61,64 @@ class YESBANKConnector(BankConnector):
 
 		url = self.urls.make_payment
 		headers = self.headers
-		payload = self.get_payload(method= 'make_payment')
+		payload = self.get_payload(method="make_payment")
 
-		response = requests.post(url, headers=headers, data= payload, cert= self.get_cert())
+		response = requests.post(
+			url, headers=headers, data=payload, cert=self.get_cert()
+		)
 
 		create_api_log(
-			response, action= "Initiate Payment",
-			account_config = self.get_payload(method= 'make_payment'),
+			response,
+			action="Initiate Payment",
+			account_config=self.get_payload(method="make_payment"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 		)
 
-		return self.get_verified_response(response, method= "make_payment")
+		return self.get_verified_response(response, method="make_payment")
 
 	def get_payment_status(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.payment_status
 		headers = self.headers
-		payload = self.get_payload(method= 'payment_status')
+		payload = self.get_payload(method="payment_status")
 
-		response = requests.post(url, headers=headers, data= payload)
+		response = requests.post(url, headers=headers, data=payload)
 
 		create_api_log(
-			response, action= "Payment Status",
-			account_config = self.get_payload("payment_status"),
+			response,
+			action="Payment Status",
+			account_config=self.get_payload("payment_status"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 		)
 
-		return self.get_verified_response(response, method= "payment_status")
+		return self.get_verified_response(response, method="payment_status")
 
 	def get_balance(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.bank_balance
 		headers = self.headers
-		payload = self.get_payload(method= 'bank_balance')
+		payload = self.get_payload(method="bank_balance")
 
-		response = requests.post(url, headers=headers, data= payload)
+		response = requests.post(url, headers=headers, data=payload)
 
 		create_api_log(
-			response, action= "Bank Balance",
-			account_config = self.get_payload("bank_balance"),
+			response,
+			action="Bank Balance",
+			account_config=self.get_payload("bank_balance"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 		)
 
-		return self.get_verified_response(response, method= "bank_balance")
+		return self.get_verified_response(response, method="bank_balance")
 
 	def get_payload(self, method):
-		if method == 'make_payment':
+		if method == "make_payment":
 			return self.get_payment_payload()
-		elif method == 'payment_status':
+		elif method == "payment_status":
 			return self.get_status_payload()
 		elif method == "bank_balance":
 			return self.get_bank_balance_payload()
@@ -113,77 +126,83 @@ class YESBANKConnector(BankConnector):
 	def get_bank_balance_payload(self):
 		conector_doc = self
 
-		return json.dumps({
-			"Data": {
+		return json.dumps(
+			{
+				"Data": {
 					"DebtorAccount": {
 						"ConsentId": conector_doc.user_id,
 						"Identification": conector_doc.account_number,
-						"SecondaryIdentification": conector_doc.user_id
+						"SecondaryIdentification": conector_doc.user_id,
 					}
 				}
-			})
+			}
+		)
 
 	def get_payment_payload(self):
 		conector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
-		if 'A2A' in payment_details.mode_of_transfer:
+		if "A2A" in payment_details.mode_of_transfer:
 			mode_of_transfer = "FT"
 		else:
 			mode_of_transfer = payment_details.mode_of_transfer
 
 		return json.dumps(
-		{
-			"Data": {
-				"ConsentId": conector_doc.user_id,
-				"Initiation": {
-					"InstructionIdentification": payment_details.name,
-					"EndToEndIdentification": "",
-					"InstructedAmount": {
-						"Amount": payment_details.amount,
-						"Currency": "INR"
+			{
+				"Data": {
+					"ConsentId": conector_doc.user_id,
+					"Initiation": {
+						"InstructionIdentification": payment_details.name,
+						"EndToEndIdentification": "",
+						"InstructedAmount": {
+							"Amount": payment_details.amount,
+							"Currency": "INR",
+						},
+						"DebtorAccount": {
+							"Identification": conector_doc.account_number,
+							"SecondaryIdentification": conector_doc.user_id,
+						},
+						"CreditorAccount": {
+							"SchemeName": payment_details.branch_code,
+							"Identification": payment_details.bank_account_no,
+							"Name": payment_details.party,
+							"Unstructured": {
+								"ContactInformation": {
+									"EmailAddress": payment_details.email,
+									"MobileNumber": payment_details.get(
+										"mobile_no", ""
+									),
+								}
+							},
+						},
+						"RemittanceInformation": {
+							"Reference": payment_details.name,
+							"Unstructured": {
+								"CreditorReferenceInformation": "RemeToBeneInfo"
+							},
+						},
+						"ClearingSystemIdentification": mode_of_transfer,
 					},
-					"DebtorAccount": {
-						"Identification": conector_doc.account_number,
-						"SecondaryIdentification": conector_doc.user_id
-					},
-					"CreditorAccount": {
-						"SchemeName": payment_details.branch_code,
-						"Identification": payment_details.bank_account_no,
-						"Name": payment_details.party,
-						"Unstructured": {
-							"ContactInformation": {
-								"EmailAddress": payment_details.email,
-								"MobileNumber": payment_details.get('mobile_no', '')
-							}
-						}
-					},
-					"RemittanceInformation": {
-						"Reference": payment_details.name,
-						"Unstructured": {
-							"CreditorReferenceInformation": "RemeToBeneInfo"
-						}
-					},
-					"ClearingSystemIdentification": mode_of_transfer
-				}
-			},
-			"Risk": {
-				"DeliveryAddress": json.loads(payment_details.get('address', '{}')),
+				},
+				"Risk": {
+					"DeliveryAddress": json.loads(payment_details.get("address", "{}")),
+				},
 			}
-		}
-	)
+		)
 
 	def get_status_payload(self):
 		conector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
-		return json.dumps({
-			"Data": {
-				"InstrId": payment_details.name,
-				"ConsentId": conector_doc.user_id,
-				"SecondaryIdentification": conector_doc.user_id
+		return json.dumps(
+			{
+				"Data": {
+					"InstrId": payment_details.name,
+					"ConsentId": conector_doc.user_id,
+					"SecondaryIdentification": conector_doc.user_id,
+				}
 			}
-		})
+		)
 
 	def get_verified_response(self, response, method):
 		res_dict = frappe._dict({})
@@ -192,16 +211,24 @@ class YESBANKConnector(BankConnector):
 			if method == "make_payment":
 				status = response_data.get("Data", {}).get("Status")
 				if status == "Duplicate":
-					res_dict.update({"status": "Failed", "message": "Duplicate Payment"})
+					res_dict.update(
+						{"status": "Failed", "message": "Duplicate Payment"}
+					)
 				elif status == "Received":
-					res_dict.update({"status": "ACCEPTED", "message": "Payment Initiated"})
+					res_dict.update(
+						{"status": "ACCEPTED", "message": "Payment Initiated"}
+					)
 
 			elif method == "payment_status":
 				msg, utr, sts = self.get_msg_utr_number(response_data)
 				res_dict.update({"status": sts, "message": msg, "utr_number": utr})
 
 			elif method == "bank_balance":
-				balance = response_data.get("Data", {}).get("FundsAvailableResult", {}).get("BalanceAmount", "")
+				balance = (
+					response_data.get("Data", {})
+					.get("FundsAvailableResult", {})
+					.get("BalanceAmount", "")
+				)
 				res_dict.update({"balance": balance})
 		else:
 			res_dict.update({"status": "Request Failure", "error": response.text})
@@ -227,7 +254,10 @@ class YESBANKConnector(BankConnector):
 		return msg, utr, sts
 
 	def get_cert(self):
-		return (self.get_file_relative_path(self.cert_file), self.get_file_relative_path(self.private_key))
+		return (
+			self.get_file_relative_path(self.cert_file),
+			self.get_file_relative_path(self.private_key),
+		)
 
 	def get_transaction_history(self):
 		return "Transaction History Not Implemented"

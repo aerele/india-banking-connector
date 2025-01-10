@@ -21,10 +21,10 @@ def format_with_indent(data):
 	Format the given data with indentation for better readability.
 
 	Note:
-		- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
-		- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
-		- If the input is an XML string, it is converted to a pretty-printed XML string.
-		- If formatting fails, the original data is returned and an error is logged.
+			- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
+			- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
+			- If the input is an XML string, it is converted to a pretty-printed XML string.
+			- If formatting fails, the original data is returned and an error is logged.
 	"""
 	try:
 		if not data:
@@ -51,8 +51,8 @@ def create_api_log(
 	"""Can create API log From response
 
 	Args:
-		res (response object): It is used to obtain an API response.
-		request_from (str): It is optional for the purposes of the API...
+			res (response object): It is used to obtain an API response.
+			request_from (str): It is optional for the purposes of the API...
 	"""
 	if not isinstance(res, Response):
 		return

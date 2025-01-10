@@ -16,7 +16,7 @@ class BankConnector(Document):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.validate_user_permission()
-	
+
 	def is_active(self):
 		if not self.active:
 			frappe.throw("Connector inactive. Please contact admin.")
