@@ -61,7 +61,7 @@ def get_connector(payload, bulk_transaction=None):
 			if method and hasattr(self, method):
 				return getattr(self, method)()
 			else:
-				return self.as_dict(), cstr(method), _("Invalid Method")
+				frappe.throw(_("Invalid Method"))
 
 	try:
 		return Connector(

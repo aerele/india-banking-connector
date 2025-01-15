@@ -14,6 +14,7 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 	create_api_log,
 )
 from india_banking_connector.utils import get_id
+import re
 
 
 class ICICIConnector(BankConnector):
@@ -35,9 +36,9 @@ class ICICIConnector(BankConnector):
 	@property
 	def urls(self):
 		host = (
-			"apibankingone.icicibank.com"
+			"apibankingonesandbox.icicibank.com"
 			if self.testing
-			else "apibankingonesandbox.icicibank.com"
+			else "apibankingone.icicibank.com"
 		)
 
 		if self.bulk_transaction and self.testing:
@@ -190,6 +191,8 @@ class ICICIConnector(BankConnector):
 		connector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", self.name))[-10:]
+
 		if self.bulk_transaction:
 			data.update(
 				{
@@ -198,7 +201,7 @@ class ICICIConnector(BankConnector):
 					"AGGRID": connector_doc.aggr_id,
 					"AGGRNAME": connector_doc.aggr_name,
 					"URN": connector_doc.urn,
-					"UNIQUEID": payment_details.unique_id,
+					"UNIQUEID": unique_id,
 					"AMOUNT": str(payment_details.total),
 				}
 			)
@@ -206,19 +209,22 @@ class ICICIConnector(BankConnector):
 	def set_payment_data(self, data):
 		connector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		file_reference_id = "".join(re.findall(r"[0-9a-zA-Z]", self.name))[-10:]
+
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", self.name))[-10:]
 
 		if self.bulk_transaction:
 			data.update(
 				{
-					"FILE_DESCRIPTION": payment_details.file_reference_id,
+					"FILE_DESCRIPTION": file_reference_id,
 					"CORP_ID": connector_doc.corp_id,
 					"USER_ID": connector_doc.payment_creator_user_id,
 					"AGGR_ID": connector_doc.aggr_id,
 					"AGGR_NAME": connector_doc.aggr_name,
 					"URN": connector_doc.urn,
-					"UNIQUE_ID": payment_details.unique_id,
+					"UNIQUE_ID": unique_id,
 					"AGOTP": str(payment_details.otp),
-					"FILE_NAME": f"{payment_details.file_reference_id}.txt",
+					"FILE_NAME": f"{file_reference_id}.txt",
 					"FILE_CONTENT": self.construct_payment_details_content(
 						payment_details, connector_doc
 					),
@@ -521,12 +527,14 @@ class ICICIConnector(BankConnector):
 		}.get(str(code), "Unknown Error")
 
 	def construct_payment_details_content(self, payment_doc, connector_doc):
+		file_reference_id = "".join(re.findall(r"[0-9a-zA-Z]", self.name))[-10:]
+
 		content = []
 		first_line = "{}|{}|{}|{}|{}|{}|{}|{}^".format(
 			"FHR",
 			len(payment_doc.summary) + 1,
 			getdate(nowdate()).strftime("%m/%d/%Y"),
-			payment_doc.file_reference_id,
+			file_reference_id,
 			flt(payment_doc.total),
 			"INR",
 			connector_doc.account_number,
@@ -540,7 +548,7 @@ class ICICIConnector(BankConnector):
 			payment_doc.company.replace(" ", "")[:30],
 			flt(payment_doc.total),
 			"INR",
-			payment_doc.file_reference_id,
+			file_reference_id,
 			"ICIC0000011",
 			"WIB",
 		)
