@@ -210,18 +210,34 @@ class YESBANKConnector(BankConnector):
 			response_data = response.json()
 			if method == "make_payment":
 				status = response_data.get("Data", {}).get("Status")
-				if status == "Duplicate":
-					res_dict.update(
-						{"status": "Failed", "message": "Duplicate Payment"}
-					)
-				elif status == "Received":
-					res_dict.update(
-						{"status": "ACCEPTED", "message": "Payment Initiated"}
-					)
+				if status == "Received":
+					res_dict.payment_status = "ACCEPTED"
+					res_dict.message = "Payment Accepted"
+					res_dict.summary_details = {
+						self.payment_doc.name: {
+							"payment_status": "Accepted",
+							"message": "Payment Rejected due to Dublicate ID",
+						}
+					}
+				elif status == "Duplicate":
+					res_dict.payment_status = "ACCEPTED"
+					res_dict.summary_details = {
+						self.payment_doc.name: {
+							"payment_status": "Failed",
+							"message": "Payment Rejected due to Dublicate ID",
+						}
+					}
 
 			elif method == "payment_status":
+				res_dict.payment_status = "PROCESSED"
 				msg, utr, sts = self.get_msg_utr_number(response_data)
-				res_dict.update({"status": sts, "message": msg, "utr_number": utr})
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"status": sts,
+						"message": msg,
+						"utr_number": utr,
+					}
+				}
 
 			elif method == "bank_balance":
 				balance = (
@@ -245,7 +261,7 @@ class YESBANKConnector(BankConnector):
 		msg = data_status if data_status else msg
 
 		if data_status in ["SettlementInProcess", "Pending", "Pending Auth"]:
-			sts = "Approval Pending"
+			sts = "Pending"
 		elif data_status == "SettlementCompleted":
 			sts = "Processed"
 		elif data_status in ["SettlementReversed", "FAILED"]:

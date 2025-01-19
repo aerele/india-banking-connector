@@ -114,14 +114,20 @@ class HDFCConnector(BankConnector):
 		res_dict = frappe._dict({})
 		if response.ok:
 			if method == "make_payment":
-				decrypted_response = self.decrypt_response(response, bank=self.bank)
+				decrypted_response = self.decrypt_response(response)
 				self.set_decrypted_response(log_id, decrypted_response)
 
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
 
-				res_dict.status = "ACCEPTED"
-				res_dict.message = decrypted_response.get("Transaction")
+				if decrypted_response.get("STATUS", "") in ["SUCCESS", "PENDING"]:
+					res_dict.payment_status = "ACCEPTED"
+					res_dict.message = (
+						decrypted_response.get("Transaction") or "Payment Accepted"
+					)
+					res_dict.summary_details = {
+						self.payment_doc.name: {"payment_status": "Accepted"}
+					}
 
 			elif method == "payment_status":
 				decrypted_response = self.decrypt_response(response, bank=self.bank)
@@ -132,9 +138,15 @@ class HDFCConnector(BankConnector):
 
 				msg, utr, sts = self.get_msg_utr_number(decrypted_response)
 
-				res_dict.status = sts
-				res_dict.message = msg
-				res_dict.utr_number = utr
+				res_dict.payment_status = "PROCESSED" if sts != "" else "FAILED"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"status": sts,
+						"utr_number": utr,
+						"message": msg,
+					}
+				}
+
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text

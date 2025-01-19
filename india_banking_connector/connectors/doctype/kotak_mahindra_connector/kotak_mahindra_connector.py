@@ -155,7 +155,8 @@ class KotakMahindraConnector(BankConnector):
 			message = self.get_status_description(status_code)
 
 			if status_code in ["000", "005"]:
-				res_dict.status = "ACCEPTED"
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.message = message or "Payment Accepted"
 			elif status_code in [
 				"001",
 				"002",
@@ -167,9 +168,14 @@ class KotakMahindraConnector(BankConnector):
 				"010",
 				"011",
 			]:
-				res_dict.status = "Failed"
+				res_dict.payment_status = "FAILED"
+				res_dict.message = message or "Payment Failed"
 
-			res_dict.message = message
+			res_dict.summary_details = {
+				self.payment_doc.name: {
+					"payment_status": cstr(res_dict.payment_status).title()
+				}
+			}
 
 		elif method == "payment_status":
 			namespace = {
@@ -186,6 +192,7 @@ class KotakMahindraConnector(BankConnector):
 
 				if msg_id:
 					msg, sts = self.get_status_description(status_code)
+
 					payment_status_details[msg_id] = {
 						"status": sts,
 						"message": msg,
@@ -193,11 +200,12 @@ class KotakMahindraConnector(BankConnector):
 					}
 
 			if self.bulk_transaction:
-				res_dict.status = "Processed"
-				res_dict.payment_status_details = payment_status_details
+				res_dict.payment_status = "PROCESSED"
+				res_dict.summary_details = payment_status_details
 			else:
-				return res_dict.update(
-					payment_status_details.get(self.payment_doc.name, {})
+				res_dict.payment_status = "PROCESSED"
+				res_dict.summary_details = payment_status_details.get(
+					self.payment_doc.name, {}
 				)
 
 	def get_encrypted_payload(self, method):
@@ -402,5 +410,5 @@ class KotakMahindraConnector(BankConnector):
 			"DC": ("Debited", "Pending"),
 			"CN": ("Cancelled", "Failed"),
 			"O": ("Draft", "Pending"),
-			"R": ("Rejected", "Failure"),
+			"R": ("Rejected", "Failed"),
 		}.get(cstr(status_code), (f"{status_code} Description Not Available", ""))

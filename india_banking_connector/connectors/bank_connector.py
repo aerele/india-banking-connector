@@ -57,17 +57,16 @@ class BankConnector(Document):
 
 			return encrypted_payload
 
-	def decrypt_response(self, response, bank):
-		if bank == "HDFC Bank":
-			jwe_decrypted = jwe.decrypt(
-				response.text.encode("utf-8"), self.get_file_content(self.private_key)
-			)
-			jws_verified = jws.verify(
-				jwe_decrypted,
-				self.get_file_content(self.public_key),
-				algorithms=["RS256"],
-			)
-			return jws_verified.decode("utf-8")
+	def decrypt_response(self, response):
+		jwe_decrypted = jwe.decrypt(
+			response.text.encode("utf-8"), self.get_file_content(self.private_key)
+		)
+		jws_verified = jws.verify(
+			jwe_decrypted,
+			self.get_file_content(self.public_key),
+			algorithms=["RS256"],
+		)
+		return jws_verified.decode("utf-8")
 
 	def generate_kid(self, file_name):
 		public_key_pem_str = self.get_file_content(file_name)
