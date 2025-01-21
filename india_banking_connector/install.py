@@ -109,42 +109,14 @@ def create_bank_api_endpoint():
 	for bank, api_detais in decrypted_endpoints.items():
 		bank = bank.replace("_", " ")
 		api_detais = frappe._dict(api_detais)
-		if api_detais.production:
-			if production_composite := frappe._dict(
-				api_detais.production.get("composite", {})
-			):
-				print(production_composite)
-				filters = {
-					"bank": bank,
-					"environment": "Production",
-					"bulk_transaction": 0,
-				}
-				if not frappe.db.exists("Bank API Endpoint", filters):
-					_create_endpoint_list(production_composite, **filters)
-			if production_bulk := frappe._dict(api_detais.production.get("bulk", {})):
-				filters = {
-					"bank": bank,
-					"environment": "Production",
-					"bulk_transaction": 1,
-				}
-				if not frappe.db.exists("Bank API Endpoint", filters):
-					_create_endpoint_list(production_bulk, **filters)
-		if api_detais.testing:
-			if testing_composite := frappe._dict(
-				api_detais.testing.get("composite", {})
-			):
-				filters = {
-					"bank": bank,
-					"environment": "Testing",
-					"bulk_transaction": 0,
-				}
-				if not frappe.db.exists("Bank API Endpoint", filters):
-					_create_endpoint_list(testing_composite, **filters)
-			if testing_bulk := frappe._dict(api_detais.testing.get("composite", {})):
-				filters = {
-					"bank": bank,
-					"environment": "Testing",
-					"bulk_transaction": 1,
-				}
-				if not frappe.db.exists("Bank API Endpoint", filters):
-					_create_endpoint_list(testing_bulk, **filters)
+		for env in ["production", "testing"]:
+			if api_details := frappe._dict(api_detais.get(env, {})):
+				for transaction_type in ["composite", "bulk"]:
+					if endpoints := frappe._dict(api_details.get(transaction_type, {})):
+						filters = {
+							"bank": bank,
+							"environment": env.capitalize(),
+							"bulk_transaction": 1 if transaction_type == "bulk" else 0,
+						}
+						if not frappe.db.exists("Bank API Endpoint", filters):
+							_create_endpoint_list(endpoints, **filters)
