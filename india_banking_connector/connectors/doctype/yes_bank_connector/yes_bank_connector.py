@@ -30,22 +30,7 @@ class YESBANKConnector(BankConnector):
 		if self.bulk_transaction:
 			frappe.throw("Bulk transactions are not Tested")
 
-		urls_map = {
-			"make_payment": "/app/{env}/api-banking/domestic-payments",
-			"payment_status": "/app/{env}/api-banking/payment-details",
-			"bank_balance": "/app/{env}/api-banking/fund-confirmation",
-		}
-
-		env = "uat" if self.testing else "live"
-		base_url = (
-			"https://uatskyway.yesbank.in"
-			if self.testing
-			else "https://skyway.yesbank.in"
-		)
-
-		return frappe._dict(
-			{key: base_url + value.format(env=env) for key, value in urls_map.items()}
-		)
+		return super().urls
 
 	@property
 	def headers(self):

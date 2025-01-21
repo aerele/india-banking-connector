@@ -35,34 +35,10 @@ class ICICIConnector(BankConnector):
 
 	@property
 	def urls(self):
-		host = (
-			"apibankingonesandbox.icicibank.com"
-			if self.testing
-			else "apibankingone.icicibank.com"
-		)
-
 		if self.bulk_transaction and self.testing:
 			frappe.throw("Connector not supported for Testing API calls.")
 
-		urls = {
-			"host": host,
-			"make_payment": f"https://{host}/api/v1/composite-payment",
-			"payment_status": f"https://{host}/api/v1/composite-status",
-		}
-
-		if self.bulk_transaction:
-			urls.update(
-				{
-					"generate_otp": f"https://{host}/api/Corporate/CIB/v1/Create",
-					"make_payment": f"https://{host}/api/v1/cibbulkpayment/bulkPayment",
-					"payment_status": f"https://{host}/api/v1/ReverseMis",
-					"bank_balance": f"https://{host}/api/Corporate/CIB/v1/BalanceInquiry",
-					"bank_statement": f"https://{host}/api/Corporate/CIB/v1/AccountStatement",
-					"bank_statement_paginated": f"https://{host}/api/Corporate/CIB/v1/AccountStatements",
-				}
-			)
-
-		return frappe._dict(urls)
+		return super().urls
 
 	def headers(self, mode_of_transfer=None):
 		headers = {

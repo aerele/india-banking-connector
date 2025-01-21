@@ -33,19 +33,7 @@ class HDFCConnector(BankConnector):
 		if self.bulk_transaction:
 			frappe.throw("Bulk transactions are not supported")
 
-		base_url = (
-			"https://api-uat.hdfcbank.com"
-			if self.testing
-			else "https://api.hdfcbank.com"
-		)
-
-		return frappe._dict(
-			{
-				"oauth_token": f"{base_url}/auth/oauth/v1/token",
-				"make_payment": f"{base_url}/api/v1/corp-initiatePayment",
-				"payment_status": f"{base_url}/api/v1/corp-paymentInq",
-			}
-		)
+		return super().urls
 
 	@property
 	def headers(self):

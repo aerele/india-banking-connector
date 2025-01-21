@@ -9,6 +9,7 @@ from Crypto.Util.Padding import pad, unpad
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from frappe.model.document import Document
+from frappe.query_builder import DocType
 from jose import jwe, jws
 
 
@@ -20,6 +21,28 @@ class BankConnector(Document):
 	def is_active(self):
 		if not self.active:
 			frappe.throw("Connector inactive. Please contact admin.")
+
+	@property
+	def urls(self):
+		end_point_url = DocType("Endpoint URLs")
+		bank_api_endpoint = DocType("Bank API Endpoint")
+		urls = (
+			frappe.qb.from_(end_point_url)
+			.join(bank_api_endpoint)
+			.on(end_point_url.parent == bank_api_endpoint.name)
+			.select(end_point_url.action, end_point_url.url)
+			.where(bank_api_endpoint.bank == self.bank)
+			.where(
+				bank_api_endpoint.environment
+				== ("Testing" if self.testing else "Production")
+			)
+			.where(
+				bank_api_endpoint.bulk_transaction
+				== (1 if self.bulk_transaction else 0)
+			)
+		).run()
+
+		return frappe._dict(dict(urls))
 
 	def validate_user_permission(self):
 		if not frappe.has_permission("Bank Request Log", "write"):

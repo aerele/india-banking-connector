@@ -34,18 +34,7 @@ class KotakMahindraConnector(BankConnector):
 		if self.bulk_transaction:
 			frappe.throw("Bulk transactions are not Tested")
 
-		base_url = (
-			"https://apigwuat.kotak.com:8443"
-			if self.testing
-			else "https://apigw.kotak.com:8443"
-		)
-		return frappe._dict(
-			{
-				"oauth_token": f"{base_url}/auth/oauth/v2/token",
-				"make_payment": f"{base_url}/v1/cms/pay",
-				"payment_status": f"{base_url}/v1/cms/rev",
-			}
-		)
+		return super().urls
 
 	@property
 	def headers(self):

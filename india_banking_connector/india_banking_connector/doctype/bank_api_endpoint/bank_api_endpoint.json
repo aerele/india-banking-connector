@@ -1,0 +1,74 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-21 00:46:57.170924",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bank",
+  "environment",
+  "column_break_yslw",
+  "bulk_transaction",
+  "end_points_section",
+  "end_points"
+ ],
+ "fields": [
+  {
+   "fieldname": "column_break_yslw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "bulk_transaction",
+   "fieldtype": "Check",
+   "label": "Bulk Transaction"
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Testing\nProduction"
+  },
+  {
+   "fieldname": "bank",
+   "fieldtype": "Link",
+   "label": "Bank",
+   "options": "Bank"
+  },
+  {
+   "fieldname": "end_points_section",
+   "fieldtype": "Section Break",
+   "label": "End Points"
+  },
+  {
+   "fieldname": "end_points",
+   "fieldtype": "Table",
+   "label": "End Points",
+   "options": "Endpoint URLs"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-21 08:59:08.575328",
+ "modified_by": "Administrator",
+ "module": "India Banking Connector",
+ "name": "Bank API Endpoint",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
