@@ -15,6 +15,7 @@ def after_install():
 	create_default_bank()
 	create_connector_settings()
 	create_bank_doctype()
+	create_bank_api_endpoint()
 
 
 def create_default_bank():
