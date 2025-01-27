@@ -404,5 +404,5 @@ class KotakMahindraConnector(BankConnector):
 			"DC": ("Debited", "Pending"),
 			"CN": ("Cancelled", "Failed"),
 			"O": ("Draft", "Pending"),
-			"R": ("Rejected", "Failed"),
+			"R": ("Rejected", "Failure"),
 		}.get(cstr(status_code), (f"{status_code} Description Not Available", ""))
