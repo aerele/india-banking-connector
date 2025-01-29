@@ -34,10 +34,11 @@ class YESBANKConnector(BankConnector):
 
 	@property
 	def headers(self):
+		bareer_token = b64encode(f"{self.get_password('user_name')}:{self.get_password('password')}".encode())
 		return {
 			"X-IBM-Client-Id": self.get_password("client_key"),
 			"X-IBM-Client-Secret": self.get_password("client_secret"),
-			"Authorization": f"Basic {b64encode(f"{self.get_password('user_name')}:{self.get_password('password')}".encode()).decode()}",
+			"Authorization": f"Basic {bareer_token.decode()}",
 			"Content-Type": "application/json",
 		}
 

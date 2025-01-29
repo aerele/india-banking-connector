@@ -7,4 +7,4 @@ from frappe.model.document import Document
 
 class BankAPIEndpoint(Document):
 	def autoname(self):
-		self.name = f"{self.bank}-{self.environment}-{"Bulk" if self.bulk_transaction else 'Composite'}"
+		self.name = f"{self.bank}-{self.environment}-{'Bulk' if self.bulk_transaction else 'Composite'}"
