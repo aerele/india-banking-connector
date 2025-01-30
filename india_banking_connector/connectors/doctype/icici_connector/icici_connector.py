@@ -358,9 +358,15 @@ class ICICIConnector(BankConnector):
 			if method == "make_payment" and parsed_data:
 				response = frappe._dict(parsed_data)
 
-				if response.STATUS in ["SUCCESS", "PENDING"]:
+				if response.STATUS in ["SUCCESS", "PENDING", "PENDING FOR PROCESSING"]:
 					res_dict.payment_status = "ACCEPTED"
 					res_dict.message = f"Payment {response.get('STATUS', '').title()}"
+					res_dict.summary_details = {
+						self.payment_doc.name: {"payment_status": "Accepted"}
+					}
+				elif response.UTRNUMBER:
+					res_dict.status = "ACCEPTED"
+					res_dict.message = response.UTRNUMBER
 					res_dict.summary_details = {
 						self.payment_doc.name: {"payment_status": "Accepted"}
 					}
