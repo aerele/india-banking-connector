@@ -187,6 +187,8 @@ class KotakMahindraConnector(BankConnector):
 						"message": msg,
 						"utr_number": detail.find("ns0:UTR", namespace).text,
 					}
+					if detail.find("ns0:UTR", namespace).text:
+						payment_status_details[msg_id]["status"] = "Processed"
 
 			res_dict.payment_status = "PROCESSED"
 			res_dict.summary_details = payment_status_details
