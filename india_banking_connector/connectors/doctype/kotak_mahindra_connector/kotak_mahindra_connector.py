@@ -188,14 +188,8 @@ class KotakMahindraConnector(BankConnector):
 						"utr_number": detail.find("ns0:UTR", namespace).text,
 					}
 
-			if self.bulk_transaction:
-				res_dict.payment_status = "PROCESSED"
-				res_dict.summary_details = payment_status_details
-			else:
-				res_dict.payment_status = "PROCESSED"
-				res_dict.summary_details = payment_status_details.get(
-					self.payment_doc.name, {}
-				)
+			res_dict.payment_status = "PROCESSED"
+			res_dict.summary_details = payment_status_details
 
 	def get_encrypted_payload(self, method):
 		return self.aes_encrypt(
