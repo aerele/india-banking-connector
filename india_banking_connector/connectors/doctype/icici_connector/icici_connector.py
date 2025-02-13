@@ -35,9 +35,6 @@ class ICICIConnector(BankConnector):
 
 	@property
 	def urls(self):
-		if self.bulk_transaction and self.testing:
-			frappe.throw("Connector not supported for Testing API calls.")
-
 		return super().urls
 
 	def headers(self, mode_of_transfer=None):

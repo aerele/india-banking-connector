@@ -1,6 +1,6 @@
 import click
 import frappe
-
+import json
 from india_banking_connector.default import (
 	BANKS_CONNECTOR_MAP,
 	BULK_TRANSACTION_ENABLED_BANK,
@@ -105,6 +105,9 @@ def create_bank_api_endpoint():
 		doc.insert(ignore_permissions=True)
 
 	decrypted_endpoints = decrypt(ENCRYPTED_END_POINTS)
+
+	if isinstance(decrypted_endpoints, str):
+		decrypted_endpoints = json.loads(decrypted_endpoints)
 
 	for bank, api_detais in decrypted_endpoints.items():
 		bank = bank.replace("_", " ")
