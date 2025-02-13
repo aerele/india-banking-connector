@@ -1,94 +1,75 @@
-import frappe, re, random, string, json
-DEFAULT_CONNECTOR = ['ICICI Connector', 'HDFC Connector', 'YES Bank Connector', 'Kotak Mahindra Connector']
+import base64
+import json
+import random
+import re
+import string
+
+import frappe
+from cryptography.fernet import Fernet
+
+from india_banking_connector.default import DEFAULT_CONNECTOR
+
+HASH_KEY = "india_banking_connector"
+
 
 @frappe.whitelist()
 def get_default_connectors():
-    return DEFAULT_CONNECTOR
+	return DEFAULT_CONNECTOR
 
-def get_id(length: int= 10, text: str ="") -> str:
+
+def get_id(length: int = 10, text: str = "") -> str:
+	"""
+	Generate a random string ID of a specified length, optionally prefixed with a given text.
+	If the `length` parameter is a string, it will be used as the prefix text, and the length of the generated ID will be equal to the length of this string.
+	Args:
+		length (int): The desired length of the generated ID. Defaults to 10.
+		text (str): An optional prefix text to include in the generated ID. Defaults to an empty string.
+	Returns:
+		str: A randomly generated string ID of the specified length, optionally prefixed with the given text.
+	"""
+
 	if isinstance(length, str):
 		text = length
 		length = len(length)
-		return text + ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+		return text + "".join(
+			random.choices(string.ascii_lowercase + string.digits, k=length)
+		)
 	elif isinstance(length, int):
-		text = ''.join(re.findall(r'[0-9a-zA-Z]', text))
+		text = "".join(re.findall(r"[0-9a-zA-Z]", text))
 		text_length = len(text)
 		if text_length >= length:
 			return text[:length]
 		else:
 			length = length - text_length
-			return text + ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+			return text + "".join(
+				random.choices(string.ascii_lowercase + string.digits, k=length)
+			)
 
 
-def get_error_message(code):
-	msg=None
-	error_codes = {
-		"108363" : "The entered date cannot be prior to the current date.",
-		"108590" : "The header amount does not equal the sum of records in the uploaded file.",
-		"101043" : "Type system exception occurred",
-		"999481" : "Dear Customer, This facility is available for select customer segments only. For any further queries please write to corporatecare@icicibank.com",
-		"108588" : "The total number of records is not same in header and file records.",
-		"104668" : "Please select the proper files and attach again.",
-		"110370" : "Please select the proper files and attach again.",
-		"104344" : "The cut-off time for this transaction has already passed. This action cannot be performed with the current transaction date.",
-		"999936" : "Transactions already processed with same unique ID, please use exclusive unique id for each transaction.",
-		"111267" : "The record ID is not present in the file.",
-		"110004" : "Enter the valid date as the selected date is a bank holiday.",
-		"994006" : "OTP Validation Failed",
-		"107889" : "OTP Validation Failed",
-		"100901" : "Consumption limits not defined for the user. Transaction cannot be processed. Please contact the bank administrator",
-		"104666" : "File with the same name is already uploaded"
- 	}
-	msg = error_codes.get(str(code))
-	return msg
+def encrypt(data, key=None):
+	if not key:
+		key = HASH_KEY
 
-def format_payment_status(records):
-	if isinstance(records, str):
-		records = json.loads(records)
+	key = key.ljust(32)[:32].encode("utf-8")
 
-	keys = [
-		'transaction_type',
-		'network_id',
-		'credit_account_number',
-		'debit_account_number',
-		'ifsc_code',
-		'currency',
-		'total_amount',
-		'host_reference_number',
-		'host_response_code',
-		'host_response_message',
-		'transaction_remarks',
-		'transaction_status'
-	]
+	key = base64.urlsafe_b64encode(key)
 
-	result = {}
+	cipher = Fernet(key)
 
-	for row in records[1:]:
-		values = row.split('|')
-		row_dict = dict(zip(keys, values))
-		result[row_dict['transaction_remarks']]=row_dict
+	json_data = json.dumps(data).encode("utf-8")
+	encrypted_data = cipher.encrypt(json_data)
+	return encrypted_data
 
-	return result
 
-def get_file_status(key):
-	msg = None
-	keyword = {
-		"GIP" : "This is the intermediate state where GFP batches gets executed",
-		"PFI" : "(Pending for insertion)This is the state where bulk has been upload and transaction is completed from front end aand awaiting for the batch process to be completed.",
-		"ENT" : "Entered state for the transaction once bulk transaction is initiated",
-		"MIR" : "Manual intervention required: - goes for reversal",
-		"STS" : "Success",
-		"FAL" : "Failure",
-		"PPD" : "Partially processed",
-		"REJ" : "Transaction has gone to rejected case",
-		"ATH" : "status after process scheduler batch run is completed. Its before GFP batch.",
-		"CRP" : "Credit reversal pending",
-		"REC" : "when initiator itself canceled or recalled the txn"
-	}
+def decrypt(data, key=None):
+	if not key:
+		key = HASH_KEY
 
-	msg = keyword.get(key)
+	key = key.ljust(32)[:32].encode("utf-8")
 
-	if not msg:
-		msg = "Unknown issue occured"
+	key = base64.urlsafe_b64encode(key)
 
-	return msg
+	cipher = Fernet(key)
+
+	decrypted_data = cipher.decrypt(data)
+	return json.loads(decrypted_data.decode("utf-8"))

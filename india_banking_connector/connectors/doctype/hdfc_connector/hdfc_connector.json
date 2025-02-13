@@ -129,7 +129,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-09-19 13:13:04.355446",
+ "modified": "2025-02-13 10:10:38.999003",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "HDFC Connector",
@@ -151,5 +151,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }
