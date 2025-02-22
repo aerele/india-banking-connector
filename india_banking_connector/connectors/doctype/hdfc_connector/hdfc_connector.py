@@ -52,7 +52,7 @@ class HDFCConnector(BankConnector):
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="make_payment")
 
-		response = requests.post(url, headers=headers, data=payload)
+		response = requests.post(url, headers=headers, data=payload, cert= self.get_cert())
 
 		log_id = create_api_log(
 			response,
@@ -73,7 +73,7 @@ class HDFCConnector(BankConnector):
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="payment_status")
 
-		response = requests.post(url, headers=headers, data=payload)
+		response = requests.post(url, headers=headers, data=payload, cert=self.get_cert())
 
 		log_id = create_api_log(
 			response,
@@ -108,7 +108,7 @@ class HDFCConnector(BankConnector):
 				if isinstance(decrypted_response, str):
 					decrypted_response = json.loads(decrypted_response)
 
-				if decrypted_response.get("STATUS", "") in ["SUCCESS", "PENDING"]:
+				if decrypted_response.get("Transaction", "") in ["Accepted"]:
 					res_dict.payment_status = "ACCEPTED"
 					res_dict.message = (
 						decrypted_response.get("Transaction") or "Payment Accepted"
@@ -118,7 +118,7 @@ class HDFCConnector(BankConnector):
 					}
 
 			elif method == "payment_status":
-				decrypted_response = self.decrypt_response(response, bank=self.bank)
+				decrypted_response = self.decrypt_response(response)
 				self.set_decrypted_response(log_id, decrypted_response)
 
 				if isinstance(decrypted_response, str):
@@ -180,7 +180,7 @@ class HDFCConnector(BankConnector):
 				"INPUT_GCIF": conector_doc.scope,
 				"TRANSFER_TYPE_DESC": mode_of_transfer,
 				"BENE_BANK": payment_details.bank,
-				"INPUT_DEBIT_AMOUNT": payment_details.amount,
+				"INPUT_DEBIT_AMOUNT": str(payment_details.amount),
 				"INPUT_VALUE_DATE": getdate().strftime("%d/%m/%Y"),
 				"TRANSACTION_TYPE": "SINGLE",
 				"INPUT_DEBIT_ORG_ACC_NO": conector_doc.account_number,
@@ -189,7 +189,7 @@ class HDFCConnector(BankConnector):
 				"BENE_ACC_NAME": "",
 				"BENE_ACC_NO": payment_details.bank_account_no,
 				"BENE_TYPE": "ADHOC",
-				"BENE_BRANCH": "",
+				"BENE_BRANCH": payment_details.branch or "",
 				"BENE_IDN_CODE": payment_details.branch_code,
 				"EMAIL_ADDR_VIEW": payment_details.email,
 				"PAYMENT_REF_NO": payment_details.name,
