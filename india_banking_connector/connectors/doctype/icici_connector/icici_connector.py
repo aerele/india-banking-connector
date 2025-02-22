@@ -24,7 +24,7 @@ class ICICIConnector(BankConnector):
 	BLOCK_SIZE = 16
 	IV = "0000000000000000".encode("utf-8")
 
-	__all__ = ["intiate_payment", "get_payment_status"]
+	__all__ = ["initiate_payment", "get_payment_status"]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -53,7 +53,7 @@ class ICICIConnector(BankConnector):
 
 		return headers
 
-	def intiate_payment(self):
+	def initiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.make_payment

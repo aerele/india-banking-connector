@@ -19,7 +19,7 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 class HDFCConnector(BankConnector):
 	bank = "HDFC Bank"
 
-	__all__ = ["intiate_payment", "get_payment_status"]
+	__all__ = ["initiate_payment", "get_payment_status"]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -45,7 +45,7 @@ class HDFCConnector(BankConnector):
 			"Authorization": "Bearer " + self.get_oauth_token(),
 		}
 
-	def intiate_payment(self):
+	def initiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.make_payment
