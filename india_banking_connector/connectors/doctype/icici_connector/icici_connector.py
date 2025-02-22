@@ -343,14 +343,15 @@ class ICICIConnector(BankConnector):
 
 			self.set_decrypted_response(log_id, decrypted_data)
 
-			if self.bulk_transaction:
-				return self.handle_bulk_transaction_response(response, method)
-
 			parsed_data = (
 				json.loads(decrypted_data)
 				if isinstance(decrypted_data, str)
 				else decrypted_data
+			
 			)
+
+			if self.bulk_transaction:
+				return self.handle_bulk_transaction_response(parsed_data, method)
 
 			if method == "make_payment" and parsed_data:
 				response = frappe._dict(parsed_data)
