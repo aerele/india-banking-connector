@@ -25,6 +25,7 @@
   "enable_imps",
   "bcid",
   "pass_code",
+  "ifsc_code",
   "column_break_fuct",
   "retailer_code",
   "amended_from"
@@ -149,12 +150,17 @@
    "fieldname": "testing",
    "fieldtype": "Check",
    "label": "Testing"
+  },
+  {
+   "fieldname": "ifsc_code",
+   "fieldtype": "Data",
+   "label": "IFSC Code"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-14 11:10:46.919671",
+ "modified": "2025-02-13 10:11:00.652651",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
@@ -177,5 +183,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestBank(FrappeTestCase):
+class TestKotakMahindraConnector(FrappeTestCase):
 	pass

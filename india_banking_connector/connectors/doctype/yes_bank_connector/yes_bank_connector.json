@@ -111,7 +111,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-15 12:43:07.579928",
+ "modified": "2025-02-13 10:11:21.771793",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "YES BANK Connector",
@@ -134,5 +134,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }
