@@ -20,7 +20,7 @@ class KotakMahindraConnector(BankConnector):
 
 	IV = "0000000000000000".encode("utf-8")
 
-	__all__ = ["intiate_payment", "get_payment_status"]
+	__all__ = ["intiate_payment", "get_payment_status", "update_benificery_details"]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -98,6 +98,28 @@ class KotakMahindraConnector(BankConnector):
 			response, method="payment_status", log_id=log_id
 		)
 
+	def update_benificery_details(self):
+		payment = self.payment_doc if not self.bulk_transaction else self.doc
+
+		url = self.urls.benificery[payment.action]
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="update_benificery_details", action=payment.action)
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Update Benificery Details",
+			account_config=self.get_account_config("update_benificery_details", action=payment.action),
+			ref_doctype=self.payment_doc.doctype,
+			ref_docname=self.payment_doc.name,
+		)
+
+		return self.get_decrypted_response(
+			response, method="payment_status", action=payment.action, log_id=log_id
+		)
+
+
 	def get_oauth_token(self):
 		params = {"grant_type": "client_credentials"}
 
@@ -128,7 +150,7 @@ class KotakMahindraConnector(BankConnector):
 				"Bank Request Log", log_id, "decrypted_response", response_data
 			)
 
-	def get_decrypted_response(self, response, method, log_id=None):
+	def get_decrypted_response(self, response, method, action=None, log_id=None):
 		res_dict = frappe._dict({})
 
 		if response.ok:
@@ -136,7 +158,7 @@ class KotakMahindraConnector(BankConnector):
 				response.text, self.get_password("client_secret").encode("utf-8")
 			)
 			self.set_decrypted_response(log_id, decrypted_response)
-			self.get_formated_response(decrypted_response, res_dict, method)
+			self.get_formated_response(decrypted_response, res_dict, method, action=action)
 
 		else:
 			res_dict.status = "Request Failure"
@@ -144,8 +166,36 @@ class KotakMahindraConnector(BankConnector):
 
 		return res_dict
 
-	def get_formated_response(self, data, res_dict, method):
+	def get_formated_response_for_benificery(self, data, res_dict=None, action=None):
+		if action == "Create" and data.get("associationId"):
+			res_dict.status = "success"
+			res_dict.association_id = data.get("associationId")
+			res_dict.message = "Beneficiary added successfully."
+		elif action == "Update" and data.get("data", {}).get("Status", "") == "Success":
+			res_dict.status = "success"
+			res_dict.message = "Beneficiary Updated"
+		elif action == "Discard" and data.get("data", {}).get("Status", "") == "Success":
+			res_dict.status = "success"
+			res_dict.message = "Beneficiary Discarded"
+		elif action == "Approve" and data.get("data", {}).get("status", "") == "success":
+			res_dict.status = "success"
+			res_dict.message = "Beneficiary Approved"
+		elif action == "Reject" and data.get("data", {}).get("status", "") == "success":
+			res_dict.status = "success"
+			res_dict.message = "Beneficiary Rejected"
+		elif action == "Suspend" and data.get("data", {}).get("status", "") == "success":
+			res_dict.status = "success"
+			res_dict.message = "Beneficiary Suspended"
+		else:
+			res_dict.status = "failed"
+			res_dict.message = data
+
+
+	def get_formated_response(self, data, res_dict, method, action=None):
 		root = ET.fromstring(data)
+
+		if method == "update_benificery_details":
+			return self.get_formated_response_for_benificery(data, res_dict, action=action)
 
 		if method == "make_payment":
 			namespace = {
@@ -202,13 +252,128 @@ class KotakMahindraConnector(BankConnector):
 					payment_status_details.get(self.payment_doc.name, {})
 				)
 
-	def get_encrypted_payload(self, method):
+	def get_encrypted_payload(self, method, action=None):
 		return self.aes_encrypt(
-			self.get_account_config(method), self.get_password("client_secret")
+			self.get_account_config(method, action), self.get_password("client_secret")
 		)
 
-	def get_account_config(self, method):
+	def get_account_config(self, method, action=None):
+		if method == "update_benificery_details":
+			return self.get_benificery_payload(action)
 		return self.get_xml_payload(method)
+
+
+	def get_benificery_payload(self, action=None):
+		if action not in ('Create', 'Update', 'Discard', 'Reject', 'Suspend', 'Approve'):
+			frappe.throw(frappe._("Invalid Action"))
+
+		payment = self.payment_doc if not self.bulk_transaction else self.doc
+
+		if action == "Create":
+			return {
+				"clientId":"HIDDENB",
+				"legalEntity":"IN",
+				"beneficiaryId":"TIBCOP0ER9",
+				"beneficiaryName":"TIBCO ER09",
+				"beneficiaryType":"INDIVIDUAL",
+				"leiCode":"1123123WQWERTFVG34",
+				"beneficiaryLimit":{
+					"limitLevel":"BENEFICIARY",
+					"limitFrequency":"DAILY",
+					"limitOnTransactions":199,
+					"limitOnAmount":88888.99
+				},
+				"mobile":"9999999999",
+				"email":"abc.k@gmail.com",
+				"postalAddress":{
+					"addressType":"ADDR",
+					"addressLine1":"Off western highway",
+					"addressLine2":"Opposite Oberoi mall",
+					"addressLine3":"Goregaon East Mumbai "
+				},
+				"bankAccount":{
+					"paymentType":"INTERBANK-TRANSFER",
+					"packageType":"DEFAULT",
+					"packageCode":"BBPACKAGE",
+					"packageName":"BBPackage",
+					"isDefaultAccount":"Y",
+					"account":{
+						"id":{
+							"other":{
+							"id":"01062024ERR09"
+							}
+						},
+						"type":"CURRENT",
+						"currency":"INR"
+					},
+					"benificiaryBank":{
+						"identifierType":"IFSC",
+						"otherId":"ICIC0000057",
+						"name":"ICIC0000057 MUMBAI PRABHADEVI"
+					}
+				}
+			}
+		elif action in ["Update", "Discard"]:
+			return {
+				"associationId":"250106DWB0",
+				"beneficiaryName":"Nilesh Kabale ",
+				"beneficiaryType":"INDIVIDUAL",
+				"leiCode":"",
+				"beneficiaryLimit":{
+					"limitLevel":"BENEFICIARY",
+					"limitFrequency":"DAILY",
+					"limitOnTransactions":100,
+					"limitOnAmount":8888888.99
+				},
+				"mobile":"1234567890",
+				"email":"PQR.K@GMAIL.COM",
+				"postalAddress":{
+					"addressType":"ADDR",
+					"department":"",
+					"subDepartment":"",
+					"streetName":"",
+					"buildingNumber":"",
+					"postalCode":"",
+					"townName":"",
+					"countrySubDivision":"",
+					"country":"IN",
+					"addressLine1":"Pimpri Pune",
+					"addressLine2":"Pune",
+					"addressLine3":"Pune-18"
+				},
+				"bankAccount":{
+					"paymentType":"INTERBANK-TRANSFER",
+					"packageType":"DEFAULT",
+					"packageCode":"",
+					"packageName":"",
+					"isDefaultAccount":"N",
+					"account":{
+						"id":{
+							"other":{
+							"id":"TIPCO0000000032"
+							}
+						},
+						"type":"CURRENT",
+						"currency":""
+					},
+					"benificiaryBank":{
+						"identifierType":"IFSC",
+						"otherId":"ICIC0000057",
+						"name":""
+					}
+				},
+				"makerRemarks":"Update Bene"
+			}
+		elif action in ["Approve", "Reject", "Suspend"]:
+			return {
+				"event": cstr(action).upper(),
+				"associationId":payment.association_id,
+				"checkerRemarks": "Checker Beneficiary reject",
+				"makerRemarks": "Maker Beneficiary reject"
+			}
+		else:
+			frappe.throw(frappe._("Invalid Benificery Action"))
+
 
 	def get_xml_payload(self, method):
 		def _dict_to_xml(tag, data, namespaces={}):
