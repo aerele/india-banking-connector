@@ -34,7 +34,9 @@ class YESBANKConnector(BankConnector):
 
 	@property
 	def headers(self):
-		bareer_token = b64encode(f"{self.get_password('user_name')}:{self.get_password('password')}".encode())
+		bareer_token = b64encode(
+			f"{self.get_password('user_name')}:{self.get_password('password')}".encode()
+		)
 		return {
 			"X-IBM-Client-Id": self.get_password("client_key"),
 			"X-IBM-Client-Secret": self.get_password("client_secret"),
@@ -44,6 +46,14 @@ class YESBANKConnector(BankConnector):
 
 	def initiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = (
+			self.payment_doc.name if not self.bulk_transaction else self.doc.name
+		)
+
+		if existing_payment_response := self.validate_dublicate_payments(
+			unique_id=unique_id
+		):
+			return existing_payment_response
 
 		url = self.urls.make_payment
 		headers = self.headers
@@ -53,18 +63,24 @@ class YESBANKConnector(BankConnector):
 			url, headers=headers, data=payload, cert=self.get_cert()
 		)
 
-		create_api_log(
+		log_id = create_api_log(
 			response,
 			action="Initiate Payment",
 			account_config=self.get_payload(method="make_payment"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
-		return self.get_verified_response(response, method="make_payment")
+		return self.get_verified_response(
+			response, method="make_payment", log_id=log_id
+		)
 
 	def get_payment_status(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = (
+			self.payment_doc.name if not self.bulk_transaction else self.doc.name
+		)
 
 		url = self.urls.payment_status
 		headers = self.headers
@@ -78,6 +94,7 @@ class YESBANKConnector(BankConnector):
 			account_config=self.get_payload("payment_status"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_verified_response(response, method="payment_status")
@@ -190,52 +207,69 @@ class YESBANKConnector(BankConnector):
 			}
 		)
 
-	def get_verified_response(self, response, method):
+	def get_verified_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 		if response.ok:
 			response_data = response.json()
-			if method == "make_payment":
-				status = response_data.get("Data", {}).get("Status")
-				if status == "Received":
-					res_dict.payment_status = "ACCEPTED"
-					res_dict.message = "Payment Accepted"
-					res_dict.summary_details = {
-						self.payment_doc.name: {
-							"payment_status": "Accepted",
-							"message": "Payment Rejected due to Dublicate ID",
-						}
-					}
-				elif status == "Duplicate":
-					res_dict.payment_status = "ACCEPTED"
-					res_dict.summary_details = {
-						self.payment_doc.name: {
-							"payment_status": "Failed",
-							"message": "Payment Rejected due to Dublicate ID",
-						}
-					}
-
-			elif method == "payment_status":
-				res_dict.payment_status = "PROCESSED"
-				msg, utr, sts = self.get_msg_utr_number(response_data)
-				res_dict.summary_details = {
-					self.payment_doc.name: {
-						"status": sts,
-						"message": msg,
-						"utr_number": utr,
-					}
-				}
-
-			elif method == "bank_balance":
-				balance = (
-					response_data.get("Data", {})
-					.get("FundsAvailableResult", {})
-					.get("BalanceAmount", "")
-				)
-				res_dict.update({"balance": balance})
+			self.set_decrypted_response(log_id, response_data)
+			self.get_formated_response(response_data, res_dict, method)
 		else:
 			res_dict.update({"status": "Request Failure", "error": response.text})
 
 		return res_dict
+
+	def get_formated_response(self, data, res_dict, method):
+		if isinstance(data, str):
+			data = json.loads(data)
+
+		data = frappe._dict(data)
+
+		if method == "make_payment":
+			status = data.get("Data", {}).get("Status")
+			if status == "Received":
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.message = "Payment Accepted"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"payment_status": "Accepted",
+						"message": "Payment Rejected due to Dublicate ID",
+					}
+				}
+			elif status == "Duplicate":
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"payment_status": "Failed",
+						"message": "Payment Rejected due to Dublicate ID",
+					}
+				}
+
+		elif method == "payment_status":
+			res_dict.payment_status = "PROCESSED"
+			msg, utr, sts = self.get_msg_utr_number(data)
+			res_dict.summary_details = {
+				self.payment_doc.name: {
+					"status": sts,
+					"message": msg,
+					"utr_number": utr,
+				}
+			}
+
+		elif method == "bank_balance":
+			balance = (
+				data.get("Data", {})
+				.get("FundsAvailableResult", {})
+				.get("BalanceAmount", "")
+			)
+			res_dict.update({"balance": balance})
+
+	def set_decrypted_response(self, log_id, response_data):
+		response_data = response_data
+
+		if frappe.db.exists("Bank Request Log", log_id):
+			frappe.db.set_value(
+				"Bank Request Log", log_id, "decrypted_response", response_data
+			)
 
 	def get_msg_utr_number(self, data):
 		msg, utr, sts = "Payment Status Not Available", None, "Request Failure"

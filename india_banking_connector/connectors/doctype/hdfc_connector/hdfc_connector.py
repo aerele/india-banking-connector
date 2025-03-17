@@ -47,12 +47,22 @@ class HDFCConnector(BankConnector):
 
 	def initiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = (
+			self.payment_doc.name if not self.bulk_transaction else self.doc.name
+		)
+
+		if existing_payment_response := self.validate_dublicate_payments(
+			unique_id=unique_id
+		):
+			return existing_payment_response
 
 		url = self.urls.make_payment
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="make_payment")
 
-		response = requests.post(url, headers=headers, data=payload, cert= self.get_cert())
+		response = requests.post(
+			url, headers=headers, data=payload, cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response,
@@ -60,6 +70,7 @@ class HDFCConnector(BankConnector):
 			account_config=self.get_account_config("make_payment"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_decrypted_response(
@@ -68,12 +79,17 @@ class HDFCConnector(BankConnector):
 
 	def get_payment_status(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = (
+			self.payment_doc.name if not self.bulk_transaction else self.doc.name
+		)
 
 		url = self.urls.payment_status
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="payment_status")
 
-		response = requests.post(url, headers=headers, data=payload, cert=self.get_cert())
+		response = requests.post(
+			url, headers=headers, data=payload, cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response,
@@ -81,6 +97,7 @@ class HDFCConnector(BankConnector):
 			account_config=self.get_account_config("payment_status"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_decrypted_response(
@@ -101,45 +118,41 @@ class HDFCConnector(BankConnector):
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 		if response.ok:
-			if method == "make_payment":
-				decrypted_response = self.decrypt_response(response)
-				self.set_decrypted_response(log_id, decrypted_response)
+			decrypted_response = self.decrypt_response(response)
 
-				if isinstance(decrypted_response, str):
-					decrypted_response = json.loads(decrypted_response)
-
-				if decrypted_response.get("Transaction", "") in ["Accepted"]:
-					res_dict.payment_status = "ACCEPTED"
-					res_dict.message = (
-						decrypted_response.get("Transaction") or "Payment Accepted"
-					)
-					res_dict.summary_details = {
-						self.payment_doc.name: {"payment_status": "Accepted"}
-					}
-
-			elif method == "payment_status":
-				decrypted_response = self.decrypt_response(response)
-				self.set_decrypted_response(log_id, decrypted_response)
-
-				if isinstance(decrypted_response, str):
-					decrypted_response = json.loads(decrypted_response)
-
-				msg, utr, sts = self.get_msg_utr_number(decrypted_response)
-
-				res_dict.payment_status = "PROCESSED" if sts != "" else "FAILED"
-				res_dict.summary_details = {
-					self.payment_doc.name: {
-						"status": sts,
-						"utr_number": utr,
-						"message": msg,
-					}
-				}
-
+			self.set_decrypted_response(log_id, decrypted_response)
+			self.get_formated_response(decrypted_response, res_dict, method)
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text
 
 		return res_dict
+
+	def get_formated_response(self, data, res_dict, method):
+		if isinstance(data, str):
+			data = json.loads(data)
+
+		data = frappe._dict(data)
+
+		if method == "make_payment":
+			if data.get("Transaction", "") in ["Accepted"]:
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.message = data.get("Transaction") or "Payment Accepted"
+				res_dict.summary_details = {
+					self.payment_doc.name: {"payment_status": "Accepted"}
+				}
+
+		elif method == "payment_status":
+			msg, utr, sts = self.get_msg_utr_number(data)
+
+			res_dict.payment_status = "PROCESSED" if sts != "" else "FAILED"
+			res_dict.summary_details = {
+				self.payment_doc.name: {
+					"status": sts,
+					"utr_number": utr,
+					"message": msg,
+				}
+			}
 
 	def get_msg_utr_number(self, data):
 		if "ALL_RECORDS" in data and data["ALL_RECORDS"]:
@@ -162,7 +175,7 @@ class HDFCConnector(BankConnector):
 			return
 
 	def get_encrypted_payload(self, method):
-		return self.encrypt_payload(self.get_account_config(method), bank=self.bank)
+		return self.encrypt_payload(self.get_account_config(method))
 
 	def get_account_config(self, method):
 		conector_doc = self
@@ -189,7 +202,7 @@ class HDFCConnector(BankConnector):
 				"BENE_ACC_NAME": "",
 				"BENE_ACC_NO": payment_details.bank_account_no,
 				"BENE_TYPE": "ADHOC",
-				"BENE_BRANCH": payment_details.branch or "",
+				"BENE_BRANCH": payment_details.branch or payment_details.branch_code,
 				"BENE_IDN_CODE": payment_details.branch_code,
 				"EMAIL_ADDR_VIEW": payment_details.email,
 				"PAYMENT_REF_NO": payment_details.name,

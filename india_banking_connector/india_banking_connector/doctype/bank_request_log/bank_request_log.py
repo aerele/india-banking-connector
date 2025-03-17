@@ -21,10 +21,10 @@ def format_with_indent(data):
 	Format the given data with indentation for better readability.
 
 	Note:
-			- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
-			- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
-			- If the input is an XML string, it is converted to a pretty-printed XML string.
-			- If formatting fails, the original data is returned and an error is logged.
+		- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
+		- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
+		- If the input is an XML string, it is converted to a pretty-printed XML string.
+		- If formatting fails, the original data is returned and an error is logged.
 	"""
 	try:
 		if not data:
@@ -46,13 +46,18 @@ def format_with_indent(data):
 
 @frappe.whitelist()
 def create_api_log(
-	res, action=None, account_config=None, ref_doctype=None, ref_docname=None
+	res,
+	action=None,
+	account_config=None,
+	ref_doctype=None,
+	ref_docname=None,
+	unique_id=None,
 ):
 	"""Can create API log From response
 
 	Args:
-			res (response object): It is used to obtain an API response.
-			request_from (str): It is optional for the purposes of the API...
+		res (response object): It is used to obtain an API response.
+		request_from (str): It is optional for the purposes of the API...
 	"""
 	if not isinstance(res, Response):
 		return
@@ -69,6 +74,7 @@ def create_api_log(
 		log_doc.status_code = res.status_code
 		log_doc.reference_doctype = ref_doctype
 		log_doc.reference_docname = ref_docname
+		log_doc.unique_id = unique_id
 		log_doc.save()
 	except:
 		frappe.log_error(
