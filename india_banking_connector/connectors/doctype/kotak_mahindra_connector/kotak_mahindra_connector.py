@@ -191,9 +191,12 @@ class KotakMahindraConnector(BankConnector):
 			for detail in rev_details:
 				msg_id = detail.find("ns0:Msg_Id", namespace).text
 				status_code = detail.find("ns0:Status_Code", namespace).text
+				status_description = detail.find("ns0:Status_Desc", namespace).text
 
 				if msg_id:
 					msg, sts = self.get_status_description(status_code)
+					if status_code == "R" and status_description and status_description == "REJECTED":
+						sts = "Failed"
 
 					payment_status_details[msg_id] = {
 						"status": sts,
