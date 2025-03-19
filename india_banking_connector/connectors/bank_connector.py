@@ -48,7 +48,7 @@ class BankConnector(Document):
 		if not frappe.has_permission("Bank Request Log", "write"):
 			frappe.throw("Not permitted", frappe.PermissionError)
 
-	def validate_dublicate_payments(self, unique_id=None, method="make_payment"):
+	def validate_duplicate_payments(self, unique_id=None, method="make_payment"):
 		"""
 		Validate duplicate payments by checking if a payment has already been made against the given unique ID.
 		If a payment exists, fetch the already processed details and return them.

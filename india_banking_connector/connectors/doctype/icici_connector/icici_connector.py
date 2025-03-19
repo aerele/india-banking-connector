@@ -59,7 +59,7 @@ class ICICIConnector(BankConnector):
 		if not self.bulk_transaction:
 			unique_id = payment_details.name
 
-		if existing_payment_response := self.validate_dublicate_payments(
+		if existing_payment_response := self.validate_duplicate_payments(
 			unique_id=unique_id
 		):
 			return existing_payment_response

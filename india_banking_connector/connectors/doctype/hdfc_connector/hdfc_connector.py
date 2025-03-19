@@ -51,7 +51,7 @@ class HDFCConnector(BankConnector):
 			self.payment_doc.name if not self.bulk_transaction else self.doc.name
 		)
 
-		if existing_payment_response := self.validate_dublicate_payments(
+		if existing_payment_response := self.validate_duplicate_payments(
 			unique_id=unique_id
 		):
 			return existing_payment_response
