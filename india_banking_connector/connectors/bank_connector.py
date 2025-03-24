@@ -48,6 +48,43 @@ class BankConnector(Document):
 		if not frappe.has_permission("Bank Request Log", "write"):
 			frappe.throw("Not permitted", frappe.PermissionError)
 
+	def validate_duplicate_payments(self, unique_id=None, method="make_payment"):
+		"""
+		Validate duplicate payments by checking if a payment has already been made against the given unique ID.
+		If a payment exists, fetch the already processed details and return them.
+		Args:
+			unique_id (str, optional): The unique identifier for the payment. Defaults to None.
+			method (str, optional): The method to be used for formatting the response. Defaults to "make_payment".
+		Returns:
+			dict: A dictionary containing the formatted response of the existing payment if found, otherwise an empty dictionary.
+		"""
+		if not unique_id:
+			return
+
+		res_dict = frappe._dict({})
+		existing_payment_response = frappe.get_value(
+			"Bank Request Log",
+			{
+				"unique_id": unique_id,
+				"action": "Initiate Payment",
+				"status_code": "200",
+			},
+			"decrypted_response",
+		)
+
+		if existing_payment_response and hasattr(self, "get_formated_response"):
+			self.get_formated_response(
+				existing_payment_response, res_dict, method=method
+			)
+		elif existing_payment_response:
+			frappe.throw(
+				frappe._(
+					f"Payment with ID {unique_id} has already been processed. Aborting transaction."
+				)
+			)
+
+		return res_dict
+
 	# HDFC Encryption and Decryption
 	# Generate JWS with RS256
 	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
@@ -61,24 +98,23 @@ class BankConnector(Document):
 
 		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
 
-	def encrypt_payload(self, payload, bank):
-		if bank == "HDFC Bank":
-			jws_signed = self.generate_jws_with_rs256(
-				payload,
-				self.get_file_content(self.private_key),
-				kid=self.generate_kid(self.sign_key),
-			)
+	def encrypt_payload(self, payload):
+		jws_signed = self.generate_jws_with_rs256(
+			payload,
+			self.get_file_content(self.private_key),
+			kid=self.generate_kid(self.sign_key),
+		)
 
-			encrypted_payload = jwe.encrypt(
-				plaintext=jws_signed,
-				key=self.get_file_content(self.public_key),
-				encryption="A256GCM",
-				algorithm="RSA-OAEP-256",
-				cty="JWE",
-				kid=self.generate_kid(self.public_key),
-			)
+		encrypted_payload = jwe.encrypt(
+			plaintext=jws_signed,
+			key=self.get_file_content(self.public_key),
+			encryption="A256GCM",
+			algorithm="RSA-OAEP-256",
+			cty="JWE",
+			kid=self.generate_kid(self.public_key),
+		)
 
-			return encrypted_payload
+		return encrypted_payload
 
 	def decrypt_response(self, response):
 		jwe_decrypted = jwe.decrypt(

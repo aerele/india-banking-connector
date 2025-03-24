@@ -45,6 +45,14 @@ class KotakMahindraConnector(BankConnector):
 
 	def initiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = (
+			self.payment_doc.name if not self.bulk_transaction else self.doc.name
+		)
+
+		if existing_payment_response := self.validate_duplicate_payments(
+			unique_id=unique_id
+		):
+			return existing_payment_response
 
 		url = self.urls.make_payment
 		headers = self.headers
@@ -58,6 +66,7 @@ class KotakMahindraConnector(BankConnector):
 			account_config=self.get_account_config("make_payment"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_decrypted_response(
@@ -66,6 +75,9 @@ class KotakMahindraConnector(BankConnector):
 
 	def get_payment_status(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = (
+			self.payment_doc.name if not self.bulk_transaction else self.doc.name
+		)
 
 		url = self.urls.payment_status
 		headers = self.headers
@@ -79,6 +91,7 @@ class KotakMahindraConnector(BankConnector):
 			account_config=self.get_account_config("payment_status"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_decrypted_response(
@@ -178,9 +191,16 @@ class KotakMahindraConnector(BankConnector):
 			for detail in rev_details:
 				msg_id = detail.find("ns0:Msg_Id", namespace).text
 				status_code = detail.find("ns0:Status_Code", namespace).text
+				status_description = detail.find("ns0:Status_Desc", namespace).text
 
 				if msg_id:
-					msg, sts = self.get_status_description(status_code)
+					if len(self.get_status_description(status_code)) == 2:
+						msg, sts = self.get_status_description(status_code)
+					else:
+						msg, sts = self.get_status_description(status_code), status_code
+
+					if status_code == "R" and status_description and status_description == "REJECTED":
+						sts = "Failed"
 
 					payment_status_details[msg_id] = {
 						"status": sts,

@@ -55,6 +55,14 @@ class ICICIConnector(BankConnector):
 
 	def initiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))[-10:]
+		if not self.bulk_transaction:
+			unique_id = payment_details.name
+
+		if existing_payment_response := self.validate_duplicate_payments(
+			unique_id=unique_id
+		):
+			return existing_payment_response
 
 		url = self.urls.make_payment
 		headers = self.headers(payment_details.mode_of_transfer)
@@ -68,6 +76,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("make_payment"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_decrypted_response(
@@ -76,6 +85,9 @@ class ICICIConnector(BankConnector):
 
 	def get_payment_status(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))[-10:]
+		if not self.bulk_transaction:
+			unique_id = payment_details.name
 
 		mode_of_transfer = payment_details.mode_of_transfer
 
@@ -91,6 +103,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("payment_status"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			unique_id=unique_id,
 		)
 
 		return self.get_decrypted_response(
@@ -291,6 +304,7 @@ class ICICIConnector(BankConnector):
 	def set_payment_status_data(self, data):
 		connector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))[-10:]
 
 		if self.bulk_transaction:
 			payment_doc = self.doc
@@ -300,6 +314,7 @@ class ICICIConnector(BankConnector):
 					"USERID": connector_doc.corp_usr or connector_doc.corp_usr,
 					"AGGRID": connector_doc.aggr_id,
 					"URN": connector_doc.urn,
+					"UNIQUEID": unique_id,
 					"FILESEQNUM": payment_doc.file_sequence_number,
 					"ISENCRYPTED": "N",
 				}
@@ -343,140 +358,131 @@ class ICICIConnector(BankConnector):
 
 			self.set_decrypted_response(log_id, decrypted_data)
 
-			parsed_data = (
-				json.loads(decrypted_data)
-				if isinstance(decrypted_data, str)
-				else decrypted_data
-			
-			)
-
-			if self.bulk_transaction:
-				return self.handle_bulk_transaction_response(parsed_data, method)
-
-			if method == "make_payment" and parsed_data:
-				response = frappe._dict(parsed_data)
-
-				if response.STATUS in ["SUCCESS", "PENDING", "PENDING FOR PROCESSING"]:
-					res_dict.payment_status = "ACCEPTED"
-					res_dict.message = f"Payment {response.get('STATUS', '').title()}"
-					res_dict.summary_details = {
-						self.payment_doc.name: {"payment_status": "Accepted"}
-					}
-				elif response.UTRNUMBER:
-					res_dict.status = "ACCEPTED"
-					res_dict.message = response.UTRNUMBER
-					res_dict.summary_details = {
-						self.payment_doc.name: {"payment_status": "Accepted"}
-					}
-				elif response.STATUS == "DUPLICATE":
-					res_dict.payment_status = "ACCEPTED"
-					res_dict.message = f"Payment {response.get('STATUS', '').title()}"
-					res_dict.summary_details = {
-						self.payment_doc.name: {"payment_status": "Failed"}
-					}
-				elif response.errorCode == "997":
-					res_dict.payment_status = "Request Failure"
-					res_dict.message = f"{response.errorCode} : {response.description}"
-				else:
-					res_dict.payment_status = "FAILED"
-					res_dict.message = f"Invalid Status : {response.STATUS}"
-
-			elif method == "payment_status" and parsed_data:
-				response = frappe._dict(parsed_data)
-
-				if response.STATUS == "SUCCESS":
-					res_dict.payment_status = "PROCESSED"
-					res_dict.summary_details = {
-						self.payment_doc.name: {
-							"status": "Processed",
-							"utr_number": response.UTRNUMBER,
-							"message": response.MESSAGE or "Payment Completed",
-						}
-					}
-				elif response.STATUS == "PENDING":
-					res_dict.payment_status = "PROCESSED"
-					res_dict.summary_details = {
-						self.payment_doc.name: {
-							"status": "Pending",
-							"message": response.MESSAGE or "Payment Pending",
-						}
-					}
-				elif response.STATUS == "FAILURE":
-					res_dict.payment_status = "PROCESSED"
-					res_dict.summary_details = {
-						self.payment_doc.name: {
-							"status": "Failed",
-							"message": response.MESSAGE or "Payment Failed",
-						}
-					}
-				else:
-					res_dict.payment_status = "PROCESSED"
-					res_dict.summary_details = {
-						self.payment_doc.name: {
-							"status": "Request Failure",
-							"message": response.MESSAGE or "Payment Request Failure",
-						}
-					}
-
+			self.get_formated_response(decrypted_data, res_dict, method)
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.message = response.text or response.status_code
 
 		return res_dict
 
+	def get_formated_response(self, data, res_dict, method):
+		if isinstance(data, str):
+			data = json.loads(data)
+
+		data = frappe._dict(data)
+
+		if self.bulk_transaction:
+			self.handle_bulk_transaction_response(data, res_dict, method)
+			return res_dict
+
+		if method == "make_payment" and data:
+			if data.STATUS in ["SUCCESS", "PENDING", "PENDING FOR PROCESSING"]:
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.message = f"Payment {data.get('STATUS', '').title()}"
+				res_dict.summary_details = {
+					self.payment_doc.name: {"payment_status": "Accepted"}
+				}
+			elif data.UTRNUMBER:
+				res_dict.status = "ACCEPTED"
+				res_dict.message = data.UTRNUMBER
+				res_dict.summary_details = {
+					self.payment_doc.name: {"payment_status": "Accepted"}
+				}
+			elif data.STATUS == "DUPLICATE":
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.message = f"Payment {data.get('STATUS', '').title()}"
+				res_dict.summary_details = {
+					self.payment_doc.name: {"payment_status": "Failed"}
+				}
+			elif data.errorCode == "997":
+				res_dict.payment_status = "Request Failure"
+				res_dict.message = f"{data.errorCode} : {data.description}"
+			else:
+				res_dict.payment_status = "FAILED"
+				res_dict.message = f"Invalid Status : {data.STATUS}"
+
+		elif method == "payment_status" and data:
+			if data.STATUS == "SUCCESS":
+				res_dict.payment_status = "PROCESSED"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"status": "Processed",
+						"utr_number": data.UTRNUMBER,
+						"message": data.MESSAGE or "Payment Completed",
+					}
+				}
+			elif data.STATUS == "PENDING":
+				res_dict.payment_status = "PROCESSED"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"status": "Pending",
+						"message": data.MESSAGE or "Payment Pending",
+					}
+				}
+			elif data.STATUS == "FAILURE":
+				res_dict.payment_status = "PROCESSED"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"status": "Failed",
+						"message": data.MESSAGE or "Payment Failed",
+					}
+				}
+			else:
+				res_dict.payment_status = "PROCESSED"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"status": "Request Failure",
+						"message": data.MESSAGE or "Payment Request Failure",
+					}
+				}
+
 	def get_summary_details(self, status):
 		summary_details = {}
 
 		for summary in self.doc.summary:
-			summary_details.update({summary.name: {"payment_status": status}})
+			summary_details.update({summary.get("name"): {"payment_status": status}})
+
 		return summary_details
 
-	def handle_bulk_transaction_response(self, response, method):
-		res_dict = frappe._dict({})
-
-		if isinstance(response, str):
-			response = json.loads(response)
-
-		response = frappe._dict(response)
-
-		if method == "generate_otp" and response:
-			if response.get("RESPONSE") == "Success":
+	def handle_bulk_transaction_response(self, data, res_dict, method):
+		if method == "generate_otp" and data:
+			if data.get("RESPONSE") == "Success":
 				res_dict.status = "success"
-				res_dict.message = response.get("MESSAGE")
+				res_dict.message = data.get("MESSAGE")
 
-			elif response.get("errormessage"):
+			elif data.get("errormessage"):
 				res_dict.status = "Failed"
 				err_msg = None
 
-				if response.get("ErrorCode"):
-					err_msg = self.get_error_description(response.get("ErrorCode"))
+				if data.get("ErrorCode"):
+					err_msg = self.get_error_description(data.get("ErrorCode"))
 
 				res_dict.message = (
-					err_msg or response.get("errormessage") or response.get("Message")
+					err_msg or data.get("errormessage") or data.get("Message")
 				)
 
-		elif method == "make_payment" and response:
-			if response.get("FILE_SEQUENCE_NUM"):
+		elif method == "make_payment" and data:
+			if data.get("FILE_SEQUENCE_NUM"):
 				res_dict.payment_status = "ACCEPTED"
-				res_dict.message = response.get("MESSAGE_DESC")
-				res_dict.file_sequence_number = response.get("FILE_SEQUENCE_NUM")
+				res_dict.message = data.get("MESSAGE_DESC")
+				res_dict.file_sequence_number = data.get("FILE_SEQUENCE_NUM")
 
 				res_dict.summary_details = self.get_summary_details("Accepted")
 
-			elif response.get("errormessage") or response.get("ErrorCode"):
+			elif data.get("errormessage") or data.get("ErrorCode"):
 				res_dict.payment_status = "ACCEPTED"
 				err_msg = ""
 
-				if response.get("ErrorCode"):
-					err_msg = self.get_error_description(response.get("ErrorCode"))
+				if data.get("ErrorCode"):
+					err_msg = self.get_error_description(data.get("ErrorCode"))
 				res_dict.message = (
-					err_msg or response.get("errormessage") or response.get("Message")
+					err_msg or data.get("errormessage") or data.get("Message")
 				)
 
 				res_dict.summary_details = self.get_summary_details("Failed")
 
-		elif method == "payment_status" and response:
-			if file_status := response.get("XML", {}).get("FILE_STATUS"):
+		elif method == "payment_status" and data:
+			if file_status := data.get("XML", {}).get("FILE_STATUS"):
 				res_dict.payment_status = "PROCESSED"
 				if file_status in ["REJ", "REC"]:
 					res_dict.message = "Payment Rejected"
@@ -486,26 +492,26 @@ class ICICIConnector(BankConnector):
 				res_dict.summary_details = {}
 
 				if (
-					response.get("XML")
+					data.get("XML")
 					.get("FILEUPLOAD_BINARY_OUTPUT")
 					.get("Records")
 					.get("Record")
 				):
 					res_dict.summary_details = self.format_payment_status(
-						response.get("XML", {})
+						data.get("XML", {})
 						.get("FILEUPLOAD_BINARY_OUTPUT", {})
 						.get("Records", {})
 						.get("Record", "")
 					)
 
-			elif response.get("errormessage") or response.get("ErrorCode"):
+			elif data.get("errormessage") or data.get("ErrorCode"):
 				res_dict.status = "Failed"
 				err_msg = None
-				if response.get("ErrorCode"):
-					err_msg = self.get_error_description(response.get("ErrorCode"))
+				if data.get("ErrorCode"):
+					err_msg = self.get_error_description(data.get("ErrorCode"))
 
 				res_dict.message = (
-					err_msg or response.get("errormessage") or response.get("Message")
+					err_msg or data.get("errormessage") or data.get("Message")
 				)
 
 		return res_dict

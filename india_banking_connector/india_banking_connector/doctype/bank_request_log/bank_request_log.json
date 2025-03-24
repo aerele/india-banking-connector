@@ -16,7 +16,8 @@
   "status_code",
   "reference_doctype",
   "reference_docname",
-  "decrypted_response"
+  "decrypted_response",
+  "unique_id"
  ],
  "fields": [
   {
@@ -82,11 +83,16 @@
    "fieldtype": "Code",
    "in_list_view": 1,
    "label": "Decrypted Response"
+  },
+  {
+   "fieldname": "unique_id",
+   "fieldtype": "Data",
+   "label": "Unique ID"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-27 16:33:59.851398",
+ "modified": "2025-03-17 13:23:34.982250",
  "modified_by": "Administrator",
  "module": "India Banking Connector",
  "name": "Bank Request Log",
