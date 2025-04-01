@@ -5,6 +5,8 @@ from base64 import b64decode, b64encode, urlsafe_b64encode
 import frappe
 import rsa
 from Crypto.Cipher import AES
+from Crypto.Cipher import PKCS1_v1_5 as Cipher_PKCS1_v1_5
+from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -53,10 +55,10 @@ class BankConnector(Document):
 		Validate duplicate payments by checking if a payment has already been made against the given unique ID.
 		If a payment exists, fetch the already processed details and return them.
 		Args:
-			unique_id (str, optional): The unique identifier for the payment. Defaults to None.
-			method (str, optional): The method to be used for formatting the response. Defaults to "make_payment".
+		        unique_id (str, optional): The unique identifier for the payment. Defaults to None.
+		        method (str, optional): The method to be used for formatting the response. Defaults to "make_payment".
 		Returns:
-			dict: A dictionary containing the formatted response of the existing payment if found, otherwise an empty dictionary.
+		        dict: A dictionary containing the formatted response of the existing payment if found, otherwise an empty dictionary.
 		"""
 		if not unique_id:
 			return
@@ -198,7 +200,7 @@ class BankConnector(Document):
 			private_key = rsa.PrivateKey.load_pkcs1(file.read())
 			return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
 
-	def rsa_encrypt_data(self, data, key):
+	def aes_encrypt_data(self, data, key):
 		if isinstance(data, dict):
 			data = json.dumps(data)
 
@@ -213,7 +215,7 @@ class BankConnector(Document):
 
 		return b64encode(encrypted).decode("utf-8")
 
-	def rsa_decrypt_data(self, data, key):
+	def aes_decrypt_data(self, data, key):
 		if isinstance(key, str):
 			key = key.encode("utf-8")
 
@@ -224,3 +226,30 @@ class BankConnector(Document):
 		size = self.BLOCK_SIZE
 
 		return json.loads(unpad(decrypted, size)[size:])
+
+	def rsa_encrypt_data(self, data, key_path):
+		if isinstance(data, dict):
+			data = json.dumps(data)
+
+		public_key = open(key_path, "r")
+		rsa_key = RSA.importKey(public_key.read())
+
+		cipher = Cipher_PKCS1_v1_5.new(rsa_key)
+		cipher_text = cipher.encrypt(data.encode())
+
+		return b64encode(cipher_text).decode()
+
+	def rsa_decrypt_data(self, data, key_path):
+		if isinstance(data, dict):
+			data = json.dumps(data)
+
+		private_key = open(key_path, "rb")
+		rsa_key = RSA.importKey(open(private_key).read())
+
+		raw_cipher_data = b64decode(data)
+
+		cipher = Cipher_PKCS1_v1_5.new(rsa_key)
+
+		decrypted_res = cipher.decrypt(raw_cipher_data)
+
+		return decrypted_res.decode("utf-8")
