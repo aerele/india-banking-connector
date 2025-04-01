@@ -320,8 +320,8 @@ class KotakMahindraConnector(BankConnector):
 					"executeFinacleScript_CustomData": {
 						"AcctTrnInqRq": {
 							"Foracid": self.forac_id,
-							"FromDate": payload_details.from_date,
-							"ToDate": payload_details.to_date,
+							"FromDate": getdate(payload_details.from_date).strftime("%d-%m-%Y"),
+							"ToDate": getdate(payload_details.to_date).strftime("%d-%m-%Y"),
 						}
 					},
 				}
