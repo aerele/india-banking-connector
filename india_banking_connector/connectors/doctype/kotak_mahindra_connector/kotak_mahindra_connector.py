@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 import frappe
 import requests
-from frappe.utils import cstr, getdate
+from frappe.utils import cstr, get_datetime, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -98,6 +98,25 @@ class KotakMahindraConnector(BankConnector):
 			response, method="payment_status", log_id=log_id
 		)
 
+	def get_bank_statement(self):
+		url = self.urls.bank_statement
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="bank_statement")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Statement",
+			account_config=self.get_account_config("bank_statement"),
+			ref_doctype="Bank Statement",
+			ref_docname=self.account_number,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_statement", log_id=log_id
+		)
+
 	def get_oauth_token(self):
 		params = {"grant_type": "client_credentials"}
 
@@ -136,13 +155,36 @@ class KotakMahindraConnector(BankConnector):
 				response.text, self.get_password("client_secret").encode("utf-8")
 			)
 			self.set_decrypted_response(log_id, decrypted_response)
-			self.get_formated_response(decrypted_response, res_dict, method)
+			if method in ["make_payment", "payment_status"]:
+				self.get_formated_response(decrypted_response, res_dict, method)
+			elif method == "bank_statement":
+				self.get_formated_bank_statement_response(decrypted_response, res_dict)
 
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text
 
 		return res_dict
+
+	def get_formated_bank_statement_response(self, data, res_dict):
+		root = ET.fromstring(data)
+		namespace = {"fixml": "http://www.finacle.com/fixml"}
+
+		transactions = []
+		for txn in root.findall(".//fixml:TransactionDetails", namespaces=namespace):
+			transaction = {
+				"transaction_date": txn.findtext(
+					"fixml:TranDate", namespaces=namespace
+				),
+				"transaction_amount": txn.findtext(
+					"fixml:TranAmt", namespaces=namespace
+				),
+				"reference_number": txn.findtext("fixml:RefNum", namespaces=namespace),
+			}
+			transactions.append(transaction)
+
+		res_dict.server_status = "Success"
+		res_dict.bank_statements = transactions
 
 	def get_formated_response(self, data, res_dict, method):
 		root = ET.fromstring(data)
@@ -199,7 +241,11 @@ class KotakMahindraConnector(BankConnector):
 					else:
 						msg, sts = self.get_status_description(status_code), status_code
 
-					if status_code == "R" and status_description and status_description == "REJECTED":
+					if (
+						status_code == "R"
+						and status_description
+						and status_description == "REJECTED"
+					):
 						sts = "Failed"
 
 					payment_status_details[msg_id] = {
@@ -219,7 +265,124 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_account_config(self, method):
-		return self.get_xml_payload(method)
+		if method in ["make_payment", "payment_status"]:
+			return self.get_xml_payload(method)
+		elif method == "bank_statement":
+			return self.get_statement_xml_payload()
+
+	def get_statement_xml_payload(self):
+		payload_details = self.doc
+
+		def _dict_to_xml(data, root_tag="FIXML"):
+			root = ET.Element(root_tag)
+
+			def build_tree(element, data):
+				"""Recursively build XML tree"""
+				if isinstance(data, dict):
+					for key, value in data.items():
+						if key.startswith("@"):  # Handle attributes
+							element.set(key[1:], value)
+						else:
+							sub_element = ET.SubElement(element, key)
+							build_tree(sub_element, value)
+				elif isinstance(data, list):
+					for item in data:
+						sub_element = ET.SubElement(element, "Item")
+						build_tree(sub_element, item)
+				else:
+					element.text = str(data)
+
+			build_tree(root, data)
+			return ET.ElementTree(root)
+
+		fixml_dict = {
+			"@xmlns": "http://www.finacle.com/fixml",
+			"Header": {
+				"RequestHeader": {
+					"MessageKey": {
+						"RequestUUID": get_id(10),
+						"ServiceRequestId": "executeFinacleScript",
+						"ChannelId": "DAP",
+					},
+					"RequestMessageInfo": {
+						"BankId": "01",
+						"MessageDateTime": get_datetime().strftime(
+							"%Y-%m-%dT%H:%M:%S.%f"
+						)[:-3],
+					},
+				}
+			},
+			"Body": {
+				"executeFinacleScriptRequest": {
+					"ExecuteFinacleScriptInputVO": {
+						"requestId": "intf_AcctTrnInq_main.scr"
+					},
+					"executeFinacleScript_CustomData": {
+						"AcctTrnInqRq": {
+							"Foracid": self.forac_id,
+							"FromDate": payload_details.from_date,
+							"ToDate": payload_details.to_date,
+						}
+					},
+				}
+			},
+		}
+		# Convert dictionary to XML
+		tree = _dict_to_xml(fixml_dict)
+
+		return ET.tostring(tree.getroot(), encoding="utf-8").decode()
+
+	def get_balance_xml_payload(self):
+		def _dict_to_xml(data, root_tag="FIXML"):
+			root = ET.Element(root_tag)
+
+			def build_tree(element, data):
+				"""Recursively build XML tree"""
+				if isinstance(data, dict):
+					for key, value in data.items():
+						if key.startswith("@"):  # Handle attributes
+							element.set(key[1:], value)
+						else:
+							sub_element = ET.SubElement(element, key)
+							build_tree(sub_element, value)
+				elif isinstance(data, list):
+					for item in data:
+						sub_element = ET.SubElement(element, "Item")
+						build_tree(sub_element, item)
+				else:
+					element.text = str(data)
+
+			build_tree(root, data)
+			return ET.ElementTree(root)
+
+		fixml_dict = {
+			"@xsi:schemaLocation": "http://www.finacle.com/fixml AcctInq.xsd",
+			"@xmlns": "http://www.finacle.com/fixml",
+			"@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+			"Header": {
+				"RequestHeader": {
+					"MessageKey": {
+						"RequestUUID": get_id(10),
+						"ServiceRequestId": "AcctInq",
+						"ChannelId": "DAP",
+					},
+					"RequestMessageInfo": {
+						"MessageDateTime": get_datetime().strftime(
+							"%Y-%m-%dT%H:%M:%S.%f"
+						)[:-3]
+					},
+				}
+			},
+			"Body": {
+				"AcctInqRequest": {
+					"AcctInqRq": {"AcctId": {"AcctId": self.account_number}}
+				}
+			},
+		}
+		# Convert dictionary to XML
+		tree = _dict_to_xml(fixml_dict)
+
+		return ET.tostring(tree.getroot(), encoding="utf-8").decode()
 
 	def get_xml_payload(self, method):
 		def _dict_to_xml(tag, data, namespaces={}):
