@@ -17,6 +17,7 @@
   "ip_address",
   "column_break_fbfo",
   "corp_usr",
+  "status_corp_usr",
   "aggr_name",
   "client_key",
   "public_key",
@@ -79,7 +80,7 @@
   {
    "fieldname": "corp_usr",
    "fieldtype": "Data",
-   "label": "Corp User"
+   "label": "Corp User(Payment)"
   },
   {
    "fieldname": "urn",
@@ -155,12 +156,17 @@
    "fieldname": "ifsc_code",
    "fieldtype": "Data",
    "label": "IFSC Code"
+  },
+  {
+   "fieldname": "status_corp_usr",
+   "fieldtype": "Data",
+   "label": "Corp User(Status)"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-02-13 10:11:00.652651",
+ "modified": "2025-04-01 10:14:29.793459",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",

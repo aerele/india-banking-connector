@@ -311,7 +311,7 @@ class ICICIConnector(BankConnector):
 			data.update(
 				{
 					"CORPID": connector_doc.corp_id,
-					"USERID": connector_doc.corp_usr or connector_doc.corp_usr,
+					"USERID": connector_doc.status_corp_usr,
 					"AGGRID": connector_doc.aggr_id,
 					"URN": connector_doc.urn,
 					"UNIQUEID": unique_id,
