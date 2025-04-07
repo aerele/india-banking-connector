@@ -393,7 +393,10 @@ class ICICIConnector(BankConnector):
 		connector_doc = self
 		res_dict = frappe._dict({})
 		if response.ok:
-			response = json.loads(response.text)
+			response = response.text
+			if method != "bank_balance":
+				response = json.loads(response)
+
 			if method in ["make_payment", "payment_status", "generate_otp"]:
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
@@ -403,13 +406,17 @@ class ICICIConnector(BankConnector):
 					response.get("encryptedData"), decrypted_key
 				)
 
-			else:
+			elif method == "bank_statement":
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
 					self.get_file_relative_path(connector_doc.private_key),
 				)
-				decrypted_data = self.rsa_decrypt_data(
+				decrypted_data = self.rsa_with_aes_decrypt_data(
 					response.get("encryptedData"), decrypted_key
+				)
+			else:
+				decrypted_data = self.rsa_decrypt_data(
+					response, self.get_file_relative_path(connector_doc.private_key)
 				)
 
 			self.set_decrypted_response(log_id, decrypted_data)

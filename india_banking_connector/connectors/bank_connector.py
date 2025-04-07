@@ -239,7 +239,7 @@ class BankConnector(Document):
 
 		return b64encode(cipher_text).decode()
 
-	def rsa_decrypt_data(self, data, key):
+	def rsa_with_aes_decrypt_data(self, data, key):
 		decoded_data = b64decode(data)
 		iv = decoded_data[:16]
 		encrypted_content = decoded_data[16:]
@@ -251,3 +251,13 @@ class BankConnector(Document):
 		decrypted_data = decrypted_data[:-padding_length]
 
 		return decrypted_data.decode("utf-8")
+
+	def rsa_decrypt_data(self, data, key_path):
+		rsa_key = RSA.importKey(open(key_path, "rb").read())
+		decoded_data = b64decode(data)
+
+		cipher = Cipher_PKCS1_v1_5.new(rsa_key)
+
+		decrypted_res = cipher.decrypt(decoded_data, b"x")
+
+		return json.loads(decrypted_res.decode("utf-8"))
