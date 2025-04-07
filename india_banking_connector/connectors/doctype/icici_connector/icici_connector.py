@@ -43,7 +43,7 @@ class ICICIConnector(BankConnector):
 			"content-type": "application/json",
 			"apikey": self.get_password("client_key"),
 		}
-		if not self.bulk_transaction:
+		if self.bulk_transaction:
 			if params:
 				headers.update(**params)
 			headers.update(
@@ -404,8 +404,12 @@ class ICICIConnector(BankConnector):
 				)
 
 			else:
+				decrypted_key = self.rsa_decrypt_key(
+					response.get("encryptedKey"),
+					self.get_file_relative_path(connector_doc.private_key),
+				)
 				decrypted_data = self.rsa_decrypt_data(
-					response, self.get_file_relative_path(connector_doc.private_key)
+					response.get("encryptedData"), decrypted_key
 				)
 
 			self.set_decrypted_response(log_id, decrypted_data)
@@ -617,7 +621,7 @@ class ICICIConnector(BankConnector):
 
 	def get_bank_balance(self):
 		url = self.urls.bank_balance
-		headers = self.headers(params={"content-type": "application/json"})
+		headers = self.headers(params={"content-type": "text/plain"})
 		payload = self.get_encrypted_payload(method="bank_balance")
 
 		response = requests.post(url, headers=headers, data=payload)
@@ -636,7 +640,7 @@ class ICICIConnector(BankConnector):
 
 	def get_bank_statement(self):
 		url = self.urls.bank_statement
-		headers = self.headers(params={"content-type": "application/json"})
+		headers = self.headers(params={"content-type": "text/plain"})
 		payload = self.get_encrypted_payload(method="bank_statement")
 
 		response = requests.post(url, headers=headers, data=payload)
