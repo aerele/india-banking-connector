@@ -17,8 +17,11 @@
   "client_secret",
   "amended_from",
   "client_details_tab",
-  "client_details",
-  "client_id"
+  "forac_id",
+  "column_break_drfu",
+  "client_id",
+  "section_break_ejmv",
+  "client_details"
  ],
  "fields": [
   {
@@ -95,12 +98,25 @@
    "fieldtype": "Table",
    "label": "Client Details",
    "options": "Client Details"
+  },
+  {
+   "fieldname": "forac_id",
+   "fieldtype": "Data",
+   "label": "Forac ID"
+  },
+  {
+   "fieldname": "column_break_drfu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_ejmv",
+   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-12 16:53:59.689867",
+ "modified": "2025-04-12 17:18:53.393170",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Kotak Mahindra Connector",
