@@ -59,8 +59,12 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def headers(self, action=None):
+		content_type = "application/xml"
+		if action in ("Submit", "Update", "Discard", "Approve", "Reject", "Suspend"):
+			content_type = "application/json"
+
 		return {
-			"Content-Type": "application/xml" if not action else "application/json",
+			"Content-Type": content_type,
 			"Authorization": "Bearer " + self.get_oauth_token(action=action),
 		}
 
@@ -115,7 +119,7 @@ class KotakMahindraConnector(BankConnector):
 
 	def get_bank_statement(self):
 		url = self.urls.bank_statement
-		headers = self.headers()
+		headers = self.headers(action="Statement")
 		payload = self.get_encrypted_payload(method="bank_statement")
 
 		response = requests.post(url, headers=headers, data=payload)
@@ -170,9 +174,9 @@ class KotakMahindraConnector(BankConnector):
 			bcd= frappe.get_value("Beneficiary Client Details", {"parent": self.name, "parentfield": "beneficiary_client_details", "parenttype": self.doctype, "action": action})
 			if bcd:
 				bene_client = frappe.get_doc("Beneficiary Client Details", bcd)
-				auth_string = f"{bene_client.client_key}:{bene_client.get_password("client_secret")}"
+				auth_string = f"{bene_client.client_key}:{bene_client.get_password('client_secret')}"
 			else:
-				frappe.throw(frappe._("Beneficiary Client Details not found"))
+				frappe.throw(frappe._("Client Details not found"))
 		else:
 			auth_string = (
 			f"{self.get_password('client_key')}:{self.get_password('client_secret')}"
@@ -325,9 +329,9 @@ class KotakMahindraConnector(BankConnector):
 					payment_status_details.get(self.payment_doc.name, {})
 				)
 
-	def get_encrypted_payload(self, method, action=None):
+	def get_encrypted_payload(self, method):
 		return self.aes_encrypt(
-			self.get_account_config(method, action), self.get_password("client_secret")
+			self.get_account_config(method), self.get_password("client_secret")
 		)
 
 
