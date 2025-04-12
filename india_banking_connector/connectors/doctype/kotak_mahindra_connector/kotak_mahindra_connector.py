@@ -171,9 +171,9 @@ class KotakMahindraConnector(BankConnector):
 		params = {"grant_type": "client_credentials"}
 
 		if action:
-			bcd= frappe.get_value("Beneficiary Client Details", {"parent": self.name, "parentfield": "beneficiary_client_details", "parenttype": self.doctype, "action": action})
+			bcd= frappe.get_value("Client Details", {"parent": self.name, "parentfield": "client_details", "parenttype": self.doctype, "action": action})
 			if bcd:
-				bene_client = frappe.get_doc("Beneficiary Client Details", bcd)
+				bene_client = frappe.get_doc("Client Details", bcd)
 				auth_string = f"{bene_client.client_key}:{bene_client.get_password('client_secret')}"
 			else:
 				frappe.throw(frappe._("Client Details not found"))
