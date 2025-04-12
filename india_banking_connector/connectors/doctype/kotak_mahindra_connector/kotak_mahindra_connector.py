@@ -6,21 +6,21 @@ import xml.etree.ElementTree as ET
 
 import frappe
 import requests
-from frappe.utils import cstr, getdate
+from frappe.utils import cstr, getdate, get_datetime
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
 	create_api_log,
 )
 from india_banking_connector.utils import get_id
-
+import json
 
 class KotakMahindraConnector(BankConnector):
 	bank = "Kotak Mahindra Bank"
 
 	IV = "0000000000000000".encode("utf-8")
 
-	__all__ = ["intiate_payment", "get_payment_status", "update_benificery_details"]
+	__all__ = ["intiate_payment", "get_payment_status", "update_beneficiary_details"]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -48,21 +48,36 @@ class KotakMahindraConnector(BankConnector):
 				"oauth_token": f"{base_url}/auth/oauth/v2/token",
 				"make_payment": f"{base_url}/v1/cms/pay",
 				"payment_status": f"{base_url}/v1/cms/rev",
+				"bank_statement": f"{base_url}/Acc_Stmt_Inq",
+				"beneficiary": {
+					"Submit": f"{base_url}/beneadd",
+					"Update": f"{base_url}/benemod",
+					"Discard": f"{base_url}/benedisc",
+					"Status": f"{base_url}/benestat",
+				}
 			}
 		)
 
-	@property
-	def headers(self):
+	def headers(self, action=None):
 		return {
-			"Content-Type": "application/xml",
-			"Authorization": "Bearer " + self.get_oauth_token(),
+			"Content-Type": "application/xml" if not action else "application/json",
+			"Authorization": "Bearer " + self.get_oauth_token(action=action),
 		}
+
+	def validate_action(self, action):
+		if action not in ("Submit", "Update", "Discard", "Approve", "Reject", "Suspend"):
+			frappe.throw(frappe._("Invalid Action"))
+
+		if action in ("Approve", "Reject", "Suspend"):
+			action = "Status"
+
+		return action
 
 	def intiate_payment(self):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.make_payment
-		headers = self.headers
+		headers = self.headers()
 		payload = self.get_encrypted_payload(method="make_payment")
 
 		response = requests.post(url, headers=headers, data=payload)
@@ -81,7 +96,7 @@ class KotakMahindraConnector(BankConnector):
 
 	def get_payment_status(self):
 		url = self.urls.payment_status
-		headers = self.headers
+		headers = self.headers()
 		payload = self.get_encrypted_payload(method="payment_status")
 
 		response = requests.post(url, headers=headers, data=payload)
@@ -98,34 +113,72 @@ class KotakMahindraConnector(BankConnector):
 			response, method="payment_status", log_id=log_id
 		)
 
-	def update_benificery_details(self):
-		payment = self.payment_doc if not self.bulk_transaction else self.doc
-
-		url = self.urls.benificery[payment.action]
-		headers = self.headers
-		payload = self.get_encrypted_payload(method="update_benificery_details", action=payment.action)
+	def get_bank_statement(self):
+		url = self.urls.bank_statement
+		headers = self.headers()
+		payload = self.get_encrypted_payload(method="bank_statement")
 
 		response = requests.post(url, headers=headers, data=payload)
 
 		log_id = create_api_log(
 			response,
-			action="Update Benificery Details",
-			account_config=self.get_account_config("update_benificery_details", action=payment.action),
-			ref_doctype=self.payment_doc.doctype,
-			ref_docname=self.payment_doc.name,
+			action="Bank Statement",
+			account_config=self.get_account_config("bank_statement"),
+			ref_doctype="Bank Statement",
+			ref_docname=self.account_number,
 		)
 
 		return self.get_decrypted_response(
-			response, method="payment_status", action=payment.action, log_id=log_id
+			response, method="bank_statement", log_id=log_id
 		)
 
+	def update_beneficiary_details(self):
+		payment_doc = self.payment_doc
 
-	def get_oauth_token(self):
+		action = self.validate_action(payment_doc.action)
+
+		url = self.urls.beneficiary[action]
+		headers = self.headers(action=action)
+		payload = self.get_beneficiary_payload(action=payment_doc.action)
+
+		response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+		create_api_log(
+			response,
+			action="Update Beneficiary Details",
+			account_config= self.get_beneficiary_payload(action=payment_doc.action),
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+		)
+
+		res_dict = frappe._dict({})
+
+		if response.ok:
+			data = response.json()
+			self.get_formated_response_for_beneficiary(self, res_dict, data, action=action)
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.error = response.text
+
+		return res_dict
+
+
+	def get_oauth_token(self, action=None):
 		params = {"grant_type": "client_credentials"}
 
-		auth_string = (
+		if action:
+			bcd= frappe.get_value("Beneficiary Client Details", {"parent": self.name, "parentfield": "beneficiary_client_details", "parenttype": self.doctype, "action": action})
+			if bcd:
+				bene_client = frappe.get_doc("Beneficiary Client Details", bcd)
+				auth_string = f"{bene_client.client_key}:{bene_client.get_password("client_secret")}"
+			else:
+				frappe.throw(frappe._("Beneficiary Client Details not found"))
+		else:
+			auth_string = (
 			f"{self.get_password('client_key')}:{self.get_password('client_secret')}"
 		)
+
+		# Encode the credentials
 		encoded_credential = "Basic " + base64.b64encode(auth_string.encode()).decode()
 
 		headers = {
@@ -150,7 +203,7 @@ class KotakMahindraConnector(BankConnector):
 				"Bank Request Log", log_id, "decrypted_response", response_data
 			)
 
-	def get_decrypted_response(self, response, method, action=None, log_id=None):
+	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 
 		if response.ok:
@@ -158,7 +211,10 @@ class KotakMahindraConnector(BankConnector):
 				response.text, self.get_password("client_secret").encode("utf-8")
 			)
 			self.set_decrypted_response(log_id, decrypted_response)
-			self.get_formated_response(decrypted_response, res_dict, method, action=action)
+			if method in ["make_payment", "payment_status"]:
+				self.get_formated_response(decrypted_response, res_dict, method)
+			elif method == "bank_statement":
+				self.get_formated_bank_statement_response(decrypted_response, res_dict)
 
 		else:
 			res_dict.status = "Request Failure"
@@ -166,7 +222,27 @@ class KotakMahindraConnector(BankConnector):
 
 		return res_dict
 
-	def get_formated_response_for_benificery(self, data, res_dict=None, action=None):
+	def get_formated_bank_statement_response(self, data, res_dict):
+		root = ET.fromstring(data)
+		namespace = {"fixml": "http://www.finacle.com/fixml"}
+
+		transactions = []
+		for txn in root.findall(".//fixml:TransactionDetails", namespaces=namespace):
+			transaction = {
+				"transaction_date": txn.findtext(
+					"fixml:TranDate", namespaces=namespace
+				),
+				"transaction_amount": txn.findtext(
+					"fixml:TranAmt", namespaces=namespace
+				),
+				"reference_number": txn.findtext("fixml:RefNum", namespaces=namespace),
+			}
+			transactions.append(transaction)
+
+		res_dict.server_status = "Success"
+		res_dict.bank_statements = transactions
+
+	def get_formated_response_for_beneficiary(self, res_dict, data, action=None):
 		if action == "Create" and data.get("associationId"):
 			res_dict.status = "success"
 			res_dict.association_id = data.get("associationId")
@@ -191,11 +267,8 @@ class KotakMahindraConnector(BankConnector):
 			res_dict.message = data
 
 
-	def get_formated_response(self, data, res_dict, method, action=None):
+	def get_formated_response(self, data, res_dict, method):
 		root = ET.fromstring(data)
-
-		if method == "update_benificery_details":
-			return self.get_formated_response_for_benificery(data, res_dict, action=action)
 
 		if method == "make_payment":
 			namespace = {
@@ -257,26 +330,90 @@ class KotakMahindraConnector(BankConnector):
 			self.get_account_config(method, action), self.get_password("client_secret")
 		)
 
-	def get_account_config(self, method, action=None):
-		if method == "update_benificery_details":
-			return self.get_benificery_payload(action)
-		return self.get_xml_payload(method)
+
+	def get_account_config(self, method):
+		if method in ["make_payment", "payment_status"]:
+			return self.get_xml_payload(method)
+		elif method == "bank_statement":
+			return self.get_statement_xml_payload()
+
+	def get_statement_xml_payload(self):
+		payload_details = self.doc
+
+		def _dict_to_xml(data, root_tag="FIXML"):
+			root = ET.Element(root_tag)
+
+			def build_tree(element, data):
+				"""Recursively build XML tree"""
+				if isinstance(data, dict):
+					for key, value in data.items():
+						if key.startswith("@"):  # Handle attributes
+							element.set(key[1:], value)
+						else:
+							sub_element = ET.SubElement(element, key)
+							build_tree(sub_element, value)
+				elif isinstance(data, list):
+					for item in data:
+						sub_element = ET.SubElement(element, "Item")
+						build_tree(sub_element, item)
+				else:
+					element.text = str(data)
+
+			build_tree(root, data)
+			return ET.ElementTree(root)
+
+		fixml_dict = {
+			"@xmlns": "http://www.finacle.com/fixml",
+			"Header": {
+				"RequestHeader": {
+					"MessageKey": {
+						"RequestUUID": get_id(10),
+						"ServiceRequestId": "executeFinacleScript",
+						"ChannelId": "DAP",
+					},
+					"RequestMessageInfo": {
+						"BankId": "01",
+						"MessageDateTime": get_datetime().strftime(
+							"%Y-%m-%dT%H:%M:%S.%f"
+						)[:-3],
+					},
+				}
+			},
+			"Body": {
+				"executeFinacleScriptRequest": {
+					"ExecuteFinacleScriptInputVO": {
+						"requestId": "intf_AcctTrnInq_main.scr"
+					},
+					"executeFinacleScript_CustomData": {
+						"AcctTrnInqRq": {
+							"Foracid": self.forac_id,
+							"FromDate": getdate(payload_details.from_date).strftime("%d-%m-%Y"),
+							"ToDate": getdate(payload_details.to_date).strftime("%d-%m-%Y"),
+						}
+					},
+				}
+			},
+		}
+		# Convert dictionary to XML
+		tree = _dict_to_xml(fixml_dict)
+
+		return ET.tostring(tree.getroot(), encoding="utf-8").decode()
 
 
-	def get_benificery_payload(self, action=None):
-		if action not in ('Create', 'Update', 'Discard', 'Reject', 'Suspend', 'Approve'):
+	def get_beneficiary_payload(self, action=None):
+		if action not in ('Submit', 'Update', 'Discard', 'Reject', 'Suspend', 'Approve'):
 			frappe.throw(frappe._("Invalid Action"))
 
-		payment = self.payment_doc if not self.bulk_transaction else self.doc
+		payment_doc = self.payment_doc
 
-		if action == "Create":
+		if action == "Submit":
 			return {
-				"clientId":"HIDDENB",
+				"clientId": self.client_id or self.client_code,
 				"legalEntity":"IN",
-				"beneficiaryId":"TIBCOP0ER9",
-				"beneficiaryName":"TIBCO ER09",
-				"beneficiaryType":"INDIVIDUAL",
-				"leiCode":"1123123WQWERTFVG34",
+				"beneficiaryId": payment_doc.name,
+				"beneficiaryName":payment_doc.beneficiary_name,
+				"beneficiaryType":payment_doc.beneficiary_type or "INDIVIDUAL",
+				"leiCode":payment_doc.lei_code or "",
 				"beneficiaryLimit":{
 					"limitLevel":"BENEFICIARY",
 					"limitFrequency":"DAILY",
@@ -367,12 +504,12 @@ class KotakMahindraConnector(BankConnector):
 		elif action in ["Approve", "Reject", "Suspend"]:
 			return {
 				"event": cstr(action).upper(),
-				"associationId":payment.association_id,
+				"associationId":payment_doc.association_id,
 				"checkerRemarks": "Checker Beneficiary reject",
 				"makerRemarks": "Maker Beneficiary reject"
 			}
 		else:
-			frappe.throw(frappe._("Invalid Benificery Action"))
+			frappe.throw(frappe._("Invalid Beneficiary Action"))
 
 
 	def get_xml_payload(self, method):

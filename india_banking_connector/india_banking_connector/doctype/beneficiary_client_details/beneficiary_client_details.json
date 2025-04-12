@@ -1,0 +1,46 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-11 10:37:47.957588",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "action",
+  "client_key",
+  "client_secret"
+ ],
+ "fields": [
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Action",
+   "options": "\nSubmit\nUpdate\nDiscard\nStatus"
+  },
+  {
+   "fieldname": "client_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Client Key"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Client Secret"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-04-11 10:40:07.425806",
+ "modified_by": "Administrator",
+ "module": "India Banking Connector",
+ "name": "Beneficiary Client Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

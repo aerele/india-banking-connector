@@ -17,7 +17,7 @@ def connect(**kwargs):
 	)
 
 	try:
-		connector = get_connector(payload, payload.bulk_transaction)
+		connector = get_connector(payload)
 
 		if isinstance(connector, frappe.model.document.Document):
 			return connector.get_response(payload.method)

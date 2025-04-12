@@ -15,7 +15,10 @@
   "prod_code",
   "client_key",
   "client_secret",
-  "amended_from"
+  "amended_from",
+  "beneficiary_client_details_tab",
+  "beneficiary_client_details",
+  "client_id"
  ],
  "fields": [
   {
@@ -75,12 +78,29 @@
    "fieldname": "prod_code",
    "fieldtype": "Data",
    "label": "Prod Code"
+  },
+  {
+   "fieldname": "beneficiary_client_details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Beneficiary Client Details"
+  },
+  {
+   "fieldname": "beneficiary_client_details",
+   "fieldtype": "Table",
+   "label": "Beneficiary Client Details",
+   "options": "Beneficiary Client Details"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-12-04 10:23:29.053515",
+ "modified": "2025-04-11 12:59:47.914846",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Kotak Mahindra Connector",

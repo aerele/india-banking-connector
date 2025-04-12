@@ -48,7 +48,7 @@ def get_bank_connector(bank, bulk_transaction=False):
 		frappe.throw(_("Not Implemented"), title=_("Connection failed"))
 
 
-def get_connector(payload, bulk_transaction=None):
+def get_connector(payload):
 	doc = frappe._dict(payload.doc)
 	BankConnector, connector_name = get_bank_connector(doc.company_bank)
 
@@ -67,7 +67,7 @@ def get_connector(payload, bulk_transaction=None):
 		return Connector(
 			connector_name,
 			doc.company_account_number,
-			bulk_transaction=bulk_transaction,
+			bulk_transaction=payload.bulk_transaction,
 			doc=doc,
 			payment_doc=payload,
 		)
