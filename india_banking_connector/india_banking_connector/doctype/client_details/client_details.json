@@ -22,19 +22,21 @@
    "fieldname": "client_key",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Client Key"
+   "label": "Client Key",
+   "reqd": 1
   },
   {
    "fieldname": "client_secret",
    "fieldtype": "Password",
    "in_list_view": 1,
-   "label": "Client Secret"
+   "label": "Client Secret",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-12 16:57:33.118998",
+ "modified": "2025-04-14 22:03:10.372566",
  "modified_by": "Administrator",
  "module": "India Banking Connector",
  "name": "Client Details",

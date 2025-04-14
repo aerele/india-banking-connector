@@ -95,6 +95,8 @@ class BankConnector(Document):
 	# Kotak Encryption and Decryption
 
 	def aes_encrypt(self, data, key):
+		if isinstance(data, dict):
+			data = json.dumps(data)
 		if isinstance(key, str):
 			key = key.encode("utf-8")
 		if isinstance(data, str):

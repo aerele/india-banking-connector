@@ -58,14 +58,11 @@ class KotakMahindraConnector(BankConnector):
 			}
 		)
 
-	def headers(self, action=None):
-		content_type = "application/xml"
-		if action in ("Submit", "Update", "Discard", "Approve", "Reject", "Suspend"):
-			content_type = "application/json"
-
+	@property
+	def headers(self):
 		return {
-			"Content-Type": content_type,
-			"Authorization": "Bearer " + self.get_oauth_token(action=action),
+			"Content-Type": "application/xml",
+			"Authorization": "Bearer " + self.get_oauth_token(),
 		}
 
 	def validate_action(self, action):
@@ -78,18 +75,24 @@ class KotakMahindraConnector(BankConnector):
 		return action
 
 	def intiate_payment(self):
+		self.update_client_credentials()
+
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.make_payment
-		headers = self.headers()
-		payload = self.get_encrypted_payload(method="make_payment")
+		headers = self.headers
+		payload = self.get_account_config("make_payment")
 
-		response = requests.post(url, headers=headers, data=payload)
+		encrypted_payload = self.aes_encrypt(
+			payload, self.client_secret
+		)
+
+		response = requests.post(url, headers=headers, data=encrypted_payload)
 
 		log_id = create_api_log(
 			response,
 			action="Initiate Payment",
-			account_config=self.get_account_config("make_payment"),
+			account_config= payload,
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 		)
@@ -99,18 +102,26 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_payment_status(self):
-		url = self.urls.payment_status
-		headers = self.headers()
-		payload = self.get_encrypted_payload(method="payment_status")
+		self.update_client_credentials()
 
-		response = requests.post(url, headers=headers, data=payload)
+		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
+
+		url = self.urls.payment_status
+		headers = self.headers
+		payload = self.get_account_config("payment_status")
+
+		encrypted_payload = self.aes_encrypt(
+			payload, self.client_secret
+		)
+
+		response = requests.post(url, headers=headers, data=encrypted_payload)
 
 		log_id = create_api_log(
 			response,
 			action="Payment Status",
-			account_config=self.get_account_config("payment_status"),
-			ref_doctype=self.payment_doc.parenttype,
-			ref_docname=self.payment_doc.parent,
+			account_config= payload,
+			ref_doctype=payment_details.parenttype or payment_details.doctype,
+			ref_docname=payment_details.parent or payment_details.name,
 		)
 
 		return self.get_decrypted_response(
@@ -118,16 +129,22 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_bank_statement(self):
-		url = self.urls.bank_statement
-		headers = self.headers(action="Statement")
-		payload = self.get_encrypted_payload(method="bank_statement")
+		self.update_client_credentials(action="Statement")
 
-		response = requests.post(url, headers=headers, data=payload)
+		url = self.urls.bank_statement
+		headers = self.headers
+		payload = self.get_account_config("bank_statement")
+
+		encrypted_payload = self.aes_encrypt(
+			payload, self.client_secret
+		)
+
+		response = requests.post(url, headers=headers, data=encrypted_payload)
 
 		log_id = create_api_log(
 			response,
 			action="Bank Statement",
-			account_config=self.get_account_config("bank_statement"),
+			account_config= payload,
 			ref_doctype="Bank Statement",
 			ref_docname=self.account_number,
 		)
@@ -140,47 +157,58 @@ class KotakMahindraConnector(BankConnector):
 		payment_doc = self.payment_doc
 
 		action = self.validate_action(payment_doc.action)
+		self.update_client_credentials(action=action)
 
 		url = self.urls.beneficiary[action]
-		headers = self.headers(action=action)
+		params = {"access_token": self.get_oauth_token()}
+		headers = {"Content-Type": "application/json"}
 		payload = self.get_beneficiary_payload(action=payment_doc.action)
 
-		response = requests.post(url, headers=headers, data=json.dumps(payload))
+		encrypted_payload= self.aes_encrypt(
+			payload, self.client_secret
+		)
 
-		create_api_log(
+		response = requests.post(url, headers=headers, params=params, data=encrypted_payload)
+
+		log_id= create_api_log(
 			response,
 			action="Update Beneficiary Details",
-			account_config= self.get_beneficiary_payload(action=payment_doc.action),
+			account_config= payload,
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 		)
 
-		res_dict = frappe._dict({})
+		return self.get_decrypted_response(
+			response, method="update_beneficiary_details", log_id=log_id, action=action
+		)
 
-		if response.ok:
-			data = response.json()
-			self.get_formated_response_for_beneficiary(self, res_dict, data, action=action)
+	def update_client_credentials(self, action=None):
+		if action:
+			bcd = frappe.get_value(
+				"Client Details",
+				{
+					"parent": self.name,
+					"parentfield": "client_details",
+					"parenttype": self.doctype,
+					"action": action,
+				},
+			)
+			if not bcd:
+				frappe.throw(frappe._("Client Details not found"))
+
+			bene_client = frappe.get_doc("Client Details", bcd)
+			self.client_key = bene_client.get_password("client_key")
+			self.client_secret = bene_client.get_password("client_secret")
+
 		else:
-			res_dict.status = "Request Failure"
-			res_dict.error = response.text
-
-		return res_dict
+			self.client_key = self.get_password("client_key")
+			self.client_secret = self.get_password("client_secret")
 
 
-	def get_oauth_token(self, action=None):
+	def get_oauth_token(self):
 		params = {"grant_type": "client_credentials"}
 
-		if action:
-			bcd= frappe.get_value("Client Details", {"parent": self.name, "parentfield": "client_details", "parenttype": self.doctype, "action": action})
-			if bcd:
-				bene_client = frappe.get_doc("Client Details", bcd)
-				auth_string = f"{bene_client.client_key}:{bene_client.get_password('client_secret')}"
-			else:
-				frappe.throw(frappe._("Client Details not found"))
-		else:
-			auth_string = (
-			f"{self.get_password('client_key')}:{self.get_password('client_secret')}"
-		)
+		auth_string = f"{self.client_key}:{self.client_secret}"
 
 		# Encode the credentials
 		encoded_credential = "Basic " + base64.b64encode(auth_string.encode()).decode()
@@ -200,7 +228,8 @@ class KotakMahindraConnector(BankConnector):
 			frappe.throw("Error in getting OAuth Token. Please check your credentials.")
 
 	def set_decrypted_response(self, log_id, response_data):
-		response_data = response_data
+		if isinstance(response_data, dict):
+			response_data = json.dumps(response_data, indent=4)
 
 		if frappe.db.exists("Bank Request Log", log_id):
 			frappe.db.set_value(
@@ -212,13 +241,18 @@ class KotakMahindraConnector(BankConnector):
 
 		if response.ok:
 			decrypted_response = self.aes_decrypt(
-				response.text, self.get_password("client_secret").encode("utf-8")
+				response.text, self.client_secret
 			)
 			self.set_decrypted_response(log_id, decrypted_response)
+
 			if method in ["make_payment", "payment_status"]:
 				self.get_formated_response(decrypted_response, res_dict, method)
 			elif method == "bank_statement":
 				self.get_formated_bank_statement_response(decrypted_response, res_dict)
+			elif method == "update_beneficiary_details":
+				self.get_formated_response_for_beneficiary(
+					res_dict, decrypted_response, action=self.payment_doc.action
+				)
 
 		else:
 			res_dict.status = "Request Failure"
@@ -247,25 +281,14 @@ class KotakMahindraConnector(BankConnector):
 		res_dict.bank_statements = transactions
 
 	def get_formated_response_for_beneficiary(self, res_dict, data, action=None):
-		if action == "Create" and data.get("associationId"):
-			res_dict.status = "success"
-			res_dict.association_id = data.get("associationId")
-			res_dict.message = "Beneficiary added successfully."
-		elif action == "Update" and data.get("data", {}).get("Status", "") == "Success":
-			res_dict.status = "success"
-			res_dict.message = "Beneficiary Updated"
-		elif action == "Discard" and data.get("data", {}).get("Status", "") == "Success":
-			res_dict.status = "success"
-			res_dict.message = "Beneficiary Discarded"
-		elif action == "Approve" and data.get("data", {}).get("status", "") == "success":
-			res_dict.status = "success"
-			res_dict.message = "Beneficiary Approved"
-		elif action == "Reject" and data.get("data", {}).get("status", "") == "success":
-			res_dict.status = "success"
-			res_dict.message = "Beneficiary Rejected"
-		elif action == "Suspend" and data.get("data", {}).get("status", "") == "success":
-			res_dict.status = "success"
-			res_dict.message = "Beneficiary Suspended"
+		if isinstance(data, str):
+			data = json.loads(data)
+
+		if action in ("Submit", "Update", "Discard", "Approve", "Reject", "Suspend"):
+			if data.get("status") == "success":
+				res_dict.status = "success"
+				res_dict.association_id = data.get("associationId", "")
+				res_dict.message = "Beneficiary "+ action + "ed."
 		else:
 			res_dict.status = "failed"
 			res_dict.message = data
@@ -328,11 +351,6 @@ class KotakMahindraConnector(BankConnector):
 				return res_dict.update(
 					payment_status_details.get(self.payment_doc.name, {})
 				)
-
-	def get_encrypted_payload(self, method):
-		return self.aes_encrypt(
-			self.get_account_config(method), self.get_password("client_secret")
-		)
 
 
 	def get_account_config(self, method):
