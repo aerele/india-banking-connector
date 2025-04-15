@@ -207,7 +207,7 @@ class KotakMahindraConnector(BankConnector):
 						"message": msg,
 						"utr_number": detail.find("ns0:UTR", namespace).text,
 					}
-					if detail.find("ns0:UTR", namespace).text:
+					if detail.find("ns0:UTR", namespace).text and status_code != "CF":
 						payment_status_details[msg_id]["status"] = "Processed"
 
 			res_dict.payment_status = "PROCESSED"
