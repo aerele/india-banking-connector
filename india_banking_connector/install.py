@@ -1,6 +1,8 @@
+import json
+
 import click
 import frappe
-import json
+
 from india_banking_connector.default import (
 	BANKS_CONNECTOR_MAP,
 	BULK_TRANSACTION_ENABLED_BANK,
@@ -94,6 +96,7 @@ def create_bank_doctype():
 		frappe.call("frappe.client.insert", doc=doc)
 
 
+@frappe.whitelist()
 def create_bank_api_endpoint():
 	def _create_endpoint_list(urls, **kwargs):
 		doc = frappe.new_doc("Bank API Endpoint")
