@@ -37,13 +37,15 @@ class ICICIConnector(BankConnector):
 	def urls(self):
 		return super().urls
 
-	def headers(self, mode_of_transfer=None):
+	def headers(self, mode_of_transfer=None, params=None):
 		headers = {
 			"accept": "*/*",
 			"content-type": "application/json",
 			"apikey": self.get_password("client_key"),
 		}
-		if not self.bulk_transaction:
+		if self.bulk_transaction:
+			if params:
+				headers.update(**params)
 			headers.update(
 				{
 					"host": self.urls.host,
@@ -139,23 +141,28 @@ class ICICIConnector(BankConnector):
 
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
-		encrypted_key = self.rsa_encrypt_key(
-			self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)
-		)
 		data = self.get_account_config(method)
 
-		return json.dumps(
-			{
-				"requestId": get_id(10, payment_details.name),
-				"service": "",
-				"oaepHashingAlgorithm": "NONE",
-				"encryptedKey": encrypted_key,
-				"encryptedData": self.rsa_encrypt_data(data, self.AES_KEY),
-				"clientInfo": "",
-				"optionalParam": "",
-				"iv": b64encode(self.IV).decode("utf-8"),
-			}
-		)
+		if method in ["make_payment", "payment_status", "generate_otp"]:
+			encrypted_key = self.rsa_encrypt_key(
+				self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)
+			)
+
+			return json.dumps(
+				{
+					"requestId": get_id(10, payment_details.name),
+					"service": "",
+					"oaepHashingAlgorithm": "NONE",
+					"encryptedKey": encrypted_key,
+					"encryptedData": self.aes_encrypt_data(data, self.AES_KEY),
+					"clientInfo": "",
+					"optionalParam": "",
+					"iv": b64encode(self.IV).decode("utf-8"),
+				}
+			)
+		else:
+			public_key_path = self.get_file_relative_path(connector_doc.public_key)
+			return self.rsa_encrypt_data(data, public_key_path)
 
 	def get_account_config(self, method):
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -168,12 +175,52 @@ class ICICIConnector(BankConnector):
 			"generate_otp": self.set_otp_data,
 			"make_payment": self.set_payment_data,
 			"payment_status": self.set_payment_status_data,
+			"bank_balance": self.set_balance_data,
+			"bank_statement": self.set_statement_data,
 		}
 
 		if method in method_map:
 			method_map[method](data)
 
 		return data
+
+	def set_statement_data(self, data):
+		connector_doc = self
+		payload_details = self.doc
+
+		from_date = getdate(payload_details.get("from_date", "")).strftime("%d-%m-%Y")
+		to_date = getdate(payload_details.get("to_date", "")).strftime("%d-%m-%Y")
+
+		data.update(
+			{
+				"AGGRID": connector_doc.aggr_id,
+				"CORPID": connector_doc.corp_id,
+				"USERID": connector_doc.corp_usr,
+				"URN": connector_doc.urn,
+				"FROMDATE": from_date,
+				"TODATE": to_date,
+				"ACCOUNTNO": connector_doc.account_number,
+			}
+		)
+		if payload_details.get("paginated"):
+			data.update({"CONFLG": "N"})
+		if payload_details.get("last_transaction_id"):
+			data.update(
+				{"CONFLG": "Y", "LASTTRID": payload_details.get("last_transaction_id")}
+			)
+
+	def set_balance_data(self, data):
+		connector_doc = self
+
+		data.update(
+			{
+				"AGGRID": connector_doc.aggr_id,
+				"CORPID": connector_doc.corp_id,
+				"USERID": connector_doc.corp_usr,
+				"URN": connector_doc.urn,
+				"ACCOUNTNO": connector_doc.account_number,
+			}
+		)
 
 	def set_otp_data(self, data):
 		connector_doc = self
@@ -346,15 +393,31 @@ class ICICIConnector(BankConnector):
 		connector_doc = self
 		res_dict = frappe._dict({})
 		if response.ok:
-			response = json.loads(response.text)
+			response = response.text
+			if method != "bank_balance":
+				response = json.loads(response)
 
-			decrypted_key = self.rsa_decrypt_key(
-				response.get("encryptedKey"),
-				self.get_file_relative_path(connector_doc.private_key),
-			)
-			decrypted_data = self.rsa_decrypt_data(
-				response.get("encryptedData"), decrypted_key
-			)
+			if method in ["make_payment", "payment_status", "generate_otp"]:
+				decrypted_key = self.rsa_decrypt_key(
+					response.get("encryptedKey"),
+					self.get_file_relative_path(connector_doc.private_key),
+				)
+				decrypted_data = self.aes_decrypt_data(
+					response.get("encryptedData"), decrypted_key
+				)
+
+			elif method == "bank_statement":
+				decrypted_key = self.rsa_decrypt_key(
+					response.get("encryptedKey"),
+					self.get_file_relative_path(connector_doc.private_key),
+				)
+				decrypted_data = self.rsa_with_aes_decrypt_data(
+					response.get("encryptedData"), decrypted_key
+				)
+			else:
+				decrypted_data = self.rsa_decrypt_data(
+					response, self.get_file_relative_path(connector_doc.private_key)
+				)
 
 			self.set_decrypted_response(log_id, decrypted_data)
 
@@ -514,6 +577,33 @@ class ICICIConnector(BankConnector):
 					err_msg or data.get("errormessage") or data.get("Message")
 				)
 
+		elif method == "bank_balance" and data:
+			if data.get("RESPONSE") == "SUCCESS":
+				res_dict.server_status = "Success"
+				res_dict.balance = data.get("EFFECTIVEBAL", 0)
+				res_dict.date = data.get("DATE", "")
+			else:
+				res_dict.server_status = "Failed"
+				res_dict.message = data
+
+		elif method == "bank_statement" and data:
+			records = data.get("Record", [])
+			transactions = []
+
+			if data.get("RESPONSE") == "SUCCESS":
+				for txn in records:
+					transaction = {
+						"transaction_date": txn.get("TXNDATE", ""),
+						"transaction_amount": txn.get("AMOUNT"),
+						"reference_number": txn.get("TRANSACTIONID")
+						or txn.get("CHEQUENO"),
+					}
+					transactions.append(transaction)
+
+			res_dict.server_status = "Success"
+			res_dict.bank_statements = transactions
+			res_dict.last_transaction_id = data.get("LISTTRID")
+
 		return res_dict
 
 	def set_decrypted_response(self, log_id, response_data):
@@ -536,8 +626,43 @@ class ICICIConnector(BankConnector):
 	def get_transaction_history(self):
 		return "Transaction History Not Implemented"
 
-	def get_balance(self):
-		return "Balance Not Implemented"
+	def get_bank_balance(self):
+		url = self.urls.bank_balance
+		headers = self.headers(params={"content-type": "text/plain"})
+		payload = self.get_encrypted_payload(method="bank_balance")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Balance",
+			account_config=self.get_account_config("bank_balance"),
+			ref_doctype="Bank Balance",
+			ref_docname=self.account_number,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_balance", log_id=log_id
+		)
+
+	def get_bank_statement(self):
+		url = self.urls.bank_statement
+		headers = self.headers(params={"content-type": "text/plain"})
+		payload = self.get_encrypted_payload(method="bank_statement")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Statement",
+			account_config=self.get_account_config("bank_statement"),
+			ref_doctype="Bank Statement",
+			ref_docname=self.account_number,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_statement", log_id=log_id
+		)
 
 	def get_error_description(self, code):
 		return {
