@@ -13,23 +13,32 @@
   "account_number",
   "corp_id",
   "aggr_id",
+  "aggr_name",
   "urn",
   "ip_address",
   "column_break_fbfo",
   "corp_usr",
   "status_corp_usr",
-  "aggr_name",
   "client_key",
   "public_key",
   "private_key",
-  "section_break_sahs",
+  "balance_and_statement",
+  "balance_check",
+  "balance_corp_usr",
+  "balance_client_key",
+  "column_break_jywt",
+  "statement_fetch",
+  "statement_corp_usr",
+  "statement_client_key",
+  "section_break_sxpu",
   "enable_imps",
+  "section_break_sahs",
   "bcid",
   "pass_code",
   "ifsc_code",
   "column_break_fuct",
-  "retailer_code",
-  "amended_from"
+  "amended_from",
+  "retailer_code"
  ],
  "fields": [
   {
@@ -48,7 +57,7 @@
    "fieldname": "client_key",
    "fieldtype": "Password",
    "in_list_view": 1,
-   "label": "Client Key",
+   "label": "Client Key(Payment & Status)",
    "reqd": 1
   },
   {
@@ -70,27 +79,32 @@
   {
    "fieldname": "corp_id",
    "fieldtype": "Data",
-   "label": "Corp ID"
+   "label": "Corp ID",
+   "reqd": 1
   },
   {
    "fieldname": "aggr_id",
    "fieldtype": "Data",
-   "label": "Aggr ID"
+   "label": "Aggr ID",
+   "reqd": 1
   },
   {
    "fieldname": "corp_usr",
    "fieldtype": "Data",
-   "label": "Corp User(Payment)"
+   "label": "Corp User(Make Payment)",
+   "reqd": 1
   },
   {
    "fieldname": "urn",
    "fieldtype": "Data",
-   "label": "URN"
+   "label": "URN",
+   "reqd": 1
   },
   {
    "fieldname": "aggr_name",
    "fieldtype": "Data",
-   "label": "Aggr Name"
+   "label": "Aggr Name",
+   "reqd": 1
   },
   {
    "default": "0",
@@ -99,8 +113,10 @@
    "label": "Enable IMPS"
   },
   {
+   "depends_on": "enable_imps",
    "fieldname": "section_break_sahs",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "IMPS Configurations"
   },
   {
    "fieldname": "retailer_code",
@@ -160,13 +176,67 @@
   {
    "fieldname": "status_corp_usr",
    "fieldtype": "Data",
-   "label": "Corp User(Status)"
+   "label": "Corp User(Status Check)",
+   "reqd": 1
+  },
+  {
+   "depends_on": "balance_check",
+   "fieldname": "balance_corp_usr",
+   "fieldtype": "Data",
+   "label": "Corp User(Balance Check)"
+  },
+  {
+   "depends_on": "statement_fetch",
+   "fieldname": "statement_corp_usr",
+   "fieldtype": "Data",
+   "label": "Corp User(Pull Statement)"
+  },
+  {
+   "depends_on": "balance_check",
+   "fieldname": "balance_client_key",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "Client Key(Balance Check)",
+   "mandatory_depends_on": "eval: !!doc.balance_corp_usr"
+  },
+  {
+   "depends_on": "statement_fetch",
+   "fieldname": "statement_client_key",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "Client Key(Pull Statement)",
+   "mandatory_depends_on": "eval: !!doc.statement_corp_usr"
+  },
+  {
+   "fieldname": "column_break_jywt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "balance_check",
+   "fieldtype": "Check",
+   "label": "Balance check"
+  },
+  {
+   "default": "0",
+   "fieldname": "statement_fetch",
+   "fieldtype": "Check",
+   "label": "Statement Fetch"
+  },
+  {
+   "fieldname": "balance_and_statement",
+   "fieldtype": "Section Break",
+   "label": "Balance & Statement"
+  },
+  {
+   "fieldname": "section_break_sxpu",
+   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-01 10:14:29.793459",
+ "modified": "2025-04-21 15:06:02.361978",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
