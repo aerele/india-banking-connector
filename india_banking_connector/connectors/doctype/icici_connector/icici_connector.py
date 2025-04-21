@@ -41,7 +41,7 @@ class ICICIConnector(BankConnector):
 		headers = {
 			"accept": "*/*",
 			"content-type": "application/json",
-			"apikey": self.get_password("client_key"),
+			"apikey": self.client_key,
 		}
 		if self.bulk_transaction:
 			if params:
@@ -56,6 +56,7 @@ class ICICIConnector(BankConnector):
 		return headers
 
 	def initiate_payment(self):
+		self.update_client_details("make_payment")
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))[-10:]
 		if not self.bulk_transaction:
@@ -86,6 +87,7 @@ class ICICIConnector(BankConnector):
 		)
 
 	def get_payment_status(self):
+		self.update_client_details("payment_status")
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))[-10:]
 		if not self.bulk_transaction:
@@ -113,6 +115,7 @@ class ICICIConnector(BankConnector):
 		)
 
 	def generate_otp(self):
+		self.update_client_details("generate_otp")
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
 		url = self.urls.generate_otp
@@ -195,7 +198,7 @@ class ICICIConnector(BankConnector):
 			{
 				"AGGRID": connector_doc.aggr_id,
 				"CORPID": connector_doc.corp_id,
-				"USERID": connector_doc.corp_usr,
+				"USERID": connector_doc.statement_corp_usr,
 				"URN": connector_doc.urn,
 				"FROMDATE": from_date,
 				"TODATE": to_date,
@@ -216,7 +219,7 @@ class ICICIConnector(BankConnector):
 			{
 				"AGGRID": connector_doc.aggr_id,
 				"CORPID": connector_doc.corp_id,
-				"USERID": connector_doc.corp_usr,
+				"USERID": connector_doc.balance_corp_usr,
 				"URN": connector_doc.urn,
 				"ACCOUNTNO": connector_doc.account_number,
 			}
@@ -623,10 +626,22 @@ class ICICIConnector(BankConnector):
 			self.get_file_relative_path(self.private_key),
 		)
 
-	def get_transaction_history(self):
-		return "Transaction History Not Implemented"
+	def update_client_details(self, method=None):
+		if not method:
+			frappe.throw("Invalid Method")
+
+		if method == "bank_balance":
+			self.client_key = self.get_password("balance_client_key")
+		elif method == "bank_statement":
+			self.client_key = self.get_password("statement_client_key")
+		else:
+			self.client_key = self.get_password("client_key")
 
 	def get_bank_balance(self):
+		if not self.balance_check:
+			frappe.throw(_("Bank Balance Check is not enabled."))
+
+		self.update_client_details("bank_balance")
 		url = self.urls.bank_balance
 		headers = self.headers(params={"content-type": "text/plain"})
 		payload = self.get_encrypted_payload(method="bank_balance")
@@ -646,6 +661,10 @@ class ICICIConnector(BankConnector):
 		)
 
 	def get_bank_statement(self):
+		if not self.statement_check:
+			frappe.throw(_("Bank Statement Check is not enabled."))
+
+		self.update_client_details("bank_statement")
 		url = self.urls.bank_statement
 		headers = self.headers(params={"content-type": "text/plain"})
 		payload = self.get_encrypted_payload(method="bank_statement")
