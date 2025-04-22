@@ -661,7 +661,7 @@ class ICICIConnector(BankConnector):
 		)
 
 	def get_bank_statement(self):
-		if not self.statement_check:
+		if not self.statement_fetch:
 			frappe.throw(_("Bank Statement Check is not enabled."))
 
 		self.update_client_details("bank_statement")
