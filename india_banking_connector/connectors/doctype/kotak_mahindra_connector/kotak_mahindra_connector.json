@@ -6,18 +6,27 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "tab_break_jwuw",
   "active",
   "column_break_lshz",
   "testing",
-  "section_break_bqpq",
+  "payment_and_status",
   "account_number",
   "prod_code",
-  "client_secret",
-  "forac_id",
-  "amended_from",
-  "column_break_renk",
   "client_code",
-  "client_key"
+  "column_break_pmlu",
+  "client_key",
+  "client_secret",
+  "balance_and_statement",
+  "balance_check",
+  "balance_client_key",
+  "balance_client_secret",
+  "amended_from",
+  "column_break_mmwh",
+  "statement_fetch",
+  "forac_id",
+  "statement_client_key",
+  "statement_client_secret"
  ],
  "fields": [
   {
@@ -45,10 +54,6 @@
    "unique": 1
   },
   {
-   "fieldname": "section_break_bqpq",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -61,37 +66,102 @@
   {
    "fieldname": "client_key",
    "fieldtype": "Data",
-   "label": "Client Key"
+   "label": "Client Key(Payment & Status)",
+   "reqd": 1
   },
   {
    "fieldname": "client_secret",
    "fieldtype": "Password",
-   "label": "Client Secret"
+   "label": "Client Secret(Payment & Status)",
+   "reqd": 1
   },
   {
    "fieldname": "client_code",
    "fieldtype": "Data",
-   "label": "Client Code"
+   "label": "Client Code",
+   "reqd": 1
   },
   {
    "fieldname": "prod_code",
    "fieldtype": "Data",
-   "label": "Prod Code"
+   "label": "Prod Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_pmlu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "active",
+   "fieldname": "payment_and_status",
+   "fieldtype": "Section Break",
+   "label": "Payment & Status"
+  },
+  {
+   "depends_on": "active",
+   "fieldname": "balance_and_statement",
+   "fieldtype": "Section Break",
+   "label": "Balance & Statement"
+  },
+  {
+   "fieldname": "tab_break_jwuw",
+   "fieldtype": "Tab Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "balance_check",
+   "fieldtype": "Check",
+   "label": " Balance check"
+  },
+  {
+   "fieldname": "column_break_mmwh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "statement_fetch",
+   "fieldtype": "Check",
+   "label": "Statement Fetch"
+  },
+  {
+   "depends_on": "balance_check",
+   "fieldname": "balance_client_key",
+   "fieldtype": "Data",
+   "label": "Client Key(Balance)",
+   "mandatory_depends_on": "balance_check"
+  },
+  {
+   "depends_on": "balance_check",
+   "fieldname": "balance_client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret(Balance)",
+   "mandatory_depends_on": "balance_check"
+  },
+  {
+   "depends_on": "statement_fetch",
+   "fieldname": "statement_client_key",
+   "fieldtype": "Data",
+   "label": "Client Key(Statement)",
+   "mandatory_depends_on": "statement_fetch"
+  },
+  {
+   "depends_on": "statement_fetch",
+   "fieldname": "statement_client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret(Statement)",
+   "mandatory_depends_on": "statement_fetch"
   },
   {
    "fieldname": "forac_id",
    "fieldtype": "Data",
-   "label": "Forac ID"
-  },
-  {
-   "fieldname": "column_break_renk",
-   "fieldtype": "Column Break"
+   "label": "Forac ID",
+   "mandatory_depends_on": "statement_fetch"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-01 16:01:22.135984",
+ "modified": "2025-04-22 10:48:32.065918",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Kotak Mahindra Connector",

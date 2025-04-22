@@ -44,6 +44,8 @@ class KotakMahindraConnector(BankConnector):
 		}
 
 	def initiate_payment(self):
+		self.update_client_details(method="make_payment")
+
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 		unique_id = (
 			self.payment_doc.name if not self.bulk_transaction else self.doc.name
@@ -74,6 +76,8 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_payment_status(self):
+		self.update_client_details(method="payment_status")
+
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 		unique_id = (
 			self.payment_doc.name if not self.bulk_transaction else self.doc.name
@@ -99,6 +103,11 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_bank_statement(self):
+		if not self.statement_fetch:
+			frappe.throw("Bank Statement Fetch is not enabled")
+
+		self.update_client_details(method="bank_statement")
+
 		url = self.urls.bank_statement
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="bank_statement")
@@ -120,9 +129,7 @@ class KotakMahindraConnector(BankConnector):
 	def get_oauth_token(self):
 		params = {"grant_type": "client_credentials"}
 
-		auth_string = (
-			f"{self.get_password('client_key')}:{self.get_password('client_secret')}"
-		)
+		auth_string = f"{self.client_key}:{self.client_secret}"
 		encoded_credential = "Basic " + base64.b64encode(auth_string.encode()).decode()
 
 		headers = {
@@ -152,7 +159,7 @@ class KotakMahindraConnector(BankConnector):
 
 		if response.ok:
 			decrypted_response = self.aes_decrypt(
-				response.text, self.get_password("client_secret").encode("utf-8")
+				response.text, self.client_secret.encode("utf-8")
 			)
 			self.set_decrypted_response(log_id, decrypted_response)
 			if method in ["make_payment", "payment_status"]:
@@ -260,9 +267,7 @@ class KotakMahindraConnector(BankConnector):
 			res_dict.summary_details = payment_status_details
 
 	def get_encrypted_payload(self, method):
-		return self.aes_encrypt(
-			self.get_account_config(method), self.get_password("client_secret")
-		)
+		return self.aes_encrypt(self.get_account_config(method), self.client_secret)
 
 	def get_account_config(self, method):
 		if method in ["make_payment", "payment_status"]:
@@ -320,8 +325,12 @@ class KotakMahindraConnector(BankConnector):
 					"executeFinacleScript_CustomData": {
 						"AcctTrnInqRq": {
 							"Foracid": self.forac_id,
-							"FromDate": getdate(payload_details.from_date).strftime("%d-%m-%Y"),
-							"ToDate": getdate(payload_details.to_date).strftime("%d-%m-%Y"),
+							"FromDate": getdate(payload_details.from_date).strftime(
+								"%d-%m-%Y"
+							),
+							"ToDate": getdate(payload_details.to_date).strftime(
+								"%d-%m-%Y"
+							),
 						}
 					},
 				}
@@ -509,7 +518,8 @@ class KotakMahindraConnector(BankConnector):
 				"pay:TxnAmnt": payment_details.amount,
 				"pay:AccountNo": connector.account_number,
 				"pay:DrRefNmbr": "Pay",
-				"pay:DrDesc": cstr(payment_details.party_name)[:40] or f"Payment from {payment_details.parent}"[:40],
+				"pay:DrDesc": cstr(payment_details.party_name)[:40]
+				or f"Payment from {payment_details.parent}"[:40],
 				"pay:PaymentDt": getdate().strftime("%Y-%m-%d"),
 				"pay:BankCdInd": "M",
 				"pay:RecBrCd": payment_details.branch_code,
@@ -546,8 +556,19 @@ class KotakMahindraConnector(BankConnector):
 		for payment_details in payments.get("summary", []):
 			yield self.get_instrument(frappe._dict(payment_details))
 
-	def get_transaction_history(self):
-		return "Transaction History Not Implemented"
+	def update_client_details(self, method=None):
+		if not method:
+			frappe.throw("Invalid Method")
+
+		if method == "bank_balance":
+			self.client_key = self.get_password("balance_client_key")
+			self.client_secret = self.get_password("balance_client_secret")
+		elif method == "bank_statement":
+			self.client_key = self.get_password("statement_client_key")
+			self.client_secret = self.get_password("statement_client_secret")
+		else:
+			self.client_key = self.get_password("client_key")
+			self.client_secret = self.get_password("client_secret")
 
 	def get_balance(self):
 		return "Balance Not Implemented"
