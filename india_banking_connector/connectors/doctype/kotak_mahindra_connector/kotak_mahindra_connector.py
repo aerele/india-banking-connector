@@ -103,6 +103,9 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_bank_statement(self):
+		if not self.statement_fetch:
+			frappe.throw("Bank Statement Fetch is not enabled")
+
 		self.update_client_details(method="bank_statement")
 
 		url = self.urls.bank_statement
