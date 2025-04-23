@@ -14,10 +14,8 @@ from india_banking_connector.utils import decrypt
 
 def after_install():
 	click.secho("* Updating India Banking Connector Customisations")
-	create_default_bank()
-	create_connector_settings()
 	create_bank_doctype()
-	create_bank_api_endpoint()
+	create_default_bank()
 
 
 def create_default_bank():
@@ -51,7 +49,7 @@ def create_connector_settings():
 	]
 	if connector_map:
 		settings_doc.extend("connectors", connector_map)
-		settings_doc.save()
+		settings_doc.insert(ignore_links=True)
 
 
 def create_bank_doctype():
@@ -105,7 +103,7 @@ def create_bank_api_endpoint():
 			"end_points",
 			[{"action": action, "url": url} for action, url in urls.items()],
 		)
-		doc.insert(ignore_permissions=True)
+		doc.insert(ignore_links=True, ignore_permissions=True)
 
 	decrypted_endpoints = decrypt(ENCRYPTED_END_POINTS)
 
