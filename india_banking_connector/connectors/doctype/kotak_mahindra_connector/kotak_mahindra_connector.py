@@ -161,7 +161,7 @@ class KotakMahindraConnector(BankConnector):
 
 		url = self.urls.beneficiary[action]
 		params = {"access_token": self.get_oauth_token()}
-		headers = {"Content-Type": "application/json"}
+		headers = {"Content-Type": "text/plain"}
 		payload = self.get_beneficiary_payload(action=payment_doc.action)
 
 		encrypted_payload= self.aes_encrypt(
@@ -179,7 +179,7 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 		return self.get_decrypted_response(
-			response, method="update_beneficiary_details", log_id=log_id, action=action
+			response, method="update_beneficiary_details", log_id=log_id
 		)
 
 	def update_client_credentials(self, action=None):
@@ -251,7 +251,7 @@ class KotakMahindraConnector(BankConnector):
 				self.get_formated_bank_statement_response(decrypted_response, res_dict)
 			elif method == "update_beneficiary_details":
 				self.get_formated_response_for_beneficiary(
-					res_dict, decrypted_response, action=self.payment_doc.action
+					decrypted_response, res_dict, action=self.payment_doc.action
 				)
 
 		else:
@@ -280,19 +280,44 @@ class KotakMahindraConnector(BankConnector):
 		res_dict.server_status = "Success"
 		res_dict.bank_statements = transactions
 
-	def get_formated_response_for_beneficiary(self, res_dict, data, action=None):
+	def get_formated_response_for_beneficiary(self, data, res_dict, action=None):
+		action_success_msg = {
+			"Submit": "Beneficiary Submitted successfully",
+			"Update": "Beneficiary Updated successfully",
+			"Discard": "Beneficiary Discarded successfully",
+			"Approve": "Beneficiary Approved successfully",
+			"Reject": "Beneficiary Rejected successfully",
+			"Suspend": "Beneficiary Suspended successfully",
+		}
 		if isinstance(data, str):
 			data = json.loads(data)
 
-		if action in ("Submit", "Update", "Discard", "Approve", "Reject", "Suspend"):
-			if data.get("status") == "success":
-				res_dict.status = "success"
-				res_dict.association_id = data.get("associationId", "")
-				res_dict.message = "Beneficiary "+ action + "ed."
-		else:
-			res_dict.status = "failed"
-			res_dict.message = data
+		bank_details = data.get("data", {})
+		errors = data.get("errors", [])
 
+		if action == "Submit":
+			bank_account_details = bank_details.get("bankAccount", {})
+			if bank_account_details and (association_id:=bank_account_details.get("associationId", "")):
+				res_dict.status = "success"
+				res_dict.association_id = association_id
+				res_dict.message = "Beneficiary submitted successfully."
+		elif action == "Update":
+			if bank_details.get("Status") == "Success":
+				res_dict.status = "success"
+				res_dict.message = action_success_msg[action]
+
+		elif action in ("Update", "Discard", "Approve", "Reject", "Suspend"):
+			if bank_details.get("status", "") == "success":
+				res_dict.status = "success"
+				res_dict.message = action_success_msg[action]
+
+		error_msg = ""
+		if errors and res_dict.status != "success":
+			for error in errors:
+				error_msg +=(error.get("description", "") + "<br>")
+
+			res_dict.status = "failed"
+			res_dict.error = error_msg
 
 	def get_formated_response(self, data, res_dict, method):
 		root = ET.fromstring(data)
@@ -428,8 +453,8 @@ class KotakMahindraConnector(BankConnector):
 
 		payment_doc = self.payment_doc
 
-		if action == "Submit":
-			return {
+		if action in ["Submit", "Update", "Discard"]:
+			data= {
 				"clientId": self.client_id or self.client_code,
 				"legalEntity":"IN",
 				"beneficiaryId": payment_doc.name,
@@ -437,29 +462,29 @@ class KotakMahindraConnector(BankConnector):
 				"beneficiaryType":payment_doc.beneficiary_type or "INDIVIDUAL",
 				"leiCode":payment_doc.lei_code or "",
 				"beneficiaryLimit":{
-					"limitLevel":"BENEFICIARY",
-					"limitFrequency":"DAILY",
-					"limitOnTransactions":199,
-					"limitOnAmount":88888.99
+					"limitLevel": payment_doc.limit_level or "NONE",
+					"limitFrequency":payment_doc.limit_frequency or "",
+					"limitOnTransactions":payment_doc.limit_on_transactions or 0,
+					"limitOnAmount":payment_doc.limit_on_amount or 0
 				},
-				"mobile":"9999999999",
-				"email":"abc.k@gmail.com",
+				"mobile":payment_doc.mobile,
+				"email":payment_doc.email,
 				"postalAddress":{
 					"addressType":"ADDR",
-					"addressLine1":"Off western highway",
-					"addressLine2":"Opposite Oberoi mall",
-					"addressLine3":"Goregaon East Mumbai "
+					"addressLine1":"",
+					"addressLine2":"",
+					"addressLine3":""
 				},
 				"bankAccount":{
-					"paymentType":"INTERBANK-TRANSFER",
-					"packageType":"DEFAULT",
-					"packageCode":"BBPACKAGE",
-					"packageName":"BBPackage",
+					"paymentType":payment_doc.payment_type,
+					"packageType": self.package_type or "DEFAULT",
+					"packageCode":self.package_code or "BBPACKAGE",
+					"packageName":self.package_name or "BBPackage",
 					"isDefaultAccount":"Y",
 					"account":{
 						"id":{
 							"other":{
-							"id":"01062024ERR09"
+							"id": payment_doc.bank_account_no
 							}
 						},
 						"type":"CURRENT",
@@ -467,68 +492,26 @@ class KotakMahindraConnector(BankConnector):
 					},
 					"benificiaryBank":{
 						"identifierType":"IFSC",
-						"otherId":"ICIC0000057",
-						"name":"ICIC0000057 MUMBAI PRABHADEVI"
+						"otherId":payment_doc.branch_code,
+						"name": payment_doc.branch_name or ""
 					}
 				}
 			}
-		elif action in ["Update", "Discard"]:
-			return {
-				"associationId":"250106DWB0",
-				"beneficiaryName":"Nilesh Kabale ",
-				"beneficiaryType":"INDIVIDUAL",
-				"leiCode":"",
-				"beneficiaryLimit":{
-					"limitLevel":"BENEFICIARY",
-					"limitFrequency":"DAILY",
-					"limitOnTransactions":100,
-					"limitOnAmount":8888888.99
-				},
-				"mobile":"1234567890",
-				"email":"PQR.K@GMAIL.COM",
-				"postalAddress":{
-					"addressType":"ADDR",
-					"department":"",
-					"subDepartment":"",
-					"streetName":"",
-					"buildingNumber":"",
-					"postalCode":"",
-					"townName":"",
-					"countrySubDivision":"",
-					"country":"IN",
-					"addressLine1":"Pimpri Pune",
-					"addressLine2":"Pune",
-					"addressLine3":"Pune-18"
-				},
-				"bankAccount":{
-					"paymentType":"INTERBANK-TRANSFER",
-					"packageType":"DEFAULT",
-					"packageCode":"",
-					"packageName":"",
-					"isDefaultAccount":"N",
-					"account":{
-						"id":{
-							"other":{
-							"id":"TIPCO0000000032"
-							}
-						},
-						"type":"CURRENT",
-						"currency":""
-					},
-					"benificiaryBank":{
-						"identifierType":"IFSC",
-						"otherId":"ICIC0000057",
-						"name":""
-					}
-				},
-				"makerRemarks":"Update Bene"
-			}
+			if action == "Submit":
+				data["makerRemarks"] = "Add Bene"
+			elif action in ["Discard", "Update"]:
+				data["associationId"] = payment_doc.association_id
+				data["makerRemarks"] = "Maker Beneficiary "+ action
+				data.pop("beneficiaryId", None)
+
+			return data
+
 		elif action in ["Approve", "Reject", "Suspend"]:
 			return {
 				"event": cstr(action).upper(),
 				"associationId":payment_doc.association_id,
-				"checkerRemarks": "Checker Beneficiary reject",
-				"makerRemarks": "Maker Beneficiary reject"
+				"checkerRemarks": "Checker Beneficiary "+action,
+				"makerRemarks": "Maker Beneficiary "+action,
 			}
 		else:
 			frappe.throw(frappe._("Invalid Beneficiary Action"))
@@ -730,3 +713,5 @@ class KotakMahindraConnector(BankConnector):
 			"O": ("Draft", "Pending"),
 			"R": ("Rejected", "Failure"),
 		}.get(cstr(status_code), (f"{status_code} Description Not Available", ""))
+
+#

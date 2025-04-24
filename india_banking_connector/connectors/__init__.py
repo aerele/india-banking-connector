@@ -61,7 +61,9 @@ def get_connector(payload):
 			if method and hasattr(self, method):
 				return getattr(self, method)()
 			else:
-				return self.as_dict(), cstr(method), _("Invalid Method")
+				return {
+					"error": f"Invalid Method {cstr(method)}"
+				}
 
 	try:
 		return Connector(

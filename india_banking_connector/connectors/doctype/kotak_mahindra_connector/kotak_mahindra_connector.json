@@ -12,14 +12,18 @@
   "section_break_bqpq",
   "account_number",
   "client_code",
-  "prod_code",
   "client_key",
-  "client_secret",
   "amended_from",
+  "column_break_wltg",
+  "prod_code",
+  "client_secret",
   "client_details_tab",
   "forac_id",
-  "column_break_drfu",
   "client_id",
+  "column_break_drfu",
+  "package_type",
+  "package_code",
+  "package_name",
   "section_break_ejmv",
   "client_details"
  ],
@@ -111,12 +115,32 @@
   {
    "fieldname": "section_break_ejmv",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_wltg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "package_type",
+   "fieldtype": "Select",
+   "label": "Package Type",
+   "options": "DEFAULT\nFIXED"
+  },
+  {
+   "fieldname": "package_code",
+   "fieldtype": "Data",
+   "label": "Package Code"
+  },
+  {
+   "fieldname": "package_name",
+   "fieldtype": "Data",
+   "label": "Package Name"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-12 17:18:53.393170",
+ "modified": "2025-04-25 02:57:40.217732",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Kotak Mahindra Connector",
