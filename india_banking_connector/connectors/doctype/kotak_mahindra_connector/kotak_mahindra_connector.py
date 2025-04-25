@@ -453,7 +453,7 @@ class KotakMahindraConnector(BankConnector):
 
 		payment_doc = self.payment_doc
 
-		if action in ["Submit", "Update", "Discard"]:
+		if action in ["Submit", "Update"]:
 			data= {
 				"clientId": self.client_id or self.client_code,
 				"legalEntity":"IN",
@@ -512,6 +512,12 @@ class KotakMahindraConnector(BankConnector):
 				"associationId":payment_doc.association_id,
 				"checkerRemarks": "Checker Beneficiary "+action,
 				"makerRemarks": "Maker Beneficiary "+action,
+			}
+		elif action == "Discard":
+			return {
+				"clientId": self.client_id or self.client_code,
+				"beneficiaryId":payment_doc.name,
+				"accountNumber": payment_doc.bank_account_n or "",
 			}
 		else:
 			frappe.throw(frappe._("Invalid Beneficiary Action"))
@@ -713,5 +719,3 @@ class KotakMahindraConnector(BankConnector):
 			"O": ("Draft", "Pending"),
 			"R": ("Rejected", "Failure"),
 		}.get(cstr(status_code), (f"{status_code} Description Not Available", ""))
-
-#
