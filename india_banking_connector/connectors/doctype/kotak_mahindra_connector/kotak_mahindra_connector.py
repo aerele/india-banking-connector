@@ -14,7 +14,6 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 )
 from india_banking_connector.utils import get_id
 import json
-
 class KotakMahindraConnector(BankConnector):
 	bank = "Kotak Mahindra Bank"
 
@@ -657,10 +656,10 @@ class KotakMahindraConnector(BankConnector):
 				"pay:BankCdInd": "M",
 				"pay:RecBrCd": payment_details.branch_code,
 				"pay:BeneAcctNo": payment_details.bank_account_no,
-				"pay:BeneName": payment_details.party_name,
-				"pay:BeneCode": "",
-				"pay:BeneEmail": payment_details.email,
-				"pay:BeneMb": "",
+				"pay:BeneCode": payment_details.beneficiary,
+				"pay:BeneName": payment_details.beneficiary_name,
+				"pay:BeneEmail": payment_details.email or "",
+				"pay:BeneMb": payment_details.mobile or "",
 				"pay:BeneAddr1": "",
 				"pay:BeneAddr2": "",
 				"pay:BeneAddr3": "",
