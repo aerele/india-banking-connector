@@ -289,8 +289,12 @@ class KotakMahindraConnector(BankConnector):
 			"Reject": "Beneficiary Rejected successfully",
 			"Suspend": "Beneficiary Suspended successfully",
 		}
-		if isinstance(data, str):
+		if isinstance(data, str) and data.strip().startswith("{"):
 			data = json.loads(data)
+		else:
+			res_dict.status = "failed"
+			res_dict.error = data
+			return res_dict
 
 		bank_details = data.get("data", {})
 		errors = data.get("errors", [])
