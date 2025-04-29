@@ -1,7 +1,7 @@
 [pre_model_sync]
-india_banking_connector.patches.v1_0.create_bank_doctype
+india_banking_connector.patches.v1_0.create_bank_doctype # apr29
 
 
 [post_model_sync]
-india_banking_connector.patches.v1_0.update_connector_settings
-india_banking_connector.patches.v1_0.update_new_api_endpoint
+india_banking_connector.patches.v1_0.update_connector_settings #apr29
+india_banking_connector.patches.v1_0.update_new_api_endpoint #apr29
