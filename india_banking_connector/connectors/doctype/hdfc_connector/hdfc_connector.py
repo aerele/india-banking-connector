@@ -14,7 +14,7 @@ from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
 	create_api_log,
 )
-
+import re
 
 class HDFCConnector(BankConnector):
 	bank = "HDFC Bank"
@@ -186,7 +186,7 @@ class HDFCConnector(BankConnector):
 			if "A2A" in payment_details.mode_of_transfer
 			else payment_details.mode_of_transfer
 		)
-
+		bene_name = re.sub(r'[^a-zA-Z\s]', '', payment_details.party_name or payment_details.party)[:50]
 		if method == "make_payment":
 			return {
 				"LOGIN_ID": conector_doc.login_id,
