@@ -199,7 +199,7 @@ class HDFCConnector(BankConnector):
 				"INPUT_DEBIT_ORG_ACC_NO": conector_doc.account_number,
 				"INPUT_BUSINESS_PROD": conector_doc.business_prod,
 				"BENE_ID": "",
-				"BENE_ACC_NAME": "",
+				"BENE_ACC_NAME": bene_name,
 				"BENE_ACC_NO": payment_details.bank_account_no,
 				"BENE_TYPE": "ADHOC",
 				"BENE_BRANCH": payment_details.branch or payment_details.branch_code,
