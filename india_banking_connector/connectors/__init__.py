@@ -61,7 +61,7 @@ def get_connector(payload, bulk_transaction=None):
 			if method and hasattr(self, method):
 				return getattr(self, method)()
 			else:
-				frappe.throw(_("Invalid Method"))
+				frappe.throw(_("Invalid method: Contact admin."))
 
 	try:
 		return Connector(
@@ -72,12 +72,6 @@ def get_connector(payload, bulk_transaction=None):
 			payment_doc=payload,
 		)
 	except frappe.exceptions.DoesNotExistError:
-		frappe.throw(
-			title=_("Connection failed"),
-			msg=_("Bank Connector not found for Account Number {0}").format(
-				doc.company_account_number
-			),
-		)
-
+		return {"status": "Request Failure", "error": "Connector not found for Account Number {0}".format(doc.company_account_number)}
 	except Exception:
-		return {"message": frappe.get_traceback()}
+		return {"status": "Request Failure", "error": "Connector Error: please check log and try again", "traceback": frappe.get_traceback()}

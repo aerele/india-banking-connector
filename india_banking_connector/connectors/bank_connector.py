@@ -101,33 +101,57 @@ class BankConnector(Document):
 		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
 
 	def encrypt_payload(self, payload):
-		jws_signed = self.generate_jws_with_rs256(
-			payload,
-			self.get_file_content(self.private_key),
-			kid=self.generate_kid(self.sign_key),
-		)
+		error= ""
+		try:
+			jws_signed = self.generate_jws_with_rs256(
+				payload,
+				self.get_file_content(self.private_key),
+				kid=self.generate_kid(self.sign_key),
+			)
 
-		encrypted_payload = jwe.encrypt(
-			plaintext=jws_signed,
-			key=self.get_file_content(self.public_key),
-			encryption="A256GCM",
-			algorithm="RSA-OAEP-256",
-			cty="JWE",
-			kid=self.generate_kid(self.public_key),
-		)
+			encrypted_payload = jwe.encrypt(
+				plaintext=jws_signed,
+				key=self.get_file_content(self.public_key),
+				encryption="A256GCM",
+				algorithm="RSA-OAEP-256",
+				cty="JWE",
+				kid=self.generate_kid(self.public_key),
+			)
 
-		return encrypted_payload
+			return encrypted_payload
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Encryption Failed", error)
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while encrypting payload. Please check the Logs and try again."
+				)
+			)
 
 	def decrypt_response(self, response):
-		jwe_decrypted = jwe.decrypt(
-			response.text.encode("utf-8"), self.get_file_content(self.private_key)
-		)
-		jws_verified = jws.verify(
-			jwe_decrypted,
-			self.get_file_content(self.public_key),
-			algorithms=["RS256"],
-		)
-		return jws_verified.decode("utf-8")
+		error = ""
+		try:
+			jwe_decrypted = jwe.decrypt(
+				response.text.encode("utf-8"), self.get_file_content(self.private_key)
+			)
+			jws_verified = jws.verify(
+				jwe_decrypted,
+				self.get_file_content(self.public_key),
+				algorithms=["RS256"],
+			)
+			return jws_verified.decode("utf-8")
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Decryption Failed", error)
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while decrypting response. Please check the Logs and try again."
+				)
+			)
 
 	def generate_kid(self, file_name):
 		public_key_pem_str = self.get_file_content(file_name)
@@ -159,105 +183,218 @@ class BankConnector(Document):
 	# Kotak Encryption and Decryption
 
 	def aes_encrypt(self, data, key):
-		if isinstance(key, str):
-			key = key.encode("utf-8")
-		if isinstance(data, str):
-			data = data.encode("utf-8")
+		error = ""
+		try:
+			if isinstance(key, str):
+				key = key.encode("utf-8")
+			if isinstance(data, str):
+				data = data.encode("utf-8")
 
-		data = self.IV + data
+			data = self.IV + data
 
-		cipher = AES.new(key, AES.MODE_CBC, self.IV)
-		encrypted = cipher.encrypt(pad(data, AES.block_size))
-		return b64encode(encrypted).decode("utf-8")
+			cipher = AES.new(key, AES.MODE_CBC, self.IV)
+			encrypted = cipher.encrypt(pad(data, AES.block_size))
+			return  b64encode(encrypted).decode("utf-8")
+		except Exception:
+			frappe.log_error("Encryption Failed", error)
+			error = frappe.get_traceback()
+
+		if error:
+			frappe.throw(
+				title=frappe._(
+					"Error while encrypting payload. Please check the Logs and try again."
+				)
+			)
 
 	def aes_decrypt(self, data, key):
-		if isinstance(key, str):
-			key = key.encode("utf-8")
+		error = ""
+		try:
+			if isinstance(key, str):
+				key = key.encode("utf-8")
 
-		encrypted_bytes = b64decode(data)
+			encrypted_bytes = b64decode(data)
 
-		IV, encrypted_data = encrypted_bytes[:16], encrypted_bytes[16:]
+			IV, encrypted_data = encrypted_bytes[:16], encrypted_bytes[16:]
 
-		cipher = AES.new(key, AES.MODE_CBC, IV)
+			cipher = AES.new(key, AES.MODE_CBC, IV)
 
-		decrypted_padded = cipher.decrypt(encrypted_data)
+			decrypted_padded = cipher.decrypt(encrypted_data)
 
-		return unpad(decrypted_padded, AES.block_size).decode("utf-8")
+			return unpad(decrypted_padded, AES.block_size).decode("utf-8")
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Decryption Failed", error)
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while decrypting response. Please check the Logs and try again."
+				)
+			)
 
 	# ICICI Encryption and Decryption
-
 	def rsa_encrypt_key(self, key, key_path):
-		if isinstance(key, str):
-			key = key.encode("utf-8")
+		error = ""
+		try:
+			if isinstance(key, str):
+				key = key.encode("utf-8")
 
-		with open(key_path, "rb") as file:
-			public_key = rsa.PublicKey.load_pkcs1(file.read())
-			encrypted_key = rsa.encrypt(key, public_key)
-			return b64encode(encrypted_key).decode("utf-8")
+			with open(key_path, "rb") as file:
+				public_key = rsa.PublicKey.load_pkcs1(file.read())
+				encrypted_key = rsa.encrypt(key, public_key)
+				return b64encode(encrypted_key).decode("utf-8")
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Encryption Failed", error)
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while encrypting Key. Please check the Logs and try again."
+				)
+			)
 
 	def rsa_decrypt_key(self, key, key_path):
-		with open(key_path, "rb") as file:
-			private_key = rsa.PrivateKey.load_pkcs1(file.read())
-			return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
+		error = ""
+		try:
+			with open(key_path, "rb") as file:
+				private_key = rsa.PrivateKey.load_pkcs1(file.read())
+				return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Decryption Failed", error)
+
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while decrypting Key. Please check the Logs and try again."
+				)
+			)
 
 	def aes_encrypt_data(self, data, key):
-		if isinstance(data, dict):
-			data = json.dumps(data)
+		error = ""
+		try:
+			if isinstance(data, dict):
+				data = json.dumps(data)
 
-		if isinstance(key, str):
-			key = key.encode("utf-8")
+			if isinstance(key, str):
+				key = key.encode("utf-8")
 
-		padded = pad(data.encode("utf-8"), self.BLOCK_SIZE)
+			padded = pad(data.encode("utf-8"), self.BLOCK_SIZE)
 
-		cipher = AES.new(key, AES.MODE_CBC, self.IV)
+			cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
-		encrypted = cipher.encrypt(padded)
+			encrypted = cipher.encrypt(padded)
 
-		return b64encode(encrypted).decode("utf-8")
+			return b64encode(encrypted).decode("utf-8")
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Encryption Failed", error)
+
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while encrypting payload. Please check the Logs and try again."
+				)
+			)
 
 	def aes_decrypt_data(self, data, key):
-		if isinstance(key, str):
-			key = key.encode("utf-8")
+		error = ""
+		try:
+			if isinstance(key, str):
+				key = key.encode("utf-8")
 
-		cipher = AES.new(key, AES.MODE_CBC, self.IV)
+			cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
-		decrypted = cipher.decrypt(b64decode(data))
+			decrypted = cipher.decrypt(b64decode(data))
 
-		size = self.BLOCK_SIZE
+			size = self.BLOCK_SIZE
 
-		return json.loads(unpad(decrypted, size)[size:])
+			return json.loads(unpad(decrypted, size)[size:])
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Decryption Failed", error)
+
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while decrypting response. Please check the Logs and try again."
+				)
+			)
 
 	def rsa_encrypt_data(self, data, key_path):
-		if isinstance(data, dict):
-			data = json.dumps(data)
+		error = ""
+		try:
+			if isinstance(data, dict):
+				data = json.dumps(data)
 
-		public_key = open(key_path, "r")
-		rsa_key = RSA.importKey(public_key.read())
+			public_key = open(key_path, "r")
+			rsa_key = RSA.importKey(public_key.read())
 
-		cipher = Cipher_PKCS1_v1_5.new(rsa_key)
-		cipher_text = cipher.encrypt(data.encode())
+			cipher = Cipher_PKCS1_v1_5.new(rsa_key)
+			cipher_text = cipher.encrypt(data.encode())
 
-		return b64encode(cipher_text).decode()
+			return b64encode(cipher_text).decode()
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Encryption Failed", error)
+
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while encrypting payload. Please check the Logs and try again."
+				)
+			)
 
 	def rsa_with_aes_decrypt_data(self, data, key):
-		decoded_data = b64decode(data)
-		iv = decoded_data[:16]
-		encrypted_content = decoded_data[16:]
+		error = ""
+		try:
+			decoded_data = b64decode(data)
+			iv = decoded_data[:16]
+			encrypted_content = decoded_data[16:]
 
-		cipher = AES.new(key.encode(), AES.MODE_CBC, iv)
-		decrypted_data = cipher.decrypt(encrypted_content)
+			cipher = AES.new(key.encode(), AES.MODE_CBC, iv)
+			decrypted_data = cipher.decrypt(encrypted_content)
 
-		padding_length = decrypted_data[-1]
-		decrypted_data = decrypted_data[:-padding_length]
+			padding_length = decrypted_data[-1]
+			decrypted_data = decrypted_data[:-padding_length]
 
-		return decrypted_data.decode("utf-8")
+			return decrypted_data.decode("utf-8")
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Decryption Failed", error)
+
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while decrypting response. Please check the Logs and try again."
+				)
+			)
 
 	def rsa_decrypt_data(self, data, key_path):
-		rsa_key = RSA.importKey(open(key_path, "rb").read())
-		decoded_data = b64decode(data)
+		error = ""
+		try:
+			rsa_key = RSA.importKey(open(key_path, "rb").read())
+			decoded_data = b64decode(data)
 
-		cipher = Cipher_PKCS1_v1_5.new(rsa_key)
+			cipher = Cipher_PKCS1_v1_5.new(rsa_key)
 
-		decrypted_res = cipher.decrypt(decoded_data, b"x")
+			decrypted_res = cipher.decrypt(decoded_data, b"x")
 
-		return json.loads(decrypted_res.decode("utf-8"))
+			return json.loads(decrypted_res.decode("utf-8"))
+		except Exception:
+			error = frappe.get_traceback()
+			frappe.log_error("Decryption Failed", error)
+
+
+		if error:
+			frappe.throw(
+				frappe._(
+					"Error while decrypting response. Please check the Logs and try again."
+				)
+			)
