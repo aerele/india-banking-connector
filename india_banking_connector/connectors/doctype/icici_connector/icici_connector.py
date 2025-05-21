@@ -24,7 +24,12 @@ class ICICIConnector(BankConnector):
 	BLOCK_SIZE = 16
 	IV = "0000000000000000".encode("utf-8")
 
-	__all__ = ["initiate_payment", "get_payment_status"]
+	__all__ = [
+		"initiate_payment",
+		"get_payment_status",
+		"get_bank_balance",
+		"get_bank_statement",
+	]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -276,7 +281,7 @@ class ICICIConnector(BankConnector):
 			if not connector_doc.enable_imps:
 				frappe.throw(
 					_(
-						"IMPS is not enabled for this {} account.".format(
+						"IMPS is not enabled for account {}.".format(
 							connector_doc.account_number
 						)
 					)
@@ -639,7 +644,7 @@ class ICICIConnector(BankConnector):
 
 	def get_bank_balance(self):
 		if not self.balance_check:
-			frappe.throw(_("Bank Balance Check is not enabled."))
+			frappe.throw(_("Bank Balance check is not enabled."))
 
 		self.update_client_details("bank_balance")
 		url = self.urls.bank_balance
@@ -662,7 +667,7 @@ class ICICIConnector(BankConnector):
 
 	def get_bank_statement(self):
 		if not self.statement_fetch:
-			frappe.throw(_("Bank Statement Check is not enabled."))
+			frappe.throw(_("Bank Statement check is not enabled."))
 
 		self.update_client_details("bank_statement")
 		url = self.urls.bank_statement

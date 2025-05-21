@@ -22,7 +22,7 @@ class BankConnector(Document):
 
 	def is_active(self):
 		if not self.active:
-			frappe.throw("Connector inactive. Please contact admin.")
+			frappe.throw("Connector is inactive. Please contact the admin.")
 
 	@property
 	def urls(self):
@@ -81,7 +81,7 @@ class BankConnector(Document):
 		elif existing_payment_response:
 			frappe.throw(
 				frappe._(
-					f"Payment with ID {unique_id} has already been processed. Aborting transaction."
+					f"Payment with ID {unique_id} has already been processed. Transaction aborted."
 				)
 			)
 
@@ -101,7 +101,7 @@ class BankConnector(Document):
 		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
 
 	def encrypt_payload(self, payload):
-		error= ""
+		error = ""
 		try:
 			jws_signed = self.generate_jws_with_rs256(
 				payload,
@@ -120,7 +120,7 @@ class BankConnector(Document):
 
 			return encrypted_payload
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Encryption Failed", error)
 
 		if error:
@@ -143,7 +143,7 @@ class BankConnector(Document):
 			)
 			return jws_verified.decode("utf-8")
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Decryption Failed", error)
 
 		if error:
@@ -194,10 +194,10 @@ class BankConnector(Document):
 
 			cipher = AES.new(key, AES.MODE_CBC, self.IV)
 			encrypted = cipher.encrypt(pad(data, AES.block_size))
-			return  b64encode(encrypted).decode("utf-8")
+			return b64encode(encrypted).decode("utf-8")
 		except Exception:
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Encryption Failed", error)
-			error = frappe.get_traceback()
 
 		if error:
 			frappe.throw(
@@ -222,7 +222,7 @@ class BankConnector(Document):
 
 			return unpad(decrypted_padded, AES.block_size).decode("utf-8")
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Decryption Failed", error)
 
 		if error:
@@ -244,7 +244,7 @@ class BankConnector(Document):
 				encrypted_key = rsa.encrypt(key, public_key)
 				return b64encode(encrypted_key).decode("utf-8")
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Encryption Failed", error)
 
 		if error:
@@ -261,9 +261,8 @@ class BankConnector(Document):
 				private_key = rsa.PrivateKey.load_pkcs1(file.read())
 				return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Decryption Failed", error)
-
 
 		if error:
 			frappe.throw(
@@ -289,9 +288,8 @@ class BankConnector(Document):
 
 			return b64encode(encrypted).decode("utf-8")
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Encryption Failed", error)
-
 
 		if error:
 			frappe.throw(
@@ -314,9 +312,8 @@ class BankConnector(Document):
 
 			return json.loads(unpad(decrypted, size)[size:])
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Decryption Failed", error)
-
 
 		if error:
 			frappe.throw(
@@ -339,9 +336,8 @@ class BankConnector(Document):
 
 			return b64encode(cipher_text).decode()
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Encryption Failed", error)
-
 
 		if error:
 			frappe.throw(
@@ -365,9 +361,8 @@ class BankConnector(Document):
 
 			return decrypted_data.decode("utf-8")
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Decryption Failed", error)
-
 
 		if error:
 			frappe.throw(
@@ -388,9 +383,8 @@ class BankConnector(Document):
 
 			return json.loads(decrypted_res.decode("utf-8"))
 		except Exception:
-			error = frappe.get_traceback()
+			error = frappe.get_traceback(with_context=True)
 			frappe.log_error("Decryption Failed", error)
-
 
 		if error:
 			frappe.throw(

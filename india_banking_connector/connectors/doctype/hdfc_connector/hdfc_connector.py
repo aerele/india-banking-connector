@@ -31,7 +31,7 @@ class HDFCConnector(BankConnector):
 	@property
 	def urls(self):
 		if self.bulk_transaction:
-			frappe.throw("Bulk transactions are not supported")
+			frappe.throw("Bulk transactions are not supported.")
 
 		return super().urls
 
@@ -222,12 +222,13 @@ class HDFCConnector(BankConnector):
 		auth_string = (
 			self.get_password("client_key") + ":" + self.get_password("client_secret")
 		)
-		encoded_credintial = "Basic " + base64.b64encode(auth_string.encode()).decode()
+		encoded_credential = "Basic " + base64.b64encode(auth_string.encode()).decode()
 
 		headers = {
 			"Content-Type": "application/x-www-form-urlencoded",
-			"Authorization": encoded_credintial,
+			"Authorization": encoded_credential,
 		}
+		oauth_token = ""
 		try:
 			response = requests.post(
 				self.urls.oauth_token,
@@ -239,21 +240,19 @@ class HDFCConnector(BankConnector):
 			create_api_log(response, action="Get OAuth Token")
 
 			if response.ok:
-				return response.json().get("access_token")
+				oauth_token = response.json().get("access_token")
 		except requests.exceptions.SSLError:
 			frappe.log_error("Oauth Failed", frappe.get_traceback(with_context=True))
-			frappe.throw(
-				_(
-					"Connection failed due to a certificate mismatch. Verify the certificate and try again."
-				)
-			)
-		except:
+		except Exception:
 			frappe.log_error("Oauth Failed", frappe.get_traceback(with_context=True))
+
+		if not oauth_token:
 			frappe.throw(
 				_(
-					"Connection failed. Unable to authenticate with the connector. Please verify your credentials"
+					"Error obtaining OAuth token. Please check your credentials and try again."
 				)
 			)
+		return oauth_token
 
 	def get_cert(self):
 		return (

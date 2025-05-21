@@ -20,7 +20,7 @@ class KotakMahindraConnector(BankConnector):
 
 	IV = "0000000000000000".encode("utf-8")
 
-	__all__ = ["initiate_payment", "get_payment_status"]
+	__all__ = ["initiate_payment", "get_payment_status", "get_bank_statement"]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -141,10 +141,21 @@ class KotakMahindraConnector(BankConnector):
 
 		create_api_log(response, action="Get OAuth Token")
 
+		access_token = ""
 		if response.ok:
-			return response.json().get("access_token")
-		else:
-			frappe.throw("Error in getting OAuth Token. Please check your credentials.")
+			try:
+				access_token = response.json().get("access_token")
+			except Exception:
+				frappe.log_error(
+					"OAuth Token Failed", frappe.get_traceback(with_context=True)
+				)
+
+		if not access_token:
+			frappe.throw(
+				"Error in getting OAuth Token. Please check your credentials and try again."
+			)
+
+		return access_token
 
 	def set_decrypted_response(self, log_id, response_data):
 		response_data = response_data

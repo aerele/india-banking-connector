@@ -2,7 +2,7 @@ import importlib
 
 import frappe
 from frappe import _, scrub
-from frappe.utils import cint, cstr
+from frappe.utils import cint
 
 
 def import_connector(connector_path, connector_name):
@@ -25,8 +25,8 @@ def check_connector(bank, bulk_transaction):
 	)
 	if not connector:
 		frappe.throw(
-			_("There is no connector map in the connector settings."),
-			title=_("Connection failed"),
+			_("No connector is mapped in the connector settings."),
+			title=_("Connection Failed"),
 		)
 
 	return connector
@@ -72,6 +72,15 @@ def get_connector(payload, bulk_transaction=None):
 			payment_doc=payload,
 		)
 	except frappe.exceptions.DoesNotExistError:
-		return {"status": "Request Failure", "error": "Connector not found for Account Number {0}".format(doc.company_account_number)}
+		return {
+			"status": "Request Failure",
+			"error": "Connector not found for Account Number {0}".format(
+				doc.company_account_number
+			),
+		}
 	except Exception:
-		return {"status": "Request Failure", "error": "Connector Error: please check log and try again", "traceback": frappe.get_traceback()}
+		return {
+			"status": "Request Failure",
+			"error": "Connector Error: please check log and try again",
+			"traceback": frappe.get_traceback(),
+		}
