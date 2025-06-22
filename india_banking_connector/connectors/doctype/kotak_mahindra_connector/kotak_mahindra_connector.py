@@ -40,7 +40,7 @@ class KotakMahindraConnector(BankConnector):
 		base_url = (
 			"https://apigwuat.kotak.com:8443"
 			if self.testing
-			else "https://apigw.kotak.com:8443"
+			else "https://apigw.kotak.com:8446"
 		)
 		return frappe._dict(
 			{
@@ -101,6 +101,7 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def get_payment_status(self):
+		self.action = "payment_status"
 		self.update_client_credentials()
 
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -108,7 +109,6 @@ class KotakMahindraConnector(BankConnector):
 		url = self.urls.payment_status
 		headers = self.headers
 		payload = self.get_account_config("payment_status")
-
 		encrypted_payload = self.aes_encrypt(
 			payload, self.client_secret
 		)
@@ -363,9 +363,13 @@ class KotakMahindraConnector(BankConnector):
 			for detail in rev_details:
 				msg_id = detail.find("ns0:Msg_Id", namespace).text
 				status_code = detail.find("ns0:Status_Code", namespace).text
+				status_desc = detail.find("ns0:Status_Desc", namespace).text
 
 				if msg_id:
 					msg, sts = self.get_status_description(status_code)
+					if status_code == "R" and status_desc == "REJECTED":
+						sts = "Failed"
+
 					payment_status_details[msg_id] = {
 						"status": sts,
 						"message": msg,
@@ -656,8 +660,8 @@ class KotakMahindraConnector(BankConnector):
 				"pay:BankCdInd": "M",
 				"pay:RecBrCd": payment_details.branch_code,
 				"pay:BeneAcctNo": payment_details.bank_account_no,
-				"pay:BeneCode": payment_details.beneficiary,
 				"pay:BeneName": payment_details.beneficiary_name,
+				"pay:BeneCode": payment_details.beneficiary,
 				"pay:BeneEmail": payment_details.email or "",
 				"pay:BeneMb": payment_details.mobile or "",
 				"pay:BeneAddr1": "",
