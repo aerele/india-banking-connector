@@ -8,7 +8,7 @@ from base64 import b64encode
 import frappe
 import requests
 from frappe import _
-from frappe.utils import cstr, flt, getdate, now_datetime, nowdate
+from frappe.utils import cstr, flt, getdate, nowdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -40,18 +40,20 @@ class ICICIConnector(BankConnector):
 	def headers(self, mode_of_transfer=None, params=None):
 		headers = {
 			"accept": "*/*",
-			"content-type": "application/json",
+			"content-type": "text/plain",
 			"apikey": self.client_key,
+			"host": self.urls.host,
 		}
+
 		if self.bulk_transaction:
-			if params:
-				headers.update(**params)
 			headers.update(
 				{
-					"host": self.urls.host,
+					"content-type": "application/json",
 					"x-priority": self.get_priority(mode_of_transfer),
 				}
 			)
+		if params:
+			headers.update(params)
 
 		return headers
 
@@ -146,7 +148,7 @@ class ICICIConnector(BankConnector):
 
 		data = self.get_account_config(method)
 
-		if method in ["make_payment", "payment_status", "generate_otp"]:
+		if self.bulk_transaction:
 			encrypted_key = self.rsa_encrypt_key(
 				self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)
 			)
@@ -244,6 +246,16 @@ class ICICIConnector(BankConnector):
 				}
 			)
 
+	def get_transaction_type(self, bank, mode_of_transfer=None):
+		if bank == "ICICI Bank":
+			return "TPA"
+		if mode_of_transfer == "RTGS":
+			return "RTG"
+		if mode_of_transfer == "IMPS":
+			return "IFS"
+
+		return "RGS"
+
 	def set_payment_data(self, data):
 		connector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -271,83 +283,34 @@ class ICICIConnector(BankConnector):
 				}
 			)
 			return
+		else:
 
-		if payment_details.mode_of_transfer == "IMPS":
-			if not connector_doc.enable_imps:
-				frappe.throw(
-					_(
-						"IMPS is not enabled for this {} account.".format(
-							connector_doc.account_number
-						)
-					)
-				)
+			def _clean_string(s):
+				return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", s)).strip()
 
-			data.update(
-				{
-					"localTxnDtTime": now_datetime().strftime("%Y%m%d%H%M%S"),
-					"beneAccNo": payment_details.bank_account_no,
-					"beneIFSC": connector_doc.ifsc_code
-					if payment_details.bank == "ICICI Bank"
-					else payment_details.branch_code,
-					"amount": cstr(payment_details.amount),
-					"tranRefNo": payment_details.name,
-					"paymentRef": payment_details.name,
-					"senderName": payment_details.company_bank_account_name,
-					"mobile": payment_details.mobile_number,
-					"retailerCode": connector_doc.retailer_code or "rcode",
-					"passCode": connector_doc.pass_code,
-					"bcID": connector_doc.bcid,
-					"aggrId": connector_doc.aggr_id,
-					"crpId": connector_doc.corp_id,
-					"crpUsr": connector_doc.corp_usr,
-				}
-			)
-
-		elif payment_details.mode_of_transfer == "RTGS":
 			data.update(
 				{
 					"AGGRID": connector_doc.aggr_id,
+					"AGGRNAME": connector_doc.aggr_name,
 					"CORPID": connector_doc.corp_id,
 					"USERID": connector_doc.corp_usr,
 					"URN": connector_doc.urn,
-					"AGGRNAME": connector_doc.aggr_name,
 					"UNIQUEID": payment_details.name,
 					"DEBITACC": connector_doc.account_number,
 					"CREDITACC": payment_details.bank_account_no,
-					"IFSC": connector_doc.ifsc_code
+					"IFSC": connector_doc.ifsc_code or "ICIC0000011"
 					if payment_details.bank == "ICICI Bank"
 					else payment_details.branch_code,
 					"AMOUNT": cstr(payment_details.amount),
 					"CURRENCY": "INR",
-					"TXNTYPE": "TPA" if payment_details.bank == "ICICI Bank" else "RTG",
-					"PAYEENAME": payment_details.account_name,
-					"REMARKS": f"{payment_details.party_type} - {payment_details.party}",
-					"WORKFLOW_REQD": connector_doc.get("workflow_required", "Y"),
-					"BENLEI": payment_details.get("lei_number", ""),
-				}
-			)
-
-		else:
-			data.update(
-				{
-					"tranRefNo": payment_details.name,
-					"amount": cstr(payment_details.amount),
-					"senderAcctNo": connector_doc.account_number,
-					"beneAccNo": payment_details.bank_account_no,
-					"beneName": payment_details.account_name,
-					"beneIFSC": connector_doc.ifsc_code or "ICIC0000103"
-					if payment_details.bank == "ICICI Bank"
-					else payment_details.branch_code,
-					"narration1": payment_details.party_name,
-					"narration2": connector_doc.aggr_id,
-					"crpId": connector_doc.corp_id,
-					"crpUsr": connector_doc.corp_usr,
-					"aggrId": connector_doc.aggr_id,
-					"urn": connector_doc.urn,
-					"aggrName": connector_doc.aggr_name,
-					"txnType": "TPA" if payment_details.bank == "ICICI Bank" else "RGS",
-					"WORKFLOW_REQD": connector_doc.get("workflow_required", "Y"),
-					"BENLEI": payment_details.get("lei_number", ""),
+					"TXNTYPE": self.get_transaction_type(
+						payment_details.bank,
+						mode_of_transfer=payment_details.mode_of_transfer,
+					),
+					"PAYEENAME": _clean_string(payment_details.account_name),
+					"REMARKS": f"{payment_details.party_type} {_clean_string(payment_details.party)}",
+					"WORKFLOW_REQD": "Y",
+					"BENLEI": payment_details.lei or "",
 				}
 			)
 
@@ -397,10 +360,9 @@ class ICICIConnector(BankConnector):
 		res_dict = frappe._dict({})
 		if response.ok:
 			response = response.text
-			if method != "bank_balance":
-				response = json.loads(response)
 
-			if method in ["make_payment", "payment_status", "generate_otp"]:
+			if self.bulk_transaction:
+				response = json.loads(response)
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
 					self.get_file_relative_path(connector_doc.private_key),
@@ -410,6 +372,7 @@ class ICICIConnector(BankConnector):
 				)
 
 			elif method == "bank_statement":
+				response = json.loads(response)
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
 					self.get_file_relative_path(connector_doc.private_key),
@@ -442,7 +405,12 @@ class ICICIConnector(BankConnector):
 			return res_dict
 
 		if method == "make_payment" and data:
-			if data.STATUS in ["SUCCESS", "PENDING", "PENDING FOR PROCESSING"]:
+			if data.STATUS in [
+				"SUCCESS",
+				"PENDING",
+				"PENDING FOR PROCESSING",
+				"PENDING FOR APPROVAL",
+			]:
 				res_dict.payment_status = "ACCEPTED"
 				res_dict.message = f"Payment {data.get('STATUS', '').title()}"
 				res_dict.summary_details = {
@@ -477,7 +445,7 @@ class ICICIConnector(BankConnector):
 						"message": data.MESSAGE or "Payment Completed",
 					}
 				}
-			elif data.STATUS == "PENDING":
+			elif data.STATUS in ["PENDING", "PENDING FOR APPROVAL"]:
 				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
