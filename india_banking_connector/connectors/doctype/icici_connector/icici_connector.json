@@ -15,6 +15,7 @@
   "aggr_id",
   "aggr_name",
   "urn",
+  "ifsc_code",
   "ip_address",
   "column_break_fbfo",
   "corp_usr",
@@ -30,15 +31,7 @@
   "statement_fetch",
   "statement_corp_usr",
   "statement_client_key",
-  "section_break_sxpu",
-  "enable_imps",
-  "section_break_sahs",
-  "bcid",
-  "pass_code",
-  "ifsc_code",
-  "column_break_fuct",
-  "amended_from",
-  "retailer_code"
+  "amended_from"
  ],
  "fields": [
   {
@@ -105,37 +98,6 @@
    "fieldtype": "Data",
    "label": "Aggr Name",
    "reqd": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "enable_imps",
-   "fieldtype": "Check",
-   "label": "Enable IMPS"
-  },
-  {
-   "depends_on": "enable_imps",
-   "fieldname": "section_break_sahs",
-   "fieldtype": "Section Break",
-   "label": "IMPS Configurations"
-  },
-  {
-   "fieldname": "retailer_code",
-   "fieldtype": "Data",
-   "label": "Retailer Code"
-  },
-  {
-   "fieldname": "pass_code",
-   "fieldtype": "Data",
-   "label": "Pass Code"
-  },
-  {
-   "fieldname": "bcid",
-   "fieldtype": "Data",
-   "label": "BCID"
-  },
-  {
-   "fieldname": "column_break_fuct",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "amended_from",
@@ -227,16 +189,12 @@
    "fieldname": "balance_and_statement",
    "fieldtype": "Section Break",
    "label": "Balance & Statement"
-  },
-  {
-   "fieldname": "section_break_sxpu",
-   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-21 15:06:02.361978",
+ "modified": "2025-07-21 13:56:13.647355",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",

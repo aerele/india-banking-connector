@@ -334,17 +334,6 @@ class ICICIConnector(BankConnector):
 			)
 			return
 
-		if payment_details.mode_of_transfer == "IMPS":
-			data.update(
-				{
-					"transRefNo": payment_details.name,
-					"date": payment_details.payment_date,
-					"recon360": "N",
-					"passCode": connector_doc.pass_code,
-					"bcID": connector_doc.bcid,
-				}
-			)
-
 		data.update(
 			{
 				"AGGRID": connector_doc.aggr_id,
