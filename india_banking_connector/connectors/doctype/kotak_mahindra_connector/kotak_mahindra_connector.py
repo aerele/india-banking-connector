@@ -27,6 +27,7 @@ class KotakMahindraConnector(BankConnector):
 		self.bulk_transaction = kwargs.get("bulk_transaction")
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
+		self.is_beneficiary = False
 
 	def is_active(self):
 		if not self.active:
@@ -42,6 +43,9 @@ class KotakMahindraConnector(BankConnector):
 			if self.testing
 			else "https://apigw.kotak.com:8446"
 		)
+		if self.is_beneficiary:
+			base_url = "https://apigw.kotak.com:8446"
+
 		return frappe._dict(
 			{
 				"oauth_token": f"{base_url}/auth/oauth/v2/token",
@@ -153,6 +157,7 @@ class KotakMahindraConnector(BankConnector):
 		)
 
 	def update_beneficiary_details(self):
+		self.is_beneficiary = True
 		payment_doc = self.payment_doc
 
 		action = self.validate_action(payment_doc.action)
@@ -266,13 +271,24 @@ class KotakMahindraConnector(BankConnector):
 		transactions = []
 		for txn in root.findall(".//fixml:TransactionDetails", namespaces=namespace):
 			transaction = {
+				"tran_id": txn.findtext(
+					"fixml:TranId", namespaces=namespace
+				),
 				"transaction_date": txn.findtext(
 					"fixml:TranDate", namespaces=namespace
 				),
 				"transaction_amount": txn.findtext(
 					"fixml:TranAmt", namespaces=namespace
 				),
-				"reference_number": txn.findtext("fixml:RefNum", namespaces=namespace),
+				"transaction_description": txn.findtext(
+					"fixml:TranParticular", namespaces=namespace
+				),
+				"reference_number": txn.findtext(
+					"fixml:RefNum", namespaces=namespace
+				),
+				"transaction_balance": txn.findtext(
+					"fixml:TranBal", namespaces=namespace
+				)
 			}
 			transactions.append(transaction)
 
@@ -316,11 +332,16 @@ class KotakMahindraConnector(BankConnector):
 
 		error_msg = ""
 		if errors and res_dict.status != "success":
-			for error in errors:
-				error_msg +=(error.get("description", "") + "<br>")
+			if isinstance(errors, list):
+				for error in errors:
+					error_msg +=(error.get("description", "") + "<br>")
 
-			res_dict.status = "failed"
-			res_dict.error = error_msg
+				res_dict.status = "failed"
+				res_dict.error = error_msg
+			else:
+				res_dict.status = "failed"
+				res_dict.error = str(errors)
+
 
 	def get_formated_response(self, data, res_dict, method):
 		root = ET.fromstring(data)
@@ -464,7 +485,7 @@ class KotakMahindraConnector(BankConnector):
 			data= {
 				"clientId": self.client_id or self.client_code,
 				"legalEntity":"IN",
-				"beneficiaryId": payment_doc.name,
+				"beneficiaryId": payment_doc.beneficiary,
 				"beneficiaryName":payment_doc.beneficiary_name,
 				"beneficiaryType":payment_doc.beneficiary_type or "INDIVIDUAL",
 				"leiCode":payment_doc.lei_code or "",
@@ -474,8 +495,8 @@ class KotakMahindraConnector(BankConnector):
 					"limitOnTransactions":payment_doc.limit_on_transactions or 0,
 					"limitOnAmount":payment_doc.limit_on_amount or 0
 				},
-				"mobile":payment_doc.mobile,
-				"email":payment_doc.email,
+				"mobile":payment_doc.mobile or "",
+				"email":payment_doc.email or "",
 				"postalAddress":{
 					"addressType":"ADDR",
 					"addressLine1":"",
@@ -485,8 +506,8 @@ class KotakMahindraConnector(BankConnector):
 				"bankAccount":{
 					"paymentType":payment_doc.payment_type,
 					"packageType": self.package_type or "DEFAULT",
-					"packageCode":self.package_code or "BBPACKAGE",
-					"packageName":self.package_name or "BBPackage",
+					"packageCode": "", #self.package_code or "BBPACKAGE",
+					"packageName": "", #self.package_name or "BBPackage",
 					"isDefaultAccount":"Y",
 					"account":{
 						"id":{
@@ -523,7 +544,7 @@ class KotakMahindraConnector(BankConnector):
 		elif action == "Discard":
 			return {
 				"clientId": self.client_id or self.client_code,
-				"beneficiaryId":payment_doc.name,
+				"beneficiaryId":payment_doc.beneficiary,
 				"accountNumber": payment_doc.bank_account_n or "",
 			}
 		else:
@@ -640,6 +661,8 @@ class KotakMahindraConnector(BankConnector):
 
 	def get_instrument(self, payment_details):
 		connector = self
+		debit_description = f"PR-{payment_details.parent[-10:]} {payment_details.party[:26]}"
+
 		return {
 			"pay:instrument": {
 				"pay:InstRefNo": get_id(
@@ -655,7 +678,7 @@ class KotakMahindraConnector(BankConnector):
 				"pay:TxnAmnt": payment_details.amount,
 				"pay:AccountNo": connector.account_number,
 				"pay:DrRefNmbr": "Pay",
-				"pay:DrDesc": f"Payment from {payment_details.parent}",
+				"pay:DrDesc": debit_description,
 				"pay:PaymentDt": getdate().strftime("%Y-%m-%d"),
 				"pay:BankCdInd": "M",
 				"pay:RecBrCd": payment_details.branch_code,
