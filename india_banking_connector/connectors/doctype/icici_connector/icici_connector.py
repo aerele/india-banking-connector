@@ -309,7 +309,7 @@ class ICICIConnector(BankConnector):
 					),
 					"PAYEENAME": _clean_string(payment_details.account_name),
 					"REMARKS": f"{payment_details.party_type} {_clean_string(payment_details.party)}",
-					"WORKFLOW_REQD": "Y",
+					"WORKFLOW_REQD": "N",
 					"BENLEI": payment_details.lei or "",
 				}
 			)
