@@ -3,6 +3,7 @@
 
 import base64
 import json
+import re
 
 import frappe
 import requests
@@ -14,7 +15,7 @@ from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
 	create_api_log,
 )
-import re
+
 
 class HDFCConnector(BankConnector):
 	bank = "HDFC Bank"
@@ -125,8 +126,28 @@ class HDFCConnector(BankConnector):
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text
+			self.check_expired_payment(response, method, res_dict)
 
 		return res_dict
+
+	def check_expired_payment(self, response, method, res_dict):
+		try:
+			if method == "payment_status":
+				error_response = json.loads(response.text)
+				if errors := error_response.get("errors"):
+					error_code = errors[0].get("code")
+					if error_code == "611081":
+						msg, sts = self.get_status_description(error_code)
+						res_dict.payment_status = "PROCESSED"
+						res_dict.summary_details = {
+							self.payment_doc.name: {
+								"status": sts,
+								"message": msg,
+							}
+						}
+		except Exception:
+			# ignoring the exception
+			pass
 
 	def get_formated_response(self, data, res_dict, method):
 		if isinstance(data, str):
@@ -186,7 +207,9 @@ class HDFCConnector(BankConnector):
 			if "A2A" in payment_details.mode_of_transfer
 			else payment_details.mode_of_transfer
 		)
-		bene_name = re.sub(r'[^a-zA-Z\s]', '', payment_details.party_name or payment_details.party)[:50]
+		bene_name = re.sub(
+			r"[^a-zA-Z\s]", "", payment_details.party_name or payment_details.party
+		)[:50]
 		if method == "make_payment":
 			return {
 				"LOGIN_ID": conector_doc.login_id,
@@ -247,7 +270,7 @@ class HDFCConnector(BankConnector):
 					"Connection failed due to a certificate mismatch. Verify the certificate and try again."
 				)
 			)
-		except:
+		except Exception:
 			frappe.log_error("Oauth Failed", frappe.get_traceback(with_context=True))
 			frappe.throw(
 				_(
@@ -289,6 +312,10 @@ class HDFCConnector(BankConnector):
 			"TXWRHD": ("Payment Warehoused", "Pending"),
 			"TXAWRB": ("Transaction Awaiting Rebulking", "Pending"),
 			"TXEXPD": ("Transaction Expired", "Failed"),
+			"611081": (
+				"Transaction Expired: The requested transaction doesnot follow 7 day criteria",
+				"Failed",
+			),
 			"TXSIP": ("Settlement in Progress", "Pending"),
 			"DEBFL": ("Debit Failed", "Failed"),
 			"DEBREJE": ("Debit Rejected", "Rejected"),
