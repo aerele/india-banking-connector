@@ -288,6 +288,12 @@ class ICICIConnector(BankConnector):
 			def _clean_string(s):
 				return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", s)).strip()
 
+			workflow_reqd = "Y"
+			if payment_details.mode_of_transfer.lower() != "neft":
+				 workflow_reqd = "N"
+			if not self.testing:
+				workflow_reqd = "Y"
+
 			data.update(
 				{
 					"AGGRID": connector_doc.aggr_id,
@@ -309,7 +315,7 @@ class ICICIConnector(BankConnector):
 					),
 					"PAYEENAME": _clean_string(payment_details.account_name),
 					"REMARKS": f"{payment_details.party_type} {_clean_string(payment_details.party)}",
-					"WORKFLOW_REQD": "N",
+					"WORKFLOW_REQD": workflow_reqd,
 					"BENLEI": payment_details.lei or "",
 				}
 			)
@@ -389,7 +395,7 @@ class ICICIConnector(BankConnector):
 
 		data = frappe._dict(data)
 
-		if self.bulk_transaction:
+		if self.bulk_transaction or method in ["bank_balance", "bank_statement"]:
 			self.handle_bulk_transaction_response(data, res_dict, method)
 			return res_dict
 
