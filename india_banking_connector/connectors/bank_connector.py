@@ -207,7 +207,7 @@ class BankConnector(Document):
 		if isinstance(key, str):
 			key = key.encode("utf-8")
 
-		padded = pad(data.encode("utf-8"), self.BLOCK_SIZE)
+		padded = pad(data.encode("utf-8"), AES.block_size)
 
 		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
@@ -223,9 +223,7 @@ class BankConnector(Document):
 
 		decrypted = cipher.decrypt(b64decode(data))
 
-		size = self.BLOCK_SIZE
-
-		return json.loads(unpad(decrypted, size)[size:])
+		return json.loads(unpad(decrypted, AES.block_size))
 
 	def rsa_encrypt_data(self, data, key_path):
 		if isinstance(data, dict):

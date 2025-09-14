@@ -21,7 +21,6 @@ class ICICIConnector(BankConnector):
 	bank = "ICICI Bank"
 
 	AES_KEY = "1234567887654321".encode("utf-8")
-	BLOCK_SIZE = 16
 	IV = "0000000000000000".encode("utf-8")
 
 	__all__ = ["initiate_payment", "get_payment_status"]
@@ -289,8 +288,8 @@ class ICICIConnector(BankConnector):
 				return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", s)).strip()
 
 			workflow_reqd = "Y"
-			if payment_details.mode_of_transfer.lower() != "neft":
-				 workflow_reqd = "N"
+			if payment_details.mode_of_transfer.lower() not in ["neft", "imps"]:
+				workflow_reqd = "N"
 			if not self.testing:
 				workflow_reqd = "Y"
 
@@ -563,6 +562,7 @@ class ICICIConnector(BankConnector):
 						"transaction_amount": txn.get("AMOUNT"),
 						"reference_number": txn.get("TRANSACTIONID")
 						or txn.get("CHEQUENO"),
+						"transaction_description": txn.get("REMARKS", ""),
 					}
 					transactions.append(transaction)
 
