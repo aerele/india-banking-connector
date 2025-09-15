@@ -1,0 +1,198 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2025-09-05 16:49:28.829808",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "active",
+  "column_break_hhss",
+  "testing",
+  "section_break_tyle",
+  "account_number",
+  "sender_code",
+  "sender_name",
+  "user_name",
+  "password",
+  "column_break_pgif",
+  "aes_key",
+  "iv",
+  "mobile_number",
+  "email_id",
+  "balance_and_statement_section",
+  "balance_check",
+  "statement_fetch",
+  "section_break_gi6u",
+  "amended_from",
+  "tab_2_tab",
+  "api_endpoints_section",
+  "api_endpoints",
+  "get_api_endpoints"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_gi6u",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Union Bank Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_hhss",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "fieldname": "section_break_tyle",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "user_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "User Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_pgif",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "aes_key",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "AES Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "iv",
+   "fieldtype": "Password",
+   "label": "IV",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sender_code",
+   "fieldtype": "Data",
+   "label": "Sender Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mobile_number",
+   "fieldtype": "Data",
+   "label": "Mobile Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "email_id",
+   "fieldtype": "Data",
+   "label": "Email ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sender_name",
+   "fieldtype": "Data",
+   "label": "Sender  Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "balance_and_statement_section",
+   "fieldtype": "Section Break",
+   "label": "Balance and Statement"
+  },
+  {
+   "default": "0",
+   "fieldname": "balance_check",
+   "fieldtype": "Check",
+   "label": "Balance check"
+  },
+  {
+   "default": "0",
+   "fieldname": "statement_fetch",
+   "fieldtype": "Check",
+   "label": "Statement Fetch"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "API Endpoints"
+  },
+  {
+   "fieldname": "api_endpoints",
+   "fieldtype": "Table",
+   "options": "Endpoint URLs"
+  },
+  {
+   "fieldname": "api_endpoints_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "get_api_endpoints",
+   "fieldtype": "Button",
+   "label": "Get API endpoints",
+   "options": "get_api_endpoints"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-11 01:50:07.176572",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "Union Bank Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
