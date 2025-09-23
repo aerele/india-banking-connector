@@ -60,6 +60,7 @@ def create_bank_doctype():
 		doc = {
 			"doctype": "DocType",
 			"name": "Bank",
+			"autoname": "field:bank_name",
 			"module": "India Banking Connector",
 			"is_submittable": 0,
 			"istable": 0,

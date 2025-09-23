@@ -1,0 +1,189 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2025-09-23 11:43:46.383344",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "active",
+  "encrypted",
+  "column_break_hhss",
+  "testing",
+  "section_break_tyle",
+  "account_number",
+  "encrypted_account_number",
+  "client_code",
+  "encrypted_client_code",
+  "column_break_pgif",
+  "aes_key",
+  "iv",
+  "balance_and_statement_section",
+  "balance_check",
+  "statement_fetch",
+  "tab_2_tab",
+  "api_endpoints_section",
+  "api_endpoints",
+  "get_api_endpoints",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_hhss",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "fieldname": "section_break_tyle",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_pgif",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "balance_and_statement_section",
+   "fieldtype": "Section Break",
+   "label": "Balance and Statement"
+  },
+  {
+   "default": "0",
+   "fieldname": "balance_check",
+   "fieldtype": "Check",
+   "label": "Balance check"
+  },
+  {
+   "default": "0",
+   "fieldname": "statement_fetch",
+   "fieldtype": "Check",
+   "label": "Statement Fetch"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Bank of Baroda Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "API Endpoints"
+  },
+  {
+   "fieldname": "api_endpoints_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "api_endpoints",
+   "fieldtype": "Table",
+   "options": "Endpoint URLs"
+  },
+  {
+   "fieldname": "get_api_endpoints",
+   "fieldtype": "Button",
+   "label": "Get API endpoints",
+   "options": "get_api_endpoints"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Bank of Baroda Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "aes_key",
+   "fieldtype": "Password",
+   "label": "AES Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "iv",
+   "fieldtype": "Password",
+   "label": "IV",
+   "reqd": 1
+  },
+  {
+   "fieldname": "client_code",
+   "fieldtype": "Data",
+   "label": "Client Code",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "If enabled, Send transaction payload to the bank in encrypted format.",
+   "fieldname": "encrypted",
+   "fieldtype": "Check",
+   "label": "Encrypted"
+  },
+  {
+   "depends_on": "encrypted",
+   "fieldname": "encrypted_account_number",
+   "fieldtype": "Data",
+   "label": "Account Number(Encrypted)",
+   "mandatory_depends_on": "encrypted"
+  },
+  {
+   "depends_on": "encrypted",
+   "fieldname": "encrypted_client_code",
+   "fieldtype": "Data",
+   "label": "Client Code(Encrypted)",
+   "mandatory_depends_on": "encrypted"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-09-23 13:20:40.862184",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "Bank of Baroda Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
