@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
+import hashlib
 import json
 
 import frappe
@@ -22,6 +23,13 @@ class BankofBarodaConnector(BankConnector):
 		"get_bank_balance",
 		"get_bank_statement",
 	]
+
+	status_key_map = {
+		"make_payment": "paymentTxnResp",
+		"payment_status": "paymentsTxnInqResp",
+		"bank_balance": "accBalResp",
+		"bank_statement": "accountStmtResp",
+	}
 
 	def __init__(self, *args, **kwargs):
 		self.bank = "Bank of Baroda"
@@ -208,13 +216,32 @@ class BankofBarodaConnector(BankConnector):
 		self.update_account_config(method)
 		if not self.encrypted:
 			return self.account_config, ""  # Payload is not encrypted
-		return self.aes_encrypt_data(self.account_config, self.AES_KEY)
+		plain_text = json.dumps(self.account_config)[1:-1]
+		checksum = hashlib.sha256(plain_text.encode()).hexdigest()
+		return self.aes_encrypt_data(plain_text, self.AES_KEY), checksum
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 		if response.ok:
 			if self.encrypted:
-				decrypted_data = self.aes_decrypt_data(response.text, self.AES_KEY)
+				decrypted_data = {}
+				try:
+					response_json = response.json()
+					encrypted_response = response_json.get(self.status_key_map[method])
+					if encrypted_response:
+						aes_decrypted_data = self.aes_decrypt_data(
+							encrypted_response, self.AES_KEY, json_loads=False
+						)
+						decrypted_data = {
+							self.status_key_map[method]: json.loads(
+								"{" + aes_decrypted_data + "}"
+							)
+						}
+						self.set_decrypted_response(log_id, decrypted_data)
+				except Exception:
+					frappe.log_error(
+						"Decryption Failed", frappe.get_traceback(with_context=1)
+					)
 				self.set_decrypted_response(log_id, decrypted_data)
 			else:
 				decrypted_data = response.json()
@@ -340,19 +367,13 @@ class BankofBarodaConnector(BankConnector):
 		)
 
 	def get_formated_response(self, data, res_dict, method):
-		status_key_map = {
-			"make_payment": "paymentTxnResp",
-			"payment_status": "paymentsTxnInqResp",
-			"bank_balance": "accBalResp",
-			"bank_statement": "accountStmtResp",
-		}
 		if isinstance(data, str):
 			data = json.loads(data)
 
-		data = frappe._dict(data.get(status_key_map.get(method), {}))
+		data = frappe._dict(data.get(self.status_key_map.get(method), {}))
 
 		if method == "make_payment" and data:
-			if data.status in ["P", "F"]:
+			if data.status in ["S", "P", "F"]:
 				res_dict.payment_status = "ACCEPTED"
 				if data.errorCode in ["TXN000"]:
 					res_dict.summary_details = {
@@ -393,7 +414,7 @@ class BankofBarodaConnector(BankConnector):
 				res_dict.message = data.get("errorDesc")
 
 		elif method == "payment_status":
-			if data.status in ["S", "F"]:
+			if data.status in ["S", "F", "P"]:
 				res_dict.payment_status = "PROCESSED"
 				if data.errorCode == "ENQ000":
 					res_dict.summary_details = {
@@ -406,6 +427,10 @@ class BankofBarodaConnector(BankConnector):
 							"message": data.statusDesc or "Payment Completed",
 						}
 					}
+					if data.status == "P":
+						res_dict.summary_details[self.payment_doc.name][
+							"status"
+						] = "Pending"
 				elif data.errorCode in [
 					"ENQ001",
 					"ENQ002",
