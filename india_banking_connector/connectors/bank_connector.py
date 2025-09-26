@@ -215,13 +215,16 @@ class BankConnector(Document):
 
 		return b64encode(encrypted).decode("utf-8")
 
-	def aes_decrypt_data(self, data, key):
+	def aes_decrypt_data(self, data, key, json_loads=True):
 		if isinstance(key, str):
 			key = key.encode("utf-8")
 
 		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
 		decrypted = cipher.decrypt(b64decode(data))
+
+		if not json_loads:
+			return unpad(decrypted, AES.block_size).decode("utf-8")
 
 		return json.loads(unpad(decrypted, AES.block_size))
 
