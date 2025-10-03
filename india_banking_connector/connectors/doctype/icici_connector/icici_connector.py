@@ -56,6 +56,55 @@ class ICICIConnector(BankConnector):
 
 		return headers
 
+	@frappe.whitelist()
+	def register(self):
+		self.bulk_transaction = False
+		self.update_client_details("register")
+		url = self.urls.register
+		headers = self.headers()
+		payload = self.get_encrypted_payload(method="register")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Register",
+			account_config=self.get_account_config("register"),
+			ref_doctype=self.doc.doctype,
+			ref_docname=self.doc.name,
+		)
+
+		res = self.get_decrypted_response(response, method="register", log_id=log_id)
+		if res.status == "success":
+			self.db_set("registration_status", "Registered")
+		frappe.msgprint(res.message or _("Registration Failed"))
+
+	@frappe.whitelist()
+	def registration_inquiry(self):
+		self.bulk_transaction = False
+		self.update_client_details("registration_status")
+		url = self.urls.registration_status
+		headers = self.headers()
+		payload = self.get_encrypted_payload(method="registration_status")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Registration Status",
+			account_config=self.get_account_config("registration_status"),
+			ref_doctype=self.doc.doctype,
+			ref_docname=self.doc.name,
+		)
+
+		res = self.get_decrypted_response(
+			response, method="registration_status", log_id=log_id
+		)
+		if res.status == "success":
+			self.db_set("registration_status", "Registered")
+
+		frappe.msgprint(res.message or _("Registration Status Fetched Failed"))
+
 	def initiate_payment(self):
 		self.update_client_details("make_payment")
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -176,6 +225,8 @@ class ICICIConnector(BankConnector):
 
 		data = {}
 		method_map = {
+			"register": self.set_register_data,
+			"registration_status": self.set_registration_status_data,
 			"generate_otp": self.set_otp_data,
 			"make_payment": self.set_payment_data,
 			"payment_status": self.set_payment_status_data,
@@ -187,6 +238,31 @@ class ICICIConnector(BankConnector):
 			method_map[method](data)
 
 		return data
+
+	def set_register_data(self, data):
+		connector_doc = self
+		data.update(
+			{
+				"AGGRNAME": connector_doc.aggr_name,
+				"AGGRID": connector_doc.aggr_id,
+				"CORPID": connector_doc.corp_id,
+				"USERID": connector_doc.corp_usr,
+				"URN": connector_doc.urn,
+				"ALIASID": "",
+			}
+		)
+
+	def set_registration_status_data(self, data):
+		connector_doc = self
+		data.update(
+			{
+				"AGGRNAME": connector_doc.aggr_name,
+				"AGGRID": connector_doc.aggr_id,
+				"CORPID": connector_doc.corp_id,
+				"USERID": connector_doc.corp_usr,
+				"URN": connector_doc.urn,
+			}
+		)
 
 	def set_statement_data(self, data):
 		connector_doc = self
@@ -398,7 +474,25 @@ class ICICIConnector(BankConnector):
 			self.handle_bulk_transaction_response(data, res_dict, method)
 			return res_dict
 
-		if method == "make_payment" and data:
+		if method == "register":
+			if data.get("RESPONSE") == "SUCCESS":
+				res_dict.status = "success"
+				res_dict.message = data.get("MESSAGE", "")
+			else:
+				res_dict.status = "Failed"
+				res_dict.message = data.get("errormessage") or data.get("Message")
+
+		elif method == "registration_status":
+			if data.get("RESPONSE") == "Success":
+				res_dict.status = "success"
+				res_dict.message = data.get(
+					"MESSAGE", "Registration Completed Successfully"
+				)
+			else:
+				res_dict.status = "Failed"
+				res_dict.message = data.get("errormessage") or data.get("Message")
+
+		elif method == "make_payment" and data:
 			if data.STATUS in [
 				"SUCCESS",
 				"PENDING",
