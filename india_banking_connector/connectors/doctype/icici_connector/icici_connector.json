@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "active",
+  "registration_status",
   "column_break_twws",
   "testing",
   "section_break_fhpe",
@@ -189,12 +190,19 @@
    "fieldname": "balance_and_statement",
    "fieldtype": "Section Break",
    "label": "Balance & Statement"
+  },
+  {
+   "fieldname": "registration_status",
+   "fieldtype": "Select",
+   "label": "Registration Status",
+   "options": "Unregistered\nRegistered",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-07-21 13:56:13.647355",
+ "modified": "2025-10-03 13:26:13.021502",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
@@ -215,6 +223,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
