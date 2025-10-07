@@ -58,7 +58,7 @@ class BankofBarodaConnector(BankConnector):
 		urls = (
 			frappe.qb.from_(CONNECTOR)
 			.join(EU)
-			.on(EU.parent == CONNECTOR.name)
+			.on(EU.parent == self.name)
 			.select(EU.action, EU.url)
 			.orderby(EU.idx)
 		).run()
