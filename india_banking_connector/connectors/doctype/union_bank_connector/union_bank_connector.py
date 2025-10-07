@@ -47,7 +47,7 @@ class UnionBankConnector(BankConnector):
 		urls = (
 			frappe.qb.from_(UBC)
 			.join(EU)
-			.on(EU.parent == UBC.name)
+			.on(EU.parent == self.name)
 			.select(EU.action, EU.url)
 			.orderby(EU.idx)
 		).run()
