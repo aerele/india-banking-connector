@@ -393,7 +393,7 @@ class UnionBankConnector(BankConnector):
 				else:
 					res_dict.summary_details = {
 						self.payment_doc.name: {
-							"payment_status": payment_status,
+							"status": payment_status,
 							"message": response_data.status,
 							"error_code": response_data.responseCode,
 						}
