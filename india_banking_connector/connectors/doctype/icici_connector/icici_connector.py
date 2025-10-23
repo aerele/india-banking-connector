@@ -196,7 +196,7 @@ class ICICIConnector(BankConnector):
 
 		data = self.get_account_config(method)
 
-		if self.bulk_transaction:
+		if self.bulk_transaction and (method not in ["bank_balance", "bank_statement"]):
 			encrypted_key = self.rsa_encrypt_key(
 				self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)
 			)
@@ -650,6 +650,8 @@ class ICICIConnector(BankConnector):
 			transactions = []
 
 			if data.get("RESPONSE") == "SUCCESS":
+				if isinstance(records, dict):
+					records = [records]
 				for txn in records:
 					transaction = {
 						"transaction_date": txn.get("TXNDATE", ""),

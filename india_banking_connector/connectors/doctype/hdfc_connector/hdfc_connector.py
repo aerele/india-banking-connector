@@ -187,7 +187,9 @@ class HDFCConnector(BankConnector):
 						and record["TXN_STATUS"] == "Processed"
 						and record["TRANSFER_TYPE"] == "Intra Bank Transfer"
 					):
-						utr = record["PAYMENTREFNO"]
+						utr = record.get("TXN_REFERENCE_NO") or record.get(
+							"PAYMENTREFNO"
+						)
 
 					msg, sts = self.get_status_description(record.get("OD_STATUS"))
 					return msg, utr, sts
