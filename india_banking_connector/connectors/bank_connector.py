@@ -220,13 +220,26 @@ class BankConnector(Document):
 			key = key.encode("utf-8")
 
 		cipher = AES.new(key, AES.MODE_CBC, self.IV)
-
 		decrypted = cipher.decrypt(b64decode(data))
 
 		if not json_loads:
 			return unpad(decrypted, AES.block_size).decode("utf-8")
 
-		return json.loads(unpad(decrypted, AES.block_size))
+		error = None
+		try:
+			return json.loads(unpad(decrypted, AES.block_size).decode("utf-8"))
+		except Exception as e:
+			error = e
+			try:
+				# ignoring IV (if included in decrypted data)
+				decrypted = decrypted[len(self.IV) :]
+				return json.loads(unpad(decrypted, AES.block_size).decode("utf-8"))
+			except Exception:
+				frappe.log_error(
+					"Connector Error", frappe.get_traceback(with_context=True)
+				)
+		if error:
+			frappe.throw(title="Decryption Failed", msg=error)
 
 	def rsa_encrypt_data(self, data, key_path):
 		if isinstance(data, dict):
