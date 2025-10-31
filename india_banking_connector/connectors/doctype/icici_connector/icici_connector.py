@@ -32,6 +32,11 @@ class ICICIConnector(BankConnector):
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
 
+	def autoname(self):
+		self.name = self.account_number
+		if self.get("bulk_payment"):
+			self.name = f"{self.account_number}^B"
+
 	@property
 	def urls(self):
 		return super().urls
@@ -431,7 +436,10 @@ class ICICIConnector(BankConnector):
 		if response.ok:
 			response = response.text
 
-			if self.bulk_transaction and method not in ["bank_balance", "bank_statement"]:
+			if self.bulk_transaction and method not in [
+				"bank_balance",
+				"bank_statement",
+			]:
 				response = json.loads(response)
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),

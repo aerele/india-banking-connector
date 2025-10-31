@@ -2,7 +2,7 @@ import json
 
 import frappe
 
-from india_banking_connector.connectors import get_connector
+from india_banking_connector.connectors.utils import get_connector
 
 
 @frappe.whitelist()
@@ -24,6 +24,6 @@ def connect(**kwargs):
 		else:
 			return connector
 
-	except:
+	except Exception:
 		frappe.log_error("Connector Error", frappe.get_traceback(with_context=True))
 		return {"status": "Request Failure", "message": frappe.get_traceback()}

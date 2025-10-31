@@ -30,7 +30,7 @@ def create_default_bank():
 
 def create_connector_settings():
 	click.echo(" -> Updating Connector Settings")
-	settings_doc = frappe.get_doc("Connector Settings")
+	settings_doc = frappe.get_single("Connector Settings")
 	connector_map = [
 		{
 			"bank": bank,
@@ -38,18 +38,10 @@ def create_connector_settings():
 			"bulk_transaction": 1 if bank in BULK_TRANSACTION_ENABLED_BANK else 0,
 		}
 		for bank, connector in BANKS_CONNECTOR_MAP.items()
-		if not frappe.db.exists(
-			"Connector Map",
-			{
-				"bank": bank,
-				"connector": connector,
-				"bulk_transaction": 1 if bank in BULK_TRANSACTION_ENABLED_BANK else 0,
-			},
-		)
 	]
-	if connector_map:
-		settings_doc.extend("connectors", connector_map)
-		settings_doc.insert(ignore_links=True)
+	settings_doc.db_set("connectors", None)
+	settings_doc.extend("connectors", connector_map)
+	settings_doc.insert(ignore_links=True)
 
 
 def create_bank_doctype():

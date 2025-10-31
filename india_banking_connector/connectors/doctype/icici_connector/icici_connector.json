@@ -1,13 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:account_number",
+ "autoname": "format:{account_number}",
  "creation": "2024-09-04 17:53:05.968095",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "active",
-  "registration_status",
+  "bulk_payment",
   "column_break_twws",
   "testing",
   "section_break_fhpe",
@@ -44,8 +44,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Account Number",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
   },
   {
    "fieldname": "client_key",
@@ -192,21 +191,21 @@
    "label": "Balance & Statement"
   },
   {
-   "fieldname": "registration_status",
-   "fieldtype": "Select",
-   "label": "Registration Status",
-   "options": "Unregistered\nRegistered",
-   "read_only": 1
+   "default": "0",
+   "fieldname": "bulk_payment",
+   "fieldtype": "Check",
+   "label": "Bulk Payment",
+   "set_only_once": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-10-03 13:26:13.021502",
+ "modified": "2025-10-31 20:35:50.131558",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
