@@ -126,7 +126,8 @@ class HDFCConnector(BankConnector):
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text
-			self.check_expired_payment(response, method, res_dict)
+			if self.get("mark_expired_status_as_failed"):
+				self.check_expired_payment(response, method, res_dict)
 
 		return res_dict
 
