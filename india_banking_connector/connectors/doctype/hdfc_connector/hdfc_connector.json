@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "active",
+  "mark_expired_status_as_failed",
   "column_break_lshz",
   "testing",
   "section_break_ap68",
@@ -124,12 +125,19 @@
    "fieldname": "active",
    "fieldtype": "Check",
    "label": "Active"
+  },
+  {
+   "default": "0",
+   "fieldname": "mark_expired_status_as_failed",
+   "fieldtype": "Check",
+   "label": "Mark expired status as failed",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-02-13 10:10:38.999003",
+ "modified": "2025-11-05 16:34:20.052261",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "HDFC Connector",
