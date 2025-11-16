@@ -431,7 +431,10 @@ class ICICIConnector(BankConnector):
 		if response.ok:
 			response = response.text
 
-			if self.bulk_transaction and method not in ["bank_balance", "bank_statement"]:
+			if self.bulk_transaction and method not in [
+				"bank_balance",
+				"bank_statement",
+			]:
 				response = json.loads(response)
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
@@ -674,10 +677,7 @@ class ICICIConnector(BankConnector):
 
 		response_data = json.dumps(response_data, indent=4)
 
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id, response_data)
 
 	def get_cert(self):
 		return (

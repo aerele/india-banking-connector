@@ -111,10 +111,7 @@ class HDFCConnector(BankConnector):
 
 		response_data = json.dumps(response_data, indent=4)
 
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id, response_data)
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})

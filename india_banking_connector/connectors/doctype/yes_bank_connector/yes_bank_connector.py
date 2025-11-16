@@ -263,14 +263,6 @@ class YESBANKConnector(BankConnector):
 			)
 			res_dict.update({"balance": balance})
 
-	def set_decrypted_response(self, log_id, response_data):
-		response_data = response_data
-
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
-
 	def get_msg_utr_number(self, data):
 		msg, utr, sts = "Payment Status Not Available", None, "Request Failure"
 
