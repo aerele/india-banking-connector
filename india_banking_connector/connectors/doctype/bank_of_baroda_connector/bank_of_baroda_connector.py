@@ -257,11 +257,7 @@ class BankofBarodaConnector(BankConnector):
 			response_data = json.loads(response_data)
 
 		response_data = json.dumps(response_data, indent=4)
-
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id=log_id, response_data=response_data)
 
 	def get_mode_of_transfer(self, mode_of_transfer):
 		if "A2A" in mode_of_transfer:
