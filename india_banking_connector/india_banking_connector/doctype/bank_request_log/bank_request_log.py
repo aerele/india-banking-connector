@@ -11,9 +11,25 @@ from frappe.utils import cstr
 from requests.models import Response
 from requests.structures import CaseInsensitiveDict
 
+from india_banking_connector.utils import decrypt, encrypt
+
 
 class BankRequestLog(Document):
-	pass
+	@frappe.whitelist()
+	def decrypt_log(self):
+		return {
+			"payload": self.decrypt_data(self.payload),
+			"header": self.decrypt_data(self.header),
+			"config_details": self.decrypt_data(self.config_details),
+			"response": self.decrypt_data(self.response),
+			"decrypted_response": self.decrypt_data(self.decrypted_response),
+		}
+
+	def decrypt_data(self, data):
+		try:
+			return decrypt(data)
+		except Exception:
+			return data
 
 
 def format_with_indent(data):
@@ -21,10 +37,10 @@ def format_with_indent(data):
 	Format the given data with indentation for better readability.
 
 	Note:
-		- If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
-		- If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
-		- If the input is an XML string, it is converted to a pretty-printed XML string.
-		- If formatting fails, the original data is returned and an error is logged.
+	        - If the input is a dictionary or CaseInsensitiveDict, it is converted to a pretty-printed JSON string.
+	        - If the input is a JSON string, it is parsed and then converted to a pretty-printed JSON string.
+	        - If the input is an XML string, it is converted to a pretty-printed XML string.
+	        - If formatting fails, the original data is returned and an error is logged.
 	"""
 	try:
 		if not data:
@@ -37,7 +53,7 @@ def format_with_indent(data):
 			return format_with_indent(json.loads(data or ""))
 		elif re.compile(r"^\s*<[^>]+>").match(data):
 			return parseString(data).toprettyxml(indent=" " * 4)
-	except:
+	except Exception:
 		frappe.log_error(
 			title="Error in formatting data", message=frappe.get_traceback()
 		)
@@ -56,8 +72,8 @@ def create_api_log(
 	"""Can create API log From response
 
 	Args:
-		res (response object): It is used to obtain an API response.
-		request_from (str): It is optional for the purposes of the API...
+	        res (response object): It is used to obtain an API response.
+	        request_from (str): It is optional for the purposes of the API...
 	"""
 	if not isinstance(res, Response):
 		return
@@ -66,17 +82,17 @@ def create_api_log(
 		log_doc = frappe.new_doc("Bank Request Log")
 		log_doc.action = action
 		log_doc.url = res.request.url
-		log_doc.payload = cstr(res.request.body)
+		log_doc.payload = encrypt(cstr(res.request.body))
 		log_doc.method = res.request.method
-		log_doc.header = format_with_indent(res.request.headers)
-		log_doc.response = format_with_indent(res.text)
-		log_doc.config_details = format_with_indent(account_config)
+		log_doc.header = encrypt(format_with_indent(res.request.headers))
+		log_doc.response = encrypt(format_with_indent(res.text))
+		log_doc.config_details = encrypt(format_with_indent(account_config))
 		log_doc.status_code = res.status_code
 		log_doc.reference_doctype = ref_doctype
 		log_doc.reference_docname = ref_docname
 		log_doc.unique_id = unique_id
 		log_doc.save()
-	except:
+	except Exception:
 		frappe.log_error(
 			title="Error in creating API Log", message=frappe.get_traceback()
 		)

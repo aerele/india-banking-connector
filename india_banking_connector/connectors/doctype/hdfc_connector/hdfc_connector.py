@@ -111,10 +111,7 @@ class HDFCConnector(BankConnector):
 
 		response_data = json.dumps(response_data, indent=4)
 
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id, response_data)
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
@@ -188,7 +185,9 @@ class HDFCConnector(BankConnector):
 						and record["TXN_STATUS"] == "Processed"
 						and record["TRANSFER_TYPE"] == "Intra Bank Transfer"
 					):
-						utr = record["PAYMENTREFNO"]
+						utr = record.get("TXN_REFERENCE_NO") or record.get(
+							"PAYMENTREFNO"
+						)
 
 					msg, sts = self.get_status_description(record.get("OD_STATUS"))
 					return msg, utr, sts

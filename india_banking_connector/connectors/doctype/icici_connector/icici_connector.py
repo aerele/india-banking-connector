@@ -196,7 +196,7 @@ class ICICIConnector(BankConnector):
 
 		data = self.get_account_config(method)
 
-		if self.bulk_transaction:
+		if self.bulk_transaction and (method not in ["bank_balance", "bank_statement"]):
 			encrypted_key = self.rsa_encrypt_key(
 				self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)
 			)
@@ -431,7 +431,10 @@ class ICICIConnector(BankConnector):
 		if response.ok:
 			response = response.text
 
-			if self.bulk_transaction:
+			if self.bulk_transaction and method not in [
+				"bank_balance",
+				"bank_statement",
+			]:
 				response = json.loads(response)
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
@@ -650,6 +653,8 @@ class ICICIConnector(BankConnector):
 			transactions = []
 
 			if data.get("RESPONSE") == "SUCCESS":
+				if isinstance(records, dict):
+					records = [records]
 				for txn in records:
 					transaction = {
 						"transaction_date": txn.get("TXNDATE", ""),
@@ -672,10 +677,7 @@ class ICICIConnector(BankConnector):
 
 		response_data = json.dumps(response_data, indent=4)
 
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id, response_data)
 
 	def get_cert(self):
 		return (
