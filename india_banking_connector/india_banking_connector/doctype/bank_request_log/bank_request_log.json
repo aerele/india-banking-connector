@@ -76,6 +76,7 @@
    "fieldname": "action",
    "fieldtype": "Data",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Action"
   },
   {
@@ -92,7 +93,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-09 11:07:55.556156",
+ "modified": "2025-08-30 23:39:50.337352",
  "modified_by": "Administrator",
  "module": "India Banking Connector",
  "name": "Bank Request Log",

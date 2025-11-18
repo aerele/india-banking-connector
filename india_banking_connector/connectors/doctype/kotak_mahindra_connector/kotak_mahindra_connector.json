@@ -9,6 +9,8 @@
   "active",
   "column_break_lshz",
   "testing",
+  "section_break_xysol",
+  "base_url",
   "section_break_bqpq",
   "account_number",
   "client_code",
@@ -135,12 +137,21 @@
    "fieldname": "package_name",
    "fieldtype": "Data",
    "label": "Package Name"
+  },
+  {
+   "fieldname": "section_break_xysol",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-07-02 18:02:16.736263",
+ "modified": "2025-11-18 18:13:25.035808",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Kotak Mahindra Connector",

@@ -38,13 +38,7 @@ class KotakMahindraConnector(BankConnector):
 		if self.bulk_transaction:
 			frappe.throw("Bulk transactions are not Tested")
 
-		base_url = (
-			"https://apigwuat.kotak.com:8443"
-			if self.testing
-			else "https://apigw.kotak.com:8446"
-		)
-		if self.is_beneficiary:
-			base_url = "https://apigw.kotak.com:8446"
+		base_url = self.base_url
 
 		return frappe._dict(
 			{
@@ -405,7 +399,6 @@ class KotakMahindraConnector(BankConnector):
 					payment_status_details.get(self.payment_doc.name, {})
 				)
 
-
 	def get_account_config(self, method):
 		if method in ["make_payment", "payment_status"]:
 			return self.get_xml_payload(method)
@@ -519,7 +512,7 @@ class KotakMahindraConnector(BankConnector):
 						"currency":"INR"
 					},
 					"benificiaryBank":{
-						"identifierType":"IFSC",
+						"identifierType":"IFSC" if payment_doc.payment_type != "INHOUSE-TRANSFER" else "SYSTEM",
 						"otherId":payment_doc.branch_code,
 						"name": payment_doc.branch_name or ""
 					}
