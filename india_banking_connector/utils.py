@@ -22,10 +22,10 @@ def get_id(length: int = 10, text: str = "") -> str:
 	Generate a random string ID of a specified length, optionally prefixed with a given text.
 	If the `length` parameter is a string, it will be used as the prefix text, and the length of the generated ID will be equal to the length of this string.
 	Args:
-		length (int): The desired length of the generated ID. Defaults to 10.
-		text (str): An optional prefix text to include in the generated ID. Defaults to an empty string.
+	        length (int): The desired length of the generated ID. Defaults to 10.
+	        text (str): An optional prefix text to include in the generated ID. Defaults to an empty string.
 	Returns:
-		str: A randomly generated string ID of the specified length, optionally prefixed with the given text.
+	        str: A randomly generated string ID of the specified length, optionally prefixed with the given text.
 	"""
 
 	if isinstance(length, str):
@@ -72,4 +72,7 @@ def decrypt(data, key=None):
 	cipher = Fernet(key)
 
 	decrypted_data = cipher.decrypt(data)
-	return json.loads(decrypted_data.decode("utf-8"))
+	try:
+		return json.loads(decrypted_data.decode("utf-8"))
+	except Exception:
+		return decrypted_data.decode("utf-8")

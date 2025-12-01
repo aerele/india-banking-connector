@@ -146,14 +146,6 @@ class KotakMahindraConnector(BankConnector):
 		else:
 			frappe.throw("Error in getting OAuth Token. Please check your credentials.")
 
-	def set_decrypted_response(self, log_id, response_data):
-		response_data = response_data
-
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
-
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 

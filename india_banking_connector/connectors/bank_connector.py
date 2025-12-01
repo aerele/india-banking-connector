@@ -51,6 +51,8 @@ class BankConnector(Document):
 			frappe.throw("Not permitted", frappe.PermissionError)
 
 	def validate_duplicate_payments(self, unique_id=None, method="make_payment"):
+		from india_banking_connector.utils import decrypt
+
 		"""
 		Validate duplicate payments by checking if a payment has already been made against the given unique ID.
 		If a payment exists, fetch the already processed details and return them.
@@ -75,6 +77,18 @@ class BankConnector(Document):
 		)
 
 		if existing_payment_response and hasattr(self, "get_formated_response"):
+			try:
+				existing_payment_response = decrypt(existing_payment_response)
+			except Exception:
+				frappe.log_error("Response decryption Failed!")
+				res_dict.update(
+					{
+						"status": "failed",
+						"message": "Response decryption Failed!",
+					}
+				)
+				return
+
 			self.get_formated_response(
 				existing_payment_response, res_dict, method=method
 			)
@@ -275,3 +289,17 @@ class BankConnector(Document):
 		decrypted_res = cipher.decrypt(decoded_data, b"x")
 
 		return json.loads(decrypted_res.decode("utf-8"))
+
+	def set_decrypted_response(self, log_id, response_data):
+		from frappe.utils import cstr
+
+		from india_banking_connector.utils import encrypt
+
+		try:
+			response_data = cstr(encrypt(response_data))
+		except Exception:
+			frappe.log_error("Response Encryption Failed!")
+		if frappe.db.exists("Bank Request Log", log_id):
+			frappe.db.set_value(
+				"Bank Request Log", log_id, "decrypted_response", response_data
+			)
