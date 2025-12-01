@@ -27,7 +27,7 @@ def create_default_bank():
 			bank_doc.is_standard = 1
 			bank_doc.save()
 
-
+@frappe.whitelist()
 def create_connector_settings():
 	click.echo(" -> Updating Connector Settings")
 	settings_doc = frappe.get_doc("Connector Settings")
