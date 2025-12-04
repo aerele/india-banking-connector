@@ -8,7 +8,7 @@ import re
 import frappe
 import requests
 from frappe import _
-from frappe.utils import getdate
+from frappe.utils import getdate, cstr
 
 import india_banking_connector.utils as utils
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -199,8 +199,8 @@ class HDFCConnector(BankConnector):
 		return self.encrypt_payload(self.get_account_config(method))
 
 	def get_account_config(self, method):
-		def _clean_string(self, text):
-			return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", text)).strip()
+		def _clean_string(text):
+			return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", cstr(text))).strip()
 
 		conector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
