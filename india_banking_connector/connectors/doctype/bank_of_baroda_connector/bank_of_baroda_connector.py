@@ -41,11 +41,11 @@ class BankofBarodaConnector(BankConnector):
 
 		self.account_config = {}
 
+	def update_aes_and_iv(self):
 		if self.encrypted:
 			self.client_code = self.encrypted_client_code
 			self.account_number = self.encrypted_account_number
 
-	def update_aes_and_iv(self):
 		self.AES_KEY = self.get_password("aes_key").encode("utf-8")
 		self.IV = self.get_password("iv").encode("utf-8")
 
@@ -459,7 +459,7 @@ class BankofBarodaConnector(BankConnector):
 		elif method == "bank_balance":
 			if data and (balance_details_list := data.get("balanceDetails", [])):
 				balance_details = balance_details_list[0]
-				if balance_details and balance_details.get("status") == "Success":
+				if balance_details and balance_details.get("respCode") == "000":
 					res_dict.server_status = "Success"
 					res_dict.balance = balance_details.get("availableBalance", 0)
 					res_dict.date = getdate()
