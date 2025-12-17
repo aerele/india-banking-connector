@@ -64,6 +64,11 @@ class UnionBankConnector(BankConnector):
 			headers.update({"Authorization": "Bearer {}".format(token)})
 		return headers
 
+	def get_message_id(self, length=15):
+		return frappe.generate_hash(
+			get_datetime().strftime("%Y%m%d%H%M%S"), length=length
+		)
+
 	def get_oauth_token(self, action):
 		payment_details = self.payment_doc
 
@@ -73,7 +78,7 @@ class UnionBankConnector(BankConnector):
 
 		payload = {
 			"reqdata": encrypted_payload,
-			"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+			"msgid": self.get_message_id(),
 		}
 
 		response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -105,7 +110,7 @@ class UnionBankConnector(BankConnector):
 
 		payload = {
 			"reqdata": encrypted_payload,
-			"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+			"msgid": self.get_message_id(),
 		}
 
 		response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -133,7 +138,7 @@ class UnionBankConnector(BankConnector):
 
 		payload = {
 			"reqdata": encrypted_payload,
-			"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+			"msgid": self.get_message_id(),
 		}
 
 		response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -164,7 +169,7 @@ class UnionBankConnector(BankConnector):
 
 		payload = {
 			"reqdata": encrypted_payload,
-			"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+			"msgid": self.get_message_id(),
 		}
 
 		response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -195,7 +200,7 @@ class UnionBankConnector(BankConnector):
 
 		payload = {
 			"reqdata": encrypted_payload,
-			"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+			"msgid": self.get_message_id(),
 		}
 
 		response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -253,7 +258,7 @@ class UnionBankConnector(BankConnector):
 		self.account_config.update(
 			{
 				"requestType": "0",
-				"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+				"msgid": self.get_message_id(),
 				"data": {
 					"username": self.user_name,
 					"password": self.get_password("password"),
@@ -266,7 +271,7 @@ class UnionBankConnector(BankConnector):
 		self.account_config.update(
 			{
 				"requestType": "0",
-				"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+				"msgid": self.get_message_id(),
 				"data": {
 					"type": "account",
 					"senderCode": self.sender_code,
@@ -295,7 +300,7 @@ class UnionBankConnector(BankConnector):
 		self.account_config.update(
 			{
 				"requestType": "0",
-				"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+				"msgid": self.get_message_id(),
 				"data": {
 					"type": "account",
 					"senderCode": self.sender_code,
@@ -308,7 +313,7 @@ class UnionBankConnector(BankConnector):
 		self.account_config.update(
 			{
 				"requestType": "0",
-				"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+				"msgid": self.get_message_id(),
 				"data": {
 					"type": "account",
 					"accountNumber": self.account_number,
@@ -325,7 +330,7 @@ class UnionBankConnector(BankConnector):
 		self.account_config.update(
 			{
 				"requestType": "0",
-				"msgid": get_datetime().strftime("%Y%m%d%H%M%S"),
+				"msgid": self.get_message_id(),
 				"data": {
 					"type": "account",
 					"accNum": self.account_number,
