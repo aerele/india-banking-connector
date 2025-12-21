@@ -11,6 +11,8 @@
   "testing",
   "section_break_imef",
   "account_number",
+  "account_holder_name",
+  "mobile_number",
   "client_id",
   "corp_id",
   "maker_id",
@@ -169,12 +171,22 @@
    "fieldtype": "Small Text",
    "label": "Scope",
    "read_only": 1
+  },
+  {
+   "fieldname": "account_holder_name",
+   "fieldtype": "Data",
+   "label": "A/c Holder Name"
+  },
+  {
+   "fieldname": "mobile_number",
+   "fieldtype": "Data",
+   "label": "Mobile Number"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-12-18 16:29:50.313309",
+ "modified": "2025-12-18 19:34:17.910042",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "IDFC Connector",
