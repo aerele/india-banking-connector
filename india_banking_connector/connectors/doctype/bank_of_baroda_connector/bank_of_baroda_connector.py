@@ -427,6 +427,10 @@ class BankofBarodaConnector(BankConnector):
 						res_dict.summary_details[self.payment_doc.name][
 							"status"
 						] = "Pending"
+					elif data.status == "F":
+						res_dict.summary_details[self.payment_doc.name][
+							"status"
+						] = "Failed"
 				elif data.errorCode in [
 					"ENQ001",
 					"ENQ002",
