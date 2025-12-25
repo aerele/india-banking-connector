@@ -60,6 +60,13 @@ def format_with_indent(data):
 	return data
 
 
+def encrypt_log(data, encrypt_data=False):
+	if not encrypt_data:
+		return data
+
+	encrypt(data)
+
+
 @frappe.whitelist()
 def create_api_log(
 	res,
@@ -68,6 +75,7 @@ def create_api_log(
 	ref_doctype=None,
 	ref_docname=None,
 	unique_id=None,
+	connector=None,
 ):
 	"""Can create API log From response
 
@@ -79,18 +87,31 @@ def create_api_log(
 		return
 
 	try:
+		_encrypt = False
+		if connector:
+			_encrypt = frappe.db.exists(
+				"Connector Map",
+				{
+					"connector": connector.doctype,
+					"encrypt_log": 1,
+				},
+			)
 		log_doc = frappe.new_doc("Bank Request Log")
 		log_doc.action = action
 		log_doc.url = res.request.url
-		log_doc.payload = encrypt(cstr(res.request.body))
+		log_doc.payload = encrypt_log(cstr(res.request.body), _encrypt)
 		log_doc.method = res.request.method
-		log_doc.header = encrypt(format_with_indent(res.request.headers))
-		log_doc.response = encrypt(format_with_indent(res.text))
-		log_doc.config_details = encrypt(format_with_indent(account_config))
+		log_doc.header = encrypt_log(format_with_indent(res.request.headers), _encrypt)
+		log_doc.response = encrypt_log(format_with_indent(res.text), _encrypt)
+		log_doc.config_details = encrypt_log(
+			format_with_indent(account_config), _encrypt
+		)
 		log_doc.status_code = res.status_code
 		log_doc.reference_doctype = ref_doctype
 		log_doc.reference_docname = ref_docname
 		log_doc.unique_id = unique_id
+		log_doc.connector = (connector or {}).get("doctype")
+		log_doc.connector_name = (connector or {}).get("name")
 		log_doc.save()
 	except Exception:
 		frappe.log_error(

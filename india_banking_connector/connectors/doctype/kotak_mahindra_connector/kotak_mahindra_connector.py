@@ -69,6 +69,7 @@ class KotakMahindraConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -96,6 +97,7 @@ class KotakMahindraConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -120,6 +122,7 @@ class KotakMahindraConnector(BankConnector):
 			account_config=self.get_account_config("bank_statement"),
 			ref_doctype="Bank Statement",
 			ref_docname=self.account_number,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -139,7 +142,7 @@ class KotakMahindraConnector(BankConnector):
 
 		response = requests.post(self.urls.oauth_token, params=params, headers=headers)
 
-		create_api_log(response, action="Get OAuth Token")
+		create_api_log(response, action="Get OAuth Token", connector=self)
 
 		if response.ok:
 			return response.json().get("access_token")

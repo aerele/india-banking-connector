@@ -76,3 +76,16 @@ def decrypt(data, key=None):
 		return json.loads(decrypted_data.decode("utf-8"))
 	except Exception:
 		return decrypted_data.decode("utf-8")
+
+
+class ResponseObject:
+	def __init__(self, text, status_code):
+		self.text = text
+		self.status_code = status_code
+		self.ok = 200 <= status_code < 300
+
+	def json(self):
+		try:
+			return json.loads(self.text)
+		except Exception:
+			return frappe.get_traceback(with_context=True)

@@ -8,7 +8,7 @@ import re
 import frappe
 import requests
 from frappe import _
-from frappe.utils import getdate, cstr
+from frappe.utils import cstr, getdate
 
 import india_banking_connector.utils as utils
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -72,6 +72,7 @@ class HDFCConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -99,6 +100,7 @@ class HDFCConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -262,7 +264,7 @@ class HDFCConnector(BankConnector):
 				cert=self.get_cert(),
 			)
 
-			create_api_log(response, action="Get OAuth Token")
+			create_api_log(response, action="Get OAuth Token", connector=self)
 
 			if response.ok:
 				return response.json().get("access_token")

@@ -89,6 +89,7 @@ class UnionBankConnector(BankConnector):
 			account_config=self.account_config,
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -122,6 +123,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -150,6 +152,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -181,6 +184,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -212,6 +216,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(

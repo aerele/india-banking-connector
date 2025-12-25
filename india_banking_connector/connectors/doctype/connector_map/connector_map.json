@@ -8,7 +8,8 @@
  "field_order": [
   "bank",
   "connector",
-  "bulk_transaction"
+  "bulk_transaction",
+  "encrypt_log"
  ],
  "fields": [
   {
@@ -17,6 +18,7 @@
    "in_list_view": 1,
    "label": "Bank",
    "options": "Bank",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -25,6 +27,7 @@
    "in_list_view": 1,
    "label": "Connector",
    "options": "DocType",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -33,18 +36,27 @@
    "fieldname": "bulk_transaction",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Bulk Transaction"
+   "label": "Bulk Transaction",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "encrypt_log",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Encrypt Log"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-09-19 13:06:11.765947",
+ "modified": "2025-12-22 10:26:04.193978",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Connector Map",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

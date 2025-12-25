@@ -5,9 +5,12 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_nifh",
   "action",
   "method",
+  "column_break_rfds",
+  "connector",
+  "connector_name",
+  "section_break_nifh",
   "config_details",
   "url",
   "header",
@@ -70,6 +73,7 @@
   {
    "fieldname": "reference_docname",
    "fieldtype": "Data",
+   "in_standard_filter": 1,
    "label": "Reference Docname"
   },
   {
@@ -87,12 +91,31 @@
   {
    "fieldname": "unique_id",
    "fieldtype": "Data",
+   "in_standard_filter": 1,
    "label": "Unique ID"
+  },
+  {
+   "fieldname": "column_break_rfds",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "connector",
+   "fieldtype": "Link",
+   "label": "Connector",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "connector_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Connector Name",
+   "options": "connector",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-17 13:23:34.982250",
+ "modified": "2025-12-26 02:44:10.105433",
  "modified_by": "Administrator",
  "module": "India Banking Connector",
  "name": "Bank Request Log",
@@ -111,6 +134,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
