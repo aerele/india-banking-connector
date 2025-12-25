@@ -94,7 +94,8 @@ class BankConnector(Document):
 		if decrypted_response and hasattr(self, "get_formated_response"):
 			existing_decrypted_response = decrypted_response
 			try:
-				existing_decrypted_response = decrypt(decrypted_response)
+				if bank_request_log.get("encrypted"):
+					existing_decrypted_response = decrypt(decrypted_response)
 			except Exception:
 				frappe.log_error("Response decryption Failed!")
 				res_dict.update(
@@ -109,6 +110,10 @@ class BankConnector(Document):
 				self.get_formated_response(
 					existing_decrypted_response, res_dict, method=method
 				)
+				if not res_dict:
+					res_dict.status = "failed"
+					res_dict.message = "Failed to fetch existing payment response."
+
 		elif decrypted_response:
 			frappe.throw(
 				frappe._(
@@ -346,5 +351,10 @@ class BankConnector(Document):
 			frappe.log_error("Response Encryption Failed!")
 		if frappe.db.exists("Bank Request Log", log_id):
 			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
+				"Bank Request Log",
+				log_id,
+				{
+					"decrypted_response": response_data,
+					"encrypted": 1 if _encrypt else 0,
+				},
 			)

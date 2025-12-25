@@ -112,6 +112,7 @@ def create_api_log(
 		log_doc.unique_id = unique_id
 		log_doc.connector = (connector or {}).get("doctype")
 		log_doc.connector_name = (connector or {}).get("name")
+		log_doc.encrypted = 1 if _encrypt else 0
 		log_doc.save()
 	except Exception:
 		frappe.log_error(
