@@ -137,6 +137,14 @@ class BankConnector(Document):
 
 		return res_dict
 
+	def get_summary_details(self, status):
+		summary_details = {}
+
+		for summary in self.doc.summary:
+			summary_details.update({summary.get("name"): {"payment_status": status}})
+
+		return summary_details
+
 	# HDFC Encryption and Decryption
 	# Generate JWS with RS256
 	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
@@ -346,7 +354,9 @@ class BankConnector(Document):
 			if _encrypt:
 				response_data = cstr(encrypt(response_data))
 			else:
-				response_data = cstr(response_data)
+				if isinstance(response_data, str):
+					response_data = json.loads(response_data)
+				response_data = json.dumps(response_data, indent=4)
 		except Exception:
 			frappe.log_error("Response Encryption Failed!")
 		if frappe.db.exists("Bank Request Log", log_id):

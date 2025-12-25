@@ -566,14 +566,6 @@ class ICICIConnector(BankConnector):
 					}
 				}
 
-	def get_summary_details(self, status):
-		summary_details = {}
-
-		for summary in self.doc.summary:
-			summary_details.update({summary.get("name"): {"payment_status": status}})
-
-		return summary_details
-
 	def handle_bulk_transaction_response(self, data, res_dict, method):
 		if method == "generate_otp" and data:
 			if data.get("RESPONSE") == "Success":

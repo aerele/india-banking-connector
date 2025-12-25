@@ -1,6 +1,8 @@
 # Copyright (c) 2025, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
+import json
+import random
 import re
 
 import frappe
@@ -8,7 +10,7 @@ import jwt
 import requests
 from frappe import _
 from frappe.query_builder import DocType
-from frappe.utils import add_to_date, get_datetime
+from frappe.utils import add_to_date
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -22,9 +24,15 @@ class IDFCConnector(BankConnector):
 		"get_payment_status",
 	]
 
+	LOW_ASCII_LIMIT = 47
+	HIGH_ASCII_LIMIT = 126
+
 	def __init__(self, *args, **kwargs):
 		self.bank = "IDFC"
 		super().__init__(*args, **kwargs)
+
+		self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
+		self.IV = self.generate_iv().encode()
 
 		self.bulk_transaction = kwargs.get("bulk_transaction")
 		self.doc = frappe._dict(kwargs.get("doc", {}))
@@ -34,6 +42,8 @@ class IDFCConnector(BankConnector):
 
 	@property
 	def urls(self):
+		if not self.bulk_transaction:
+			frappe.throw("The scope has not been implemented.")
 		CONNECTOR = DocType(self.doctype)
 		EU = DocType("Endpoint URLs")
 		urls = (
@@ -52,11 +62,17 @@ class IDFCConnector(BankConnector):
 			"source": self.corp_id,
 			"correlationId": frappe.generate_hash(length=20),
 			"Content-Type": "application/octet-stream",
-			"Timestamp": int(get_datetime().timestamp()),
-			"tran_id": self.transaction_id,
+			"Tran_Id": self.transaction_id,
 			"corp_id": self.corp_id,
 			"Authorization": "Bearer " + self.get_oauth_token(),
 		}
+
+	def generate_iv(self) -> str:
+		iv_chars = [
+			chr(random.randint(self.LOW_ASCII_LIMIT, self.HIGH_ASCII_LIMIT))
+			for _ in range(16)
+		]
+		return "".join(iv_chars)
 
 	@frappe.whitelist()
 	def get_oauth_token(self):
@@ -80,7 +96,9 @@ class IDFCConnector(BankConnector):
 				data=data,
 			)
 
-			create_api_log(response, action="Get OAuth Token", account_config=data)
+			create_api_log(
+				response, action="Get OAuth Token", account_config=data, connector=self
+			)
 
 			if response.ok:
 				return response.json().get("access_token")
@@ -135,7 +153,8 @@ class IDFCConnector(BankConnector):
 			account_config=self.account_config,
 			ref_doctype=payment_details.doctype,
 			ref_docname=payment_details.name,
-			unique_id=unique_id,
+			unique_id=self.transaction_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -143,9 +162,8 @@ class IDFCConnector(BankConnector):
 		)
 
 	def get_encrypted_payload(self, method: str):
-		self.__aes_key = bytes.fromhex(self.get_password("aes_key"))
 		self.update_account_config(method)
-		return self.aes_encrypt_data(self.account_config, self.__aes_key)
+		return self.aes_encrypt_data(self.account_config, self.AES_KEY, prepend_iv=True)
 
 	def get_decrypted_response(self, response, method: str, log_id: str):
 		res_dict = frappe._dict({})
@@ -153,7 +171,7 @@ class IDFCConnector(BankConnector):
 			decrypted_data = frappe._dict({})
 			try:
 				decrypted_data = self.aes_decrypt_data(
-					response.text, self.get_password("aes_key"), json_loads=True
+					response.text, self.AES_KEY, json_loads=True
 				)
 				self.set_decrypted_response(log_id, decrypted_data)
 			except Exception:
@@ -181,7 +199,46 @@ class IDFCConnector(BankConnector):
 			method_map[method](decrypted_data, res_dict)
 
 	def format_payment_response(self, decrypted_data, res_dict):
-		pass
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "failed"
+					res_dict.message = "Failed to parse payment response."
+					return
+
+		data = frappe._dict(decrypted_data)
+
+		corp_res = data.get("doMultiPaymentCorpRes")
+
+		if (
+			corp_res
+			and (header := corp_res.get("Header"))
+			and header.get("Status") == "Success"
+		):
+			res_dict.payment_status = "ACCEPTED"
+			res_dict.message = corp_res.get("Body", {}).get(
+				"Remarks", "Payment initiated successfully."
+			)
+			res_dict.summary_details = self.get_summary_details("Accepted")
+		elif (
+			corp_res
+			and (header := corp_res.get("Header"))
+			and header.get("Status") == "Failed"
+		):
+			res_dict.payment_status = "ACCEPTED"
+			err_msg = corp_res.get("Body", {}).get(
+				"Remarks", "Payment initiated successfully."
+			)
+			res_dict.message = err_msg
+			res_dict.summary_details = self.get_summary_details("Failed")
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.message = "Unexpected response format."
 
 	def format_payment_status_response(self, decrypted_data, res_dict):
 		pass
@@ -207,20 +264,22 @@ class IDFCConnector(BankConnector):
 					"Body": {
 						"Payment": [
 							{
-								"RefNo": payment.name,
-								"Amount": payment.amount,
+								"RefNo": payment.get("name", ""),
+								"Amount": payment.get("amount", ""),
 								"Debit_Acct_No": self.account_number,
 								"Debit_Acct_Name": self.account_holder_name,
 								"Debit_Mobile": self.mobile_number or "",
-								"Ben_IFSC": payment.branch_code,
-								"Ben_Acct_No": payment.bank_account_no,
-								"Ben_Name": payment.party_name or payment.party,
-								"Ben_BankName": payment.party_name or payment.party,
-								"Ben_Email": payment.email or "",
-								"Ben_Mobile": payment.mobile_no or "",
+								"Ben_IFSC": payment.get("branch_code", ""),
+								"Ben_Acct_No": payment.get("bank_account_no", ""),
+								"Ben_Name": payment.get("party_name", "")
+								or payment.get("party", ""),
+								"Ben_BankName": payment.get("party_name", "")
+								or payment.get("party", ""),
+								"Ben_Email": payment.get("email", "") or "",
+								"Ben_Mobile": payment.get("mobile_no", "") or "",
 								"Mode_of_Pay": "NEFT",
 								"Nature_of_Pay": "MPYMT",
-								"Remarks": f"Payment from {payment.parent} for {payment.party_name or payment.party}",
+								"Remarks": f"Payment from {payment.get("parent", "")} for {payment.get("party_name", "") or payment.get("party", "")}",
 							}
 							for payment in self.doc.get("summary", [])
 						]
