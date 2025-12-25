@@ -161,6 +161,30 @@ class IDFCConnector(BankConnector):
 			response, method="make_payment", log_id=log_id
 		)
 
+	def get_payment_status(self):
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", self.doc.name))
+		self.transaction_id = "NEFT" + unique_id
+
+		url = self.urls.payment_status
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="payment_status")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Get Payment Status",
+			account_config=self.account_config,
+			ref_doctype=self.doc.doctype,
+			ref_docname=self.doc.name,
+			unique_id=self.transaction_id,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="payment_status", log_id=log_id
+		)
+
 	def get_encrypted_payload(self, method: str):
 		self.update_account_config(method)
 		return self.aes_encrypt_data(self.account_config, self.AES_KEY, prepend_iv=True)
@@ -241,7 +265,71 @@ class IDFCConnector(BankConnector):
 			res_dict.message = "Unexpected response format."
 
 	def format_payment_status_response(self, decrypted_data, res_dict):
-		pass
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "failed"
+					res_dict.message = "Failed to parse payment status response."
+					return
+
+		data = frappe._dict(decrypted_data)
+
+		corp_res = data.get("doMultiPaymentCorpRes")
+
+		if (
+			corp_res
+			and (header := corp_res.get("Header"))
+			and header.get("Status") == "Success"
+			and (body := corp_res.get("Body"))
+			and body.get("TranID_Status").lower() == "success"
+		):
+			res_dict.payment_status = "PROCESSED"
+			res_dict.message = corp_res.get("Body", {}).get(
+				"TranID_StatusDesc", "Payment status fetched successfully."
+			)
+			res_dict.summary_details = self.format_payment_status(
+				corp_res.get("Body", {}).get("Transaction", [])
+			)
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.message = "Unexpected response format."
+
+	def format_payment_status(self, transactions):
+		if isinstance(transactions, str):
+			transactions = json.loads(transactions)
+
+		result = {}
+		for transaction in transactions:
+			ref_no = transaction.get("RefNo")
+			status = transaction.get("RefStatus")
+			msg = transaction.get("Status_Desc", "")
+			utr_no = ""
+			if status == "Success":
+				payment_status = "Processed"
+				msg = msg or "Transaction completed successfully."
+				utr_no = transaction.get("UTR_No", "")
+			elif status == "Pending Auth":
+				payment_status = "Pending"
+				msg = msg or "Transaction is pending authorization."
+			elif status == "Rejected":
+				payment_status = "Rejected"
+				msg = msg or "Transaction has been rejected."
+			else:
+				payment_status = "Failured"
+				msg = "Unknown status received."
+
+			result[ref_no] = {
+				"status": payment_status,
+				"utr_number": utr_no,
+				"message": msg,
+			}
+
+		return result
 
 	def update_account_config(self, method):
 		method_map = {
@@ -289,8 +377,6 @@ class IDFCConnector(BankConnector):
 		)
 
 	def set_payment_status_data(self):
-		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", self.doc.name))
-		transaction_id = "NEFT" + unique_id
 		self.account_config.update(
 			{
 				"doMultiPaymentCorpReq": {
@@ -300,7 +386,7 @@ class IDFCConnector(BankConnector):
 						"Approver_ID": self.approver_id,
 					},
 					"Body": {
-						"Tran_ID": transaction_id,
+						"Tran_ID": self.transaction_id,
 					},
 				}
 			}
