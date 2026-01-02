@@ -231,7 +231,7 @@ class IDFCConnector(BankConnector):
 					decrypted_data = decrypted_data.replace("'", '"')
 					decrypted_data = json.loads(decrypted_data)
 				except json.JSONDecodeError:
-					res_dict.status = "failed"
+					res_dict.status = "Failure"
 					res_dict.message = "Failed to parse payment response."
 					return
 
@@ -306,17 +306,19 @@ class IDFCConnector(BankConnector):
 		result = {}
 		for transaction in transactions:
 			ref_no = transaction.get("RefNo")
-			status = transaction.get("RefStatus")
-			msg = transaction.get("Status_Desc", "")
+			status = transaction.get("RefStatus", "")
+			msg = transaction.get("StatusDesc", "") or transaction.get(
+				"Status_Desc", ""
+			)
 			utr_no = ""
-			if status == "Success":
+			if status == "SUCCESS":
 				payment_status = "Processed"
 				msg = msg or "Transaction completed successfully."
 				utr_no = transaction.get("UTR_No", "")
-			elif status == "Pending Auth":
+			elif status in ["Pending Auth", "UNDER PROCESS"]:
 				payment_status = "Pending"
 				msg = msg or "Transaction is pending authorization."
-			elif status == "Rejected":
+			elif "rejected" in status.lower():
 				payment_status = "Rejected"
 				msg = msg or "Transaction has been rejected."
 			else:
@@ -357,7 +359,7 @@ class IDFCConnector(BankConnector):
 								"Debit_Acct_No": self.account_number,
 								"Debit_Acct_Name": self.account_holder_name,
 								"Debit_Mobile": self.mobile_number or "",
-								"Ben_IFSC": payment.get("branch_code", ""),
+								"Ben_IFSC": "IDFC0001",  # payment.get("branch_code", ""),
 								"Ben_Acct_No": payment.get("bank_account_no", ""),
 								"Ben_Name": payment.get("party_name", "")
 								or payment.get("party", ""),
@@ -367,7 +369,7 @@ class IDFCConnector(BankConnector):
 								"Ben_Mobile": payment.get("mobile_no", "") or "",
 								"Mode_of_Pay": "NEFT",
 								"Nature_of_Pay": "MPYMT",
-								"Remarks": f"Payment from {payment.get("parent", "")} for {payment.get("party_name", "") or payment.get("party", "")}",
+								"Remarks": f'Payment from {payment.get("parent", "")} for {payment.get("party_name", "") or payment.get("party", "")}',
 							}
 							for payment in self.doc.get("summary", [])
 						]
