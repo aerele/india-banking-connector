@@ -400,7 +400,6 @@ class IDFCConnector(BankConnector):
 		from india_banking_connector.install import decrypt
 
 		decrypted = decrypt(IDFC_ENCRYPTED_END_POINTS)
-		print(decrypted)
 		stagin_or_prod = "testing" if self.testing else "production"
 		endpoints = decrypted[self.bank][stagin_or_prod]["composite"]
 

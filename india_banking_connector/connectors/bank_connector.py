@@ -140,6 +140,9 @@ class BankConnector(Document):
 	def get_summary_details(self, status):
 		summary_details = {}
 
+		if not self.doc:
+			return summary_details
+
 		for summary in self.doc.summary:
 			summary_details.update({summary.get("name"): {"payment_status": status}})
 

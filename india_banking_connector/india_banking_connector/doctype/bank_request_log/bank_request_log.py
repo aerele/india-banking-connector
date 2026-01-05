@@ -7,14 +7,21 @@ from xml.dom.minidom import parseString
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import cstr
+from frappe.utils import cint, cstr
 from requests.models import Response
 from requests.structures import CaseInsensitiveDict
 
-from india_banking_connector.utils import decrypt, encrypt
+from india_banking_connector.utils import ResponseObject, decrypt, encrypt
 
 
 class BankRequestLog(Document):
+	action_map = {
+		"Initiate Payment": "make_payment",
+		"Get Payment Status": "payment_status",
+		"Bank Balance": "bank_balance",
+		"Bank Statement": "bank_statement",
+	}
+
 	@frappe.whitelist()
 	def decrypt_log(self):
 		return {
@@ -30,6 +37,18 @@ class BankRequestLog(Document):
 			return decrypt(data)
 		except Exception:
 			return data
+
+	@frappe.whitelist()
+	def decrypt_and_set_response(self):
+		if self.connector and self.connector_name:
+			connector = frappe.get_doc(self.connector, self.connector_name)
+			connector.get_decrypted_response(
+				ResponseObject(
+					self.decrypt_data(self.response), cint(self.status_code)
+				),
+				method=self.action_map.get(self.action),
+				log_id=self.name,
+			)
 
 
 def format_with_indent(data):
@@ -64,7 +83,7 @@ def encrypt_log(data, encrypt_data=False):
 	if not encrypt_data:
 		return data
 
-	encrypt(data)
+	return encrypt(data)
 
 
 @frappe.whitelist()
