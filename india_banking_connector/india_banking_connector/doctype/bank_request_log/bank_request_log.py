@@ -33,10 +33,15 @@ class BankRequestLog(Document):
 		}
 
 	def decrypt_data(self, data):
+		"""Decrypt the given data if it is encrypted."""
 		try:
-			return decrypt(data)
+			data = decrypt(data)
 		except Exception:
-			return data
+			pass
+		if isinstance(data, dict):
+			data = json.dumps(data, indent=4)
+
+		return data
 
 	@frappe.whitelist()
 	def decrypt_and_set_response(self):
