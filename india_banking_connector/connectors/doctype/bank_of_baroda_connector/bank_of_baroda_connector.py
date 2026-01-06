@@ -226,7 +226,7 @@ class BankofBarodaConnector(BankConnector):
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
-		if response.ok:
+		if response.status_code in [200, 500]:
 			if self.encrypted:
 				decrypted_data = {}
 				try:

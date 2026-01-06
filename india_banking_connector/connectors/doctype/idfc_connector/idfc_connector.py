@@ -31,9 +31,6 @@ class IDFCConnector(BankConnector):
 		self.bank = "IDFC"
 		super().__init__(*args, **kwargs)
 
-		self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
-		self.IV = self.generate_iv().encode()
-
 		self.bulk_transaction = kwargs.get("bulk_transaction")
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
@@ -42,6 +39,7 @@ class IDFCConnector(BankConnector):
 
 	@property
 	def urls(self):
+		self.update_aes_and_iv()
 		if not self.bulk_transaction:
 			frappe.throw("The scope has not been implemented.")
 		CONNECTOR = DocType(self.doctype)
@@ -55,6 +53,10 @@ class IDFCConnector(BankConnector):
 		).run()
 
 		return frappe._dict(dict(urls))
+
+	def update_aes_and_iv(self):
+		self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
+		self.IV = self.generate_iv().encode()
 
 	@property
 	def headers(self):
