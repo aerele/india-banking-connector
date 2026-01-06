@@ -194,6 +194,7 @@ class IDFCConnector(BankConnector):
 		return self.aes_encrypt_data(self.account_config, self.AES_KEY, prepend_iv=True)
 
 	def get_decrypted_response(self, response, method: str, log_id: str):
+		self.update_aes_and_iv()
 		res_dict = frappe._dict({})
 		if response.ok:
 			decrypted_data = frappe._dict({})

@@ -225,6 +225,7 @@ class BankofBarodaConnector(BankConnector):
 		return self.aes_encrypt_data(plain_text, self.AES_KEY), checksum
 
 	def get_decrypted_response(self, response, method, log_id=None):
+		self.update_aes_and_iv()
 		res_dict = frappe._dict({})
 		if response.status_code in [200, 500]:
 			if self.encrypted:

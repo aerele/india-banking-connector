@@ -240,6 +240,7 @@ class UnionBankConnector(BankConnector):
 		return self.aes_encrypt_data(self.account_config, self.AES_KEY)
 
 	def get_decrypted_response(self, response, method, log_id=None):
+		self.update_aes_and_iv()
 		res_dict = frappe._dict({})
 		if response.ok:
 			decrypted_data = self.aes_decrypt_data(response.text, self.AES_KEY)
