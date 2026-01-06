@@ -10,7 +10,7 @@ import jwt
 import requests
 from frappe import _
 from frappe.query_builder import DocType
-from frappe.utils import add_to_date
+from frappe.utils import add_to_date, get_datetime
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -123,7 +123,9 @@ class IDFCConnector(BankConnector):
 			"sub": self.get_password("client_id"),
 			"iss": self.get_password("client_id"),
 			"aud": self.urls.get("oauth_token"),
-			"exp": int(add_to_date().timestamp()) + 60,  # 60 seconds from current time
+			"exp": int(
+				add_to_date(get_datetime(), seconds=60).timestamp()
+			),  # 60 seconds from current time
 		}
 
 		return jwt.encode(
