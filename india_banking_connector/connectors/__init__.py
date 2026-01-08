@@ -32,7 +32,7 @@ def get_bank_connector(bank, bulk_transaction=False):
 		return import_connector(connector_path, connector.replace(" ", "")), connector
 
 	except:
-		frappe.log_error("Connector not found for bank {bank}", frappe.get_traceback())
+		frappe.log_error("Connector not found for bank {bank}", frappe.get_traceback(with_context=True))
 
 	return "Not Implemented"
 
@@ -67,5 +67,5 @@ def get_connector(payload, bulk_transaction = None):
 			}
 	except:
 		return {
-			"message": frappe.get_traceback()
+			"message": frappe.get_traceback(with_context=True)
 			}

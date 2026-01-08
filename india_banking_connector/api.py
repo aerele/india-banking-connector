@@ -22,5 +22,5 @@ def connect(**kwargs):
 		return response
 
 	except:
-		frappe.log_error("Connector Error", frappe.get_traceback())
-		return {'status': 'Request Failure', "message": frappe.get_traceback()}
+		frappe.log_error("Connector Error", frappe.get_traceback(with_context=True))
+		return {'status': 'Request Failure', "message": frappe.get_traceback(with_context=True)}
