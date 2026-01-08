@@ -207,7 +207,7 @@ class IDFCConnector(BankConnector):
 				frappe.log_error(
 					"Decryption Failed", frappe.get_traceback(with_context=1)
 				)
-				res_dict.status = "failed"
+				res_dict.status = "FAILED"
 				res_dict.message = "Response Decryption Failed!"
 				return res_dict
 
@@ -364,7 +364,7 @@ class IDFCConnector(BankConnector):
 								"Debit_Acct_No": self.account_number,
 								"Debit_Acct_Name": self.account_holder_name,
 								"Debit_Mobile": self.mobile_number or "",
-								"Ben_IFSC": "IDFC0001",  # payment.get("branch_code", ""),
+								"Ben_IFSC": payment.get("branch_code", ""),
 								"Ben_Acct_No": payment.get("bank_account_no", ""),
 								"Ben_Name": payment.get("party_name", "")
 								or payment.get("party", ""),

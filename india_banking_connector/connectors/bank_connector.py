@@ -122,6 +122,9 @@ class BankConnector(Document):
 			)
 
 		elif response:
+			if bank_request_log.get("encrypted"):
+				response = decrypt(response)
+
 			response = ResponseObject(response, 200)
 			decrypted_response = self.get_decrypted_response(
 				response,

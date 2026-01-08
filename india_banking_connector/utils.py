@@ -6,6 +6,7 @@ import string
 
 import frappe
 from cryptography.fernet import Fernet
+from frappe.utils import cint
 
 from india_banking_connector.default import DEFAULT_CONNECTOR
 
@@ -81,11 +82,26 @@ def decrypt(data, key=None):
 class ResponseObject:
 	def __init__(self, text, status_code):
 		self.text = text
-		self.status_code = status_code
-		self.ok = 200 <= status_code < 300
+		self.status_code = cint(status_code)
+		self.ok = self.status_code == 200
+		self.validate_json_text()
 
 	def json(self):
 		try:
 			return json.loads(self.text)
 		except Exception:
-			return frappe.get_traceback(with_context=True)
+			try:
+				# Convert JSON string
+				text = self.text.replace("'", '"')
+				json_text = json.loads(text)
+				# update valid JSON String
+				if json_text:
+					self.text = text
+
+				# return valid dict
+				return json_text
+			except Exception:
+				return frappe.get_traceback(with_context=True)
+
+	def validate_json_text(self):
+		self.json()
