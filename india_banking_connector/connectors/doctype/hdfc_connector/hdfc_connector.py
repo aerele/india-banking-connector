@@ -65,7 +65,12 @@ class HDFCConnector(BankConnector):
 		url = self.urls.make_payment
 		headers = self.headers
 		payload = self.get_encrypted_payload(method= 'make_payment')
-		response = requests.post(url, headers=headers, data= payload)
+		response = requests.post(
+			url,
+			headers=headers,
+			data= payload,
+			cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response, action= "Initiate Payment",
@@ -81,7 +86,12 @@ class HDFCConnector(BankConnector):
 		headers = self.headers
 		payload = self.get_encrypted_payload(method= 'payment_status')
 
-		response = requests.post(url, headers=headers, data= payload)
+		response = requests.post(
+			url,
+			headers=headers,
+			data= payload,
+			cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response, action= "Payment Status",
@@ -201,7 +211,12 @@ class HDFCConnector(BankConnector):
 			'Authorization': encoded_credintial
 		}
 
-		response = requests.post(self.urls.oauth_token, params= params, headers= headers, cert= self.get_cert())
+		response = requests.post(
+			self.urls.oauth_token,
+			params= params,
+			headers= headers,
+			cert= self.get_cert()
+		)
 
 		create_api_log(response, action=  "Get OAuth Token")
 
