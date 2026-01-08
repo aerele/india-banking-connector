@@ -98,6 +98,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -129,6 +130,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -161,6 +163,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -195,6 +198,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -221,8 +225,9 @@ class BankofBarodaConnector(BankConnector):
 		return self.aes_encrypt_data(plain_text, self.AES_KEY), checksum
 
 	def get_decrypted_response(self, response, method, log_id=None):
+		self.update_aes_and_iv()
 		res_dict = frappe._dict({})
-		if response.ok:
+		if response.status_code in [200, 500]:
 			if self.encrypted:
 				decrypted_data = {}
 				try:

@@ -12,14 +12,13 @@
    "fieldname": "connectors",
    "fieldtype": "Table",
    "label": "Connectors",
-   "options": "Connector Map",
-   "read_only": 1
+   "options": "Connector Map"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-01-02 18:18:41.268407",
+ "modified": "2025-12-22 10:26:21.730398",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Connector Settings",
@@ -36,6 +35,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
