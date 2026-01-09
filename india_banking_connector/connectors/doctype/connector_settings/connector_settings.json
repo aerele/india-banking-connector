@@ -7,6 +7,10 @@
  "field_order": [
   "clear_bank_request_log",
   "stale_days",
+  "column_break_lzmc",
+  "clear_duplicate_bank_request_log",
+  "duplicate_stale_days",
+  "section_break_euzt",
   "connectors"
  ],
  "fields": [
@@ -17,7 +21,7 @@
    "options": "Connector Map"
   },
   {
-   "default": "0",
+   "default": "1",
    "description": "if enabled, logs older than the specified number of days will be automatically removed.",
    "fieldname": "clear_bank_request_log",
    "fieldtype": "Check",
@@ -30,12 +34,35 @@
    "fieldtype": "Int",
    "label": "Stale Days",
    "mandatory_depends_on": "clear_bank_request_log"
+  },
+  {
+   "default": "1",
+   "description": "If enabled, automatically clears duplicate bank request log records.",
+   "fieldname": "clear_duplicate_bank_request_log",
+   "fieldtype": "Check",
+   "label": "Clear Duplicate Bank Request Log"
+  },
+  {
+   "fieldname": "column_break_lzmc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_euzt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "clear_duplicate_bank_request_log",
+   "description": "Records older than this number of days will be automatically removed.",
+   "fieldname": "duplicate_stale_days",
+   "fieldtype": "Int",
+   "label": "Stale Days(Duplicate)",
+   "mandatory_depends_on": "clear_duplicate_bank_request_log"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-01-09 02:47:29.867819",
+ "modified": "2026-01-09 16:19:12.129438",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Connector Settings",
