@@ -96,3 +96,51 @@ def clear_bank_payment_request_log(days=7):
 			)
 	except Exception:
 		frappe.log_error(title="Failed to clear Bank Payment Request Log")
+
+
+def clear_duplicate_bank_request_logs(days=7):
+	"""Clear Duplicate Bank Request Logs"""
+	settings = frappe.get_single("Connector Settings")
+	if not settings.clear_duplicate_bank_request_log:
+		return
+
+	stale_days = settings.duplicate_stale_days or 7  # Default to 7 days if not set
+	try:
+		count = frappe.db.count(
+			"Bank Request Log",
+			{
+				"creation": ["<=", add_to_date(getdate(), days=-stale_days)],
+				"is_duplicate": 1,
+			},
+		)
+		if count > 50000:
+			end = add_to_date(getdate(), days=-stale_days)
+			start = add_to_date(end, days=-(days + 7))  # Delete in batches of 7 days
+			frappe.db.delete(
+				"Bank Request Log",
+				{
+					"creation": ["between", [start, end]],
+					"is_duplicate": 1,
+				},
+			)
+			count = frappe.db.count(
+				"Bank Request Log",
+				{
+					"creation": ["<", add_to_date(getdate(), days=-stale_days)],
+					"is_duplicate": 1,
+				},
+			)
+			if count > 50000:
+				frappe.enqueue(
+					clear_duplicate_bank_request_logs, days=days + 7
+				)  # Enqueue next batch
+		else:
+			frappe.db.delete(
+				"Bank Request Log",
+				{
+					"creation": ["<=", add_to_date(getdate(), days=-stale_days)],
+					"is_duplicate": 1,
+				},
+			)
+	except Exception:
+		frappe.log_error(title="Failed to clear Duplicate Bank Request Log")
