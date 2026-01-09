@@ -7,6 +7,8 @@ from india_banking_connector.connectors.bank_connector import BankConnector
 import india_banking_connector.utils as utils
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import create_api_log
 import base64
+from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import get_log_hash
+
 
 class HDFCConnector(BankConnector):
 	bank = "HDFC Bank"
@@ -106,8 +108,19 @@ class HDFCConnector(BankConnector):
 		if isinstance(response_data, str):
 			response_data = json.loads(response_data)
 		response_data = json.dumps(response_data, indent=4)
+
 		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value("Bank Request Log", log_id,"decrypted_response" , response_data)
+			document_hash = get_log_hash(frappe.get_doc("Bank Request Log", log_id))
+			is_duplicate = frappe.db.exists("Bank Request Log", {
+				"document_hash": document_hash,
+				"name": ["!=", log_id]
+			})
+			frappe.db.set_value("Bank Request Log", log_id,{
+				"decrypted_response": response_data,
+				"document_hash": document_hash,
+				"is_duplicate": 1 if is_duplicate else 0
+			})
+
 
 	def get_decrypted_response(self, response, method, log_id= None):
 		res_dict = frappe._dict({})

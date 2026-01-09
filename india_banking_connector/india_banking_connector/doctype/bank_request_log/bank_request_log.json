@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "creation": "2024-09-11 11:14:42.267860",
  "doctype": "DocType",
@@ -16,7 +17,9 @@
   "status_code",
   "reference_doctype",
   "reference_docname",
-  "decrypted_response"
+  "decrypted_response",
+  "document_hash",
+  "is_duplicate"
  ],
  "fields": [
   {
@@ -82,11 +85,24 @@
    "fieldtype": "Code",
    "in_list_view": 1,
    "label": "Decrypted Response"
+  },
+  {
+   "fieldname": "document_hash",
+   "fieldtype": "Data",
+   "label": "Document hash",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_duplicate",
+   "fieldtype": "Check",
+   "label": "Is Duplicate",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-09-27 16:33:59.851398",
+ "modified": "2026-01-09 15:52:09.458997",
  "modified_by": "Administrator",
  "module": "India Banking Connector",
  "name": "Bank Request Log",
@@ -105,6 +121,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
