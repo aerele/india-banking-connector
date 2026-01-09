@@ -6,3 +6,4 @@ india_banking_connector.patches.v1_0.create_bank_doctype
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+india_banking_connector.patches.v15_0.clear_stale_bank_request_log #4

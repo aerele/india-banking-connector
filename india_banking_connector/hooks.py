@@ -249,3 +249,9 @@ fixtures = [
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+scheduler_events = {
+    "daily": [
+        "india_banking_connector.tasks.clear_bank_status_log",
+        "india_banking_connector.tasks.clear_bank_payment_request_log",
+	],
+}
