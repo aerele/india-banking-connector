@@ -6,6 +6,7 @@ import string
 
 import frappe
 from cryptography.fernet import Fernet
+from frappe.utils import cint
 
 from india_banking_connector.default import DEFAULT_CONNECTOR
 
@@ -22,10 +23,10 @@ def get_id(length: int = 10, text: str = "") -> str:
 	Generate a random string ID of a specified length, optionally prefixed with a given text.
 	If the `length` parameter is a string, it will be used as the prefix text, and the length of the generated ID will be equal to the length of this string.
 	Args:
-		length (int): The desired length of the generated ID. Defaults to 10.
-		text (str): An optional prefix text to include in the generated ID. Defaults to an empty string.
+	        length (int): The desired length of the generated ID. Defaults to 10.
+	        text (str): An optional prefix text to include in the generated ID. Defaults to an empty string.
 	Returns:
-		str: A randomly generated string ID of the specified length, optionally prefixed with the given text.
+	        str: A randomly generated string ID of the specified length, optionally prefixed with the given text.
 	"""
 
 	if isinstance(length, str):
@@ -72,4 +73,35 @@ def decrypt(data, key=None):
 	cipher = Fernet(key)
 
 	decrypted_data = cipher.decrypt(data)
-	return json.loads(decrypted_data.decode("utf-8"))
+	try:
+		return json.loads(decrypted_data.decode("utf-8"))
+	except Exception:
+		return decrypted_data.decode("utf-8")
+
+
+class ResponseObject:
+	def __init__(self, text, status_code):
+		self.text = text
+		self.status_code = cint(status_code)
+		self.ok = self.status_code == 200
+		self.validate_json_text()
+
+	def json(self):
+		try:
+			return json.loads(self.text)
+		except Exception:
+			try:
+				# Convert JSON string
+				text = self.text.replace("'", '"')
+				json_text = json.loads(text)
+				# update valid JSON String
+				if json_text:
+					self.text = text
+
+				# return valid dict
+				return json_text
+			except Exception:
+				return frappe.get_traceback(with_context=True)
+
+	def validate_json_text(self):
+		self.json()

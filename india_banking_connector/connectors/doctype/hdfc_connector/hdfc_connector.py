@@ -8,7 +8,7 @@ import re
 import frappe
 import requests
 from frappe import _
-from frappe.utils import getdate
+from frappe.utils import cstr, getdate
 
 import india_banking_connector.utils as utils
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -72,6 +72,7 @@ class HDFCConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -99,6 +100,7 @@ class HDFCConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -111,10 +113,7 @@ class HDFCConnector(BankConnector):
 
 		response_data = json.dumps(response_data, indent=4)
 
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id, response_data)
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
@@ -126,7 +125,8 @@ class HDFCConnector(BankConnector):
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text
-			self.check_expired_payment(response, method, res_dict)
+			if self.get("mark_expired_status_as_failed"):
+				self.check_expired_payment(response, method, res_dict)
 
 		return res_dict
 
@@ -201,6 +201,9 @@ class HDFCConnector(BankConnector):
 		return self.encrypt_payload(self.get_account_config(method))
 
 	def get_account_config(self, method):
+		def _clean_string(text):
+			return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", cstr(text))).strip()
+
 		conector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
@@ -217,15 +220,15 @@ class HDFCConnector(BankConnector):
 				"LOGIN_ID": conector_doc.login_id,
 				"INPUT_GCIF": conector_doc.scope,
 				"TRANSFER_TYPE_DESC": mode_of_transfer,
-				"BENE_BANK": payment_details.bank,
+				"BENE_BANK": _clean_string(payment_details.bank),
 				"INPUT_DEBIT_AMOUNT": str(payment_details.amount),
 				"INPUT_VALUE_DATE": getdate().strftime("%d/%m/%Y"),
 				"TRANSACTION_TYPE": "SINGLE",
-				"INPUT_DEBIT_ORG_ACC_NO": conector_doc.account_number,
+				"INPUT_DEBIT_ORG_ACC_NO": _clean_string(conector_doc.account_number),
 				"INPUT_BUSINESS_PROD": conector_doc.business_prod,
 				"BENE_ID": "",
 				"BENE_ACC_NAME": bene_name,
-				"BENE_ACC_NO": payment_details.bank_account_no,
+				"BENE_ACC_NO": _clean_string(payment_details.bank_account_no),
 				"BENE_TYPE": "ADHOC",
 				"BENE_BRANCH": payment_details.branch or payment_details.branch_code,
 				"BENE_IDN_CODE": payment_details.branch_code,
@@ -261,7 +264,7 @@ class HDFCConnector(BankConnector):
 				cert=self.get_cert(),
 			)
 
-			create_api_log(response, action="Get OAuth Token")
+			create_api_log(response, action="Get OAuth Token", connector=self)
 
 			if response.ok:
 				return response.json().get("access_token")

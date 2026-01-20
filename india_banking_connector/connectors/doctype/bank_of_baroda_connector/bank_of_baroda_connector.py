@@ -41,11 +41,11 @@ class BankofBarodaConnector(BankConnector):
 
 		self.account_config = {}
 
+	def update_aes_and_iv(self):
 		if self.encrypted:
 			self.client_code = self.encrypted_client_code
 			self.account_number = self.encrypted_account_number
 
-	def update_aes_and_iv(self):
 		self.AES_KEY = self.get_password("aes_key").encode("utf-8")
 		self.IV = self.get_password("iv").encode("utf-8")
 
@@ -98,6 +98,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -129,6 +130,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -161,6 +163,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -195,6 +198,7 @@ class BankofBarodaConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -221,8 +225,9 @@ class BankofBarodaConnector(BankConnector):
 		return self.aes_encrypt_data(plain_text, self.AES_KEY), checksum
 
 	def get_decrypted_response(self, response, method, log_id=None):
+		self.update_aes_and_iv()
 		res_dict = frappe._dict({})
-		if response.ok:
+		if response.status_code in [200, 500]:
 			if self.encrypted:
 				decrypted_data = {}
 				try:
@@ -257,11 +262,7 @@ class BankofBarodaConnector(BankConnector):
 			response_data = json.loads(response_data)
 
 		response_data = json.dumps(response_data, indent=4)
-
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id=log_id, response_data=response_data)
 
 	def get_mode_of_transfer(self, mode_of_transfer):
 		if "A2A" in mode_of_transfer:
@@ -431,6 +432,10 @@ class BankofBarodaConnector(BankConnector):
 						res_dict.summary_details[self.payment_doc.name][
 							"status"
 						] = "Pending"
+					elif data.status == "F":
+						res_dict.summary_details[self.payment_doc.name][
+							"status"
+						] = "Failed"
 				elif data.errorCode in [
 					"ENQ001",
 					"ENQ002",
@@ -463,7 +468,7 @@ class BankofBarodaConnector(BankConnector):
 		elif method == "bank_balance":
 			if data and (balance_details_list := data.get("balanceDetails", [])):
 				balance_details = balance_details_list[0]
-				if balance_details and balance_details.get("status") == "Success":
+				if balance_details and balance_details.get("respCode") == "000":
 					res_dict.server_status = "Success"
 					res_dict.balance = balance_details.get("availableBalance", 0)
 					res_dict.date = getdate()

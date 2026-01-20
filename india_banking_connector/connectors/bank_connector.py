@@ -60,40 +60,104 @@ class BankConnector(Document):
 
 	def validate_duplicate_payments(self, unique_id=None, method="make_payment"):
 		"""
-		Validate duplicate payments by checking if a payment has already been made against the given unique ID.
-		If a payment exists, fetch the already processed details and return them.
-		Args:
-		        unique_id (str, optional): The unique identifier for the payment. Defaults to None.
-		        method (str, optional): The method to be used for formatting the response. Defaults to "make_payment".
-		Returns:
-		        dict: A dictionary containing the formatted response of the existing payment if found, otherwise an empty dictionary.
+		Checks for duplicate payments based on unique_id.
+
+		:param unique_id: Unique identifier for the payment
+		:param method: Method name for context (default: "make_payment")
+		:return: Dictionary with payment status or None if no duplicate found
 		"""
+
 		if not unique_id:
 			return
 
-		res_dict = frappe._dict({})
-		existing_payment_response = frappe.get_value(
+		bank_request_log = frappe.db.exists(
 			"Bank Request Log",
 			{
 				"unique_id": unique_id,
 				"action": "Initiate Payment",
 				"status_code": "200",
 			},
-			"decrypted_response",
 		)
 
-		if existing_payment_response and hasattr(self, "get_formated_response"):
-			self.get_formated_response(
-				existing_payment_response, res_dict, method=method
-			)
-		elif existing_payment_response:
+		# If no success payment found, return None
+		if not bank_request_log:
+			return None
+
+		bank_request_log = frappe.get_doc("Bank Request Log", bank_request_log)
+
+		# Get existing success payment response
+		return self.get_existing_payment_response(
+			bank_request_log, unique_id, method=method
+		)
+
+	def get_existing_payment_response(
+		self, bank_request_log, unique_id, method="make_payment"
+	):
+		from india_banking_connector.utils import ResponseObject, decrypt
+
+		res_dict = frappe._dict({})
+		response = bank_request_log.response
+		decrypted_response = bank_request_log.decrypted_response
+
+		if decrypted_response and hasattr(self, "get_formated_response"):
+			existing_decrypted_response = decrypted_response
+			try:
+				if bank_request_log.get("encrypted"):
+					existing_decrypted_response = decrypt(decrypted_response)
+			except Exception:
+				frappe.log_error("Response decryption Failed!")
+				res_dict.update(
+					{
+						"status": "failed",
+						"message": "Response decryption Failed!",
+					}
+				)
+				return
+
+			if existing_decrypted_response:
+				self.get_formated_response(
+					existing_decrypted_response, res_dict, method=method
+				)
+				if not res_dict:
+					res_dict.status = "failed"
+					res_dict.message = "Failed to fetch existing payment response."
+
+		elif decrypted_response:
 			frappe.throw(
 				frappe._(
 					f"Payment with ID {unique_id} has already been processed. Aborting transaction."
 				)
 			)
 
+		elif response:
+			if bank_request_log.get("encrypted"):
+				response = decrypt(response)
+
+			response = ResponseObject(response, 200)
+			decrypted_response = self.get_decrypted_response(
+				response,
+				method="make_payment",
+				log_id=bank_request_log.name,
+			)
+
+			if decrypted_response:
+				res_dict.update(decrypted_response)
+			else:
+				res_dict.status = "failed"
+				res_dict.message = "Failed to fetch existing payment response."
+
 		return res_dict
+
+	def get_summary_details(self, status):
+		summary_details = {}
+
+		if not self.doc:
+			return summary_details
+
+		for summary in self.doc.summary:
+			summary_details.update({summary.get("name"): {"payment_status": status}})
+
+		return summary_details
 
 	# HDFC Encryption and Decryption
 	# Generate JWS with RS256
@@ -208,7 +272,7 @@ class BankConnector(Document):
 			private_key = rsa.PrivateKey.load_pkcs1(file.read())
 			return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
 
-	def aes_encrypt_data(self, data, key):
+	def aes_encrypt_data(self, data, key, prepend_iv=False):
 		if isinstance(data, dict):
 			data = json.dumps(data)
 
@@ -220,6 +284,9 @@ class BankConnector(Document):
 		cipher = AES.new(key, AES.MODE_CBC, self.IV)
 
 		encrypted = cipher.encrypt(padded)
+
+		if prepend_iv:
+			encrypted = self.IV + encrypted
 
 		return b64encode(encrypted).decode("utf-8")
 
@@ -283,3 +350,35 @@ class BankConnector(Document):
 		decrypted_res = cipher.decrypt(decoded_data, b"x")
 
 		return json.loads(decrypted_res.decode("utf-8"))
+
+	def set_decrypted_response(self, log_id, response_data):
+		from frappe.utils import cstr
+
+		from india_banking_connector.utils import encrypt
+
+		_encrypt = frappe.db.exists(
+			"Connector Map",
+			{
+				"connector": self.doctype,
+				"encrypt_log": 1,
+			},
+		)
+
+		try:
+			if _encrypt:
+				response_data = cstr(encrypt(response_data))
+			else:
+				if isinstance(response_data, str):
+					response_data = json.loads(response_data)
+				response_data = json.dumps(response_data, indent=4)
+		except Exception:
+			frappe.log_error("Response Encryption Failed!")
+		if frappe.db.exists("Bank Request Log", log_id):
+			frappe.db.set_value(
+				"Bank Request Log",
+				log_id,
+				{
+					"decrypted_response": response_data,
+					"encrypted": 1 if _encrypt else 0,
+				},
+			)

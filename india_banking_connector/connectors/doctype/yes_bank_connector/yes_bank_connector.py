@@ -70,6 +70,7 @@ class YESBANKConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_verified_response(
@@ -95,6 +96,7 @@ class YESBANKConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_verified_response(response, method="payment_status")
@@ -114,6 +116,7 @@ class YESBANKConnector(BankConnector):
 			account_config=self.get_payload("bank_balance"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			connector=self,
 		)
 
 		return self.get_verified_response(response, method="bank_balance")
@@ -262,14 +265,6 @@ class YESBANKConnector(BankConnector):
 				.get("BalanceAmount", "")
 			)
 			res_dict.update({"balance": balance})
-
-	def set_decrypted_response(self, log_id, response_data):
-		response_data = response_data
-
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
 
 	def get_msg_utr_number(self, data):
 		msg, utr, sts = "Payment Status Not Available", None, "Request Failure"
