@@ -6,7 +6,6 @@ from frappe.utils import cint
 class ConnectorNotFoundError(Exception):
 	pass
 
-
 def check_connector(bank, bulk_transaction):
 	filters = {
 		"parent": "Connector Settings",
