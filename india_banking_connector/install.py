@@ -13,9 +13,10 @@ from india_banking_connector.utils import decrypt
 
 
 def after_install():
-	click.secho("* Updating India Banking Connector Customisations")
+	click.secho("* Updating India Banking Connector Customizations")
 	create_bank_doctype()
 	create_default_bank()
+	create_connector_settings()
 
 
 def create_default_bank():
