@@ -5,7 +5,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "connectors"
+  "connectors",
+  "hosts"
  ],
  "fields": [
   {
@@ -13,12 +14,18 @@
    "fieldtype": "Table",
    "label": "Connectors",
    "options": "Connector Map"
+  },
+  {
+   "fieldname": "hosts",
+   "fieldtype": "Table",
+   "label": "Hosts",
+   "options": "H2H Connector Map"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-12-22 10:26:21.730398",
+ "modified": "2026-01-21 12:43:02.237663",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Connector Settings",

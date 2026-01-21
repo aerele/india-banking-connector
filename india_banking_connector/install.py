@@ -5,6 +5,7 @@ import frappe
 
 from india_banking_connector.default import (
 	BANKS_CONNECTOR_MAP,
+	BANKS_H2H_MAP,
 	BULK_TRANSACTION_ENABLED_BANK,
 	ENCRYPTED_END_POINTS,
 	STD_BANK_LIST,
@@ -51,8 +52,23 @@ def create_connector_settings():
 				"bulk_transaction": 1 if bank in BULK_TRANSACTION_ENABLED_BANK else 0,
 			},
 		)
+	for bank, host in BANKS_H2H_MAP.items():
+		if not frappe.db.exists(
+			"H2H Connector Map",
+			{
+				"bank": bank,
+				"host": host,
+			},
+		):
+			settings_doc.append(
+				"hosts",
+				{
+					"bank": bank,
+					"host": host,
+				},
+			)
 
-	settings_doc.insert(ignore_links=True, ignore_permissions=True)
+	settings_doc.save()
 
 
 def create_bank_doctype():

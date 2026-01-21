@@ -28,6 +28,11 @@ BANKS_CONNECTOR_MAP = {
 	"IDFC Bank": "IDFC Connector",
 }
 
+BANKS_H2H_MAP = {
+	"City Bank": "City Bank H2H Connector",
+}
+
+
 BULK_TRANSACTION_ENABLED_BANK = [
 	"ICICI Bank",
 	"IDFC Bank",
