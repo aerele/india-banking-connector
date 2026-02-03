@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestCityBankH2HConnector(FrappeTestCase):
+class TestCITIH2HConnector(FrappeTestCase):
 	pass

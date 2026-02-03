@@ -8,16 +8,23 @@
  "field_order": [
   "section_break_egib",
   "active",
-  "column_break_mwck",
   "testing",
+  "column_break_mwck",
+  "encrypt_payment_file",
+  "upload_payment_file",
+  "auto_fetch",
+  "force_fetch_status",
   "section_break_jujv",
   "account_number",
+  "ifsc_code",
   "column_break_qwyl",
   "hostname",
   "port",
   "username",
   "password",
+  "sftp_key",
   "private_key",
+  "public_key",
   "locations_section",
   "payment_folder",
   "column_break_enfp",
@@ -30,7 +37,7 @@
    "fieldtype": "Section Break"
   },
   {
-   "default": "0",
+   "default": "1",
    "fieldname": "active",
    "fieldtype": "Check",
    "label": "Active"
@@ -38,12 +45,6 @@
   {
    "fieldname": "column_break_mwck",
    "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "testing",
-   "fieldtype": "Check",
-   "label": "Testing"
   },
   {
    "fieldname": "section_break_jujv",
@@ -73,7 +74,7 @@
   },
   {
    "fieldname": "username",
-   "fieldtype": "Password",
+   "fieldtype": "Data",
    "label": "Username"
   },
   {
@@ -102,7 +103,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "City Bank Host",
+   "options": "CITI H2H Connector",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -121,20 +122,65 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "City Bank Host",
+   "options": "CITI H2H Connector",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "public_key",
+   "fieldtype": "Attach",
+   "label": "Public Key"
+  },
+  {
+   "fieldname": "sftp_key",
+   "fieldtype": "Attach",
+   "label": "SFTP Key"
+  },
+  {
+   "fieldname": "ifsc_code",
+   "fieldtype": "Data",
+   "label": "IFSC Code"
+  },
+  {
+   "default": "1",
+   "fieldname": "encrypt_payment_file",
+   "fieldtype": "Check",
+   "label": "Encrypt Payment File"
+  },
+  {
+   "default": "1",
+   "fieldname": "upload_payment_file",
+   "fieldtype": "Check",
+   "label": "Upload Payment File"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_fetch",
+   "fieldtype": "Check",
+   "label": "Auto Fetch"
+  },
+  {
+   "fieldname": "force_fetch_status",
+   "fieldtype": "Button",
+   "label": "Force Fetch Status",
+   "options": "force_fetch_status"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-21 12:30:21.337674",
+ "modified": "2026-01-29 17:38:55.578879",
  "modified_by": "Administrator",
  "module": "Hosts",
- "name": "City Bank H2H Connector",
+ "name": "CITI H2H Connector",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
