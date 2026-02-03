@@ -1,0 +1,111 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:source_file_name",
+ "creation": "2026-01-29 16:20:14.094684",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_file_name",
+  "status_file",
+  "column_break_baxf",
+  "host",
+  "host_name",
+  "section_break_xber",
+  "response",
+  "decrypted_data",
+  "formatted_data",
+  "pretty_format_json",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_file_name",
+   "fieldtype": "Data",
+   "label": "Source File Name",
+   "unique": 1
+  },
+  {
+   "fieldname": "status_file",
+   "fieldtype": "Attach",
+   "label": "Status File(Encrypted)"
+  },
+  {
+   "fieldname": "column_break_baxf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "host",
+   "fieldtype": "Link",
+   "label": "Host",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "host_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Host Name",
+   "options": "host"
+  },
+  {
+   "fieldname": "section_break_xber",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "decrypted_data",
+   "fieldtype": "Code",
+   "label": "Decrypted Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Code",
+   "label": "Response",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pretty_format_json",
+   "fieldtype": "Button",
+   "label": "Pretty Format JSON"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Code",
+   "label": "Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "formatted_data",
+   "fieldtype": "Code",
+   "label": "Formatted Data"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-01 20:01:47.881571",
+ "modified_by": "Administrator",
+ "module": "Hosts",
+ "name": "Status Log",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
