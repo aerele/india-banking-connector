@@ -28,12 +28,6 @@ class CITIH2HConnector(BaseHost):
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.summary_details = {}
 
-	# def validate(self):
-	# 	if self.sftp_key:
-	# 		sftp_key_path = get_file_path(self.sftp_key)
-	# 		os.chmod(sftp_key_path, stat.S_IRUSR)
-	# 		frappe.msgprint("SFTP Key permissions set to read-only for the owner.")
-
 	def initiate_payment(self):
 		self.is_h2h_enabled()
 
@@ -536,7 +530,6 @@ class CITIH2HConnector(BaseHost):
 			uploaded_count = 0
 			for mot, payout_file in not_uploaded_files:
 				payment_file_path = get_file_path(payout_file)
-				frappe.log_error(f"Uploading Payment File for {mot}", payment_file_path)
 				try:
 					client = self.get_sftp_client()
 					source_file_name = Path(payment_file_path).name

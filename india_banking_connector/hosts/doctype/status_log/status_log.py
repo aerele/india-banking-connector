@@ -10,7 +10,6 @@ from frappe.model.document import Document
 class StatusLog(Document):
 	def update_payment_status(self):
 		if self.formatted_data:
-			frappe.log_error("Decrypted Data", str(self.formatted_data))
 			for unique_id, data in json.loads(self.formatted_data).items():
 				if log_summary := frappe.db.exists(
 					"Payment Log Summary", {"payment_id": unique_id}
