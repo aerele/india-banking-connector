@@ -18,6 +18,10 @@ DEFAULT_CONNECTOR = [
 	"IDFC Connector",
 ]
 
+DEFAULT_HOSTS = [
+	"CITI H2H Connector",
+]
+
 BANKS_CONNECTOR_MAP = {
 	"ICICI Bank": "ICICI Connector",
 	"HDFC Bank": "HDFC Connector",
@@ -29,7 +33,7 @@ BANKS_CONNECTOR_MAP = {
 }
 
 BANKS_H2H_MAP = {
-	"City Bank": "City Bank H2H Connector",
+	"CITI Bank": "CITI H2H Connector",
 }
 
 
