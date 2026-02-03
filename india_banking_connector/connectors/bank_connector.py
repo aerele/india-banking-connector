@@ -50,6 +50,13 @@ class BankConnector(Document):
 		if not frappe.has_permission("Bank Request Log", "write"):
 			frappe.throw("Not permitted", frappe.PermissionError)
 
+	def get_response(self, method):
+		self.is_active()
+		if method and hasattr(self, method):
+			return getattr(self, method)()
+		else:
+			frappe.throw(f"Unknown method {method} in connector {self.name}")
+
 	def validate_duplicate_payments(self, unique_id=None, method="make_payment"):
 		"""
 		Checks for duplicate payments based on unique_id.
