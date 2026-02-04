@@ -410,13 +410,15 @@ class CITIH2HConnector(BaseHost):
 		# Define namespace
 		ns = {"ns": "urn:iso:std:iso:20022:tech:xsd:pain.002.001.03"}
 		formated_response = {}
+		payment_order = root.find(".//ns:OrgnlGrpInfAndSts/ns:OrgnlMsgId", ns)
+		if payment_order is not None:
+			payment_order = payment_order.text
 		if file_name.upper().startswith("CITI_FILE_ACK"):
 			msg_id = root.find(".//ns:OrgnlGrpInfAndSts/ns:OrgnlMsgId", ns).text
 			file_status = root.find(".//ns:OrgnlGrpInfAndSts/ns:GrpSts", ns).text
 			status_description = root.find(
 				".//ns:OrgnlGrpInfAndSts/ns:StsRsnInf/ns:AddtlInf", ns
 			).text
-
 			payment_id = msg_id.split("_")[:-1][0]
 			status = self.get_status_map(file_status)
 			logs = frappe.db.get_all(
@@ -440,13 +442,20 @@ class CITIH2HConnector(BaseHost):
 				transaction_status = tx.find("ns:TxSts", ns).text
 				status_description = tx.find("ns:StsRsnInf/ns:AddtlInf", ns).text
 				reference_no = tx.find("ns:AcctSvcrRef", ns).text
-
+				amount_tag = tx.find(".//ns:Amt/ns:InstdAmt", ns)
+				amount = amount_tag.text if amount_tag is not None else ""
+				currency = (
+					amount_tag.attrib.get("Ccy") if amount_tag is not None else "N/A"
+				)
 				formated_response[payment_id] = {
+					"payment_order": payment_order,
 					"unique_id": payment_id,
 					"status": self.get_status_map(transaction_status),
 					"status_code": status_description,
 					"reference_no": reference_no,
 					"message": status_description,
+					"amount": amount,
+					"currency": currency,
 				}
 		elif file_name.upper().startswith("CITI_IN_MT940"):
 			pass

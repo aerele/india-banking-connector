@@ -15,8 +15,8 @@ frappe.ui.form.on("Status Log", {
 		});
 	},
 	pretty_format_json(frm) {
-		if (!frm.is_dirty() && !!frm.doc.response) {
-			let parsedData = JSON.parse(frm.doc.response);
+		if (!frm.is_dirty() && !!frm.doc.formatted_data) {
+			let parsedData = JSON.parse(frm.doc.formatted_data);
 			let responses = Object.entries(parsedData).map(([key, value]) => ({
 				key,
 				...value,
@@ -32,7 +32,7 @@ function showStatusList(statuss) {
 		list_html += `
             <li class="list-group-item">
                 <button class="btn btn-link" onclick="showStatusDetails(${index})">
-                    <b>Status[${txn.payment_order}]</b>(${txn.key}) - ₹${txn.amount}
+                    <b>${txn.payment_order}</b>(${txn.key}) - ₹${txn.amount}
                 </button>
             </li>`;
 	});
