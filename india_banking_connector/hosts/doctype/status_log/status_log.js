@@ -26,9 +26,9 @@ frappe.ui.form.on("Status Log", {
 	},
 });
 
-function showStatusList(statuss) {
+function showStatusList(statuses) {
 	let list_html = `<ul class="list-group">`;
-	statuss.forEach((txn, index) => {
+	statuses.forEach((txn, index) => {
 		list_html += `
             <li class="list-group-item">
                 <button class="btn btn-link" onclick="showStatusDetails(${index})">
@@ -39,7 +39,7 @@ function showStatusList(statuss) {
 	list_html += `</ul>`;
 
 	let listDialog = new frappe.ui.Dialog({
-		title: "Statuss List",
+		title: "Status Lists",
 		fields: [
 			{
 				fieldname: "status_list",
@@ -53,7 +53,7 @@ function showStatusList(statuss) {
 	listDialog.show();
 
 	window.showStatusDetails = function (index) {
-		showStatusDetails(statuss[index]);
+		showStatusDetails(statuses[index]);
 	};
 }
 

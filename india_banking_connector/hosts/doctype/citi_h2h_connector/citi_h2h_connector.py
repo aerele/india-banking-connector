@@ -278,7 +278,7 @@ class CITIH2HConnector(BaseHost):
 
 		gpg = self.init_gpg()
 
-		recipient_fingerprint = self.hsbc_finger_print
+		recipient_fingerprint = self.citi_finger_print
 		signer_fingerprint = self.client_finger_print
 
 		encrypted_file_urls = {}
@@ -340,8 +340,8 @@ class CITIH2HConnector(BaseHost):
 		with open(get_file_path(self.pgp_public_key), "rb") as f:
 			gpg.import_keys(f.read())
 
-		# Import HSBC Public Key
-		with open(get_file_path(self.hsbc_pgp_public_key), "rb") as f:
+		# Import CITI Public Key
+		with open(get_file_path(self.citi_pgp_public_key), "rb") as f:
 			gpg.import_keys(f.read())
 
 		return gpg
@@ -406,13 +406,16 @@ class CITIH2HConnector(BaseHost):
 			frappe.throw("Decryption failed please check the logs for more details")
 
 	def get_formated_response(self, file_name, content: str) -> str:
+		formated_response = {}
+
 		root = ET.fromstring(content)
 		# Define namespace
 		ns = {"ns": "urn:iso:std:iso:20022:tech:xsd:pain.002.001.03"}
-		formated_response = {}
+
 		payment_order = root.find(".//ns:OrgnlGrpInfAndSts/ns:OrgnlMsgId", ns)
 		if payment_order is not None:
 			payment_order = payment_order.text
+
 		if file_name.upper().startswith("CITI_FILE_ACK"):
 			msg_id = root.find(".//ns:OrgnlGrpInfAndSts/ns:OrgnlMsgId", ns).text
 			file_status = root.find(".//ns:OrgnlGrpInfAndSts/ns:GrpSts", ns).text
@@ -458,11 +461,14 @@ class CITIH2HConnector(BaseHost):
 					"currency": currency,
 				}
 		elif file_name.upper().startswith("CITI_IN_MT940"):
-			pass
+			self.format_statement_data(content)
 		else:
 			frappe.throw("Unknown file type for formatting response.")
 
 		return formated_response
+
+	def format_statement_data(self, file_content, formated_response):
+		pass
 
 	def format_response(self, file_name, decrypted_data: str) -> str:
 		formated_response = {}
