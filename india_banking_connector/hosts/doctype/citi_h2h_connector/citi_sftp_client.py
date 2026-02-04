@@ -65,7 +65,6 @@ class CitiSFTPClient:
 		try:
 			if not self.sftp:
 				self.connect()
-			frappe.log_error("Remote Path", remote_path)
 			self.sftp.put(local_path, remote_path, confirm=False)
 			return True
 

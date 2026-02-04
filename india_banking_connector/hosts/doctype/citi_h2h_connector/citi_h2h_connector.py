@@ -4,10 +4,9 @@
 import json
 import os
 import stat
-from pathlib import Path
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as ET
-from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.etree.ElementTree import tostring
 
 import frappe
 import gnupg
@@ -19,7 +18,7 @@ from india_banking_connector.hosts.doctype.base_host import BaseHost
 from india_banking_connector.hosts.doctype.citi_h2h_connector.citi_sftp_client import (
 	CitiSFTPClient,
 )
-from india_banking_connector.utils import get_existing_doc, get_id
+from india_banking_connector.utils import get_id
 
 
 class CITIH2HConnector(BaseHost):
@@ -27,27 +26,7 @@ class CITIH2HConnector(BaseHost):
 		super().__init__(*args, **kwargs)
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.summary_details = {}
-
-	def initiate_payment(self):
-		self.is_h2h_enabled()
-
-		payment_details = self.doc
-		unique_id = get_id(payment_details.name)
-
-		existing_payment = get_existing_doc("Payment Log", unique_id)
-
-		if existing_payment:
-			if existing_payment.status == "Pending Upload":
-				return self.process_payment(log_id=existing_payment.name)
-
-			return existing_payment.get_summary_details()
-
-		log_id = self.create_payment_log(payment_details, commit=True)
-
-		if log_id:
-			return self.process_payment(log_id=log_id)
-		else:
-			frappe.throw("Failed to create payment log")
+		self.to_be_generate_mot = []
 
 	@frappe.whitelist()
 	def get_files_list(self, folder=None):
@@ -58,29 +37,34 @@ class CITIH2HConnector(BaseHost):
 
 		return "<br/>".join(folders) or "Files Not Found!"
 
-	def create_payment_log(self, payment_details, commit=False):
-		payment_log_doc = frappe.new_doc("Payment Log")
-		payment_log_doc.payment_log_id = get_id(self.doc.name)
-		payment_log_doc.payment_status = "Pending Upload"
-		payment_log_doc.host = self.doctype
-		payment_log_doc.host_name = self.name
+	def make_payment_log(self, mot, file_content, payment_log_id):
+		if not file_content:
+			return
 
-		for pd in payment_details.summary:
-			payment_log_doc.append(
-				"payment_summary",
-				{
-					"payment_id": pd.get("name", ""),
-					"status": json.dumps({"payment_status": "Accepted"}),
-				},
-			)
-		payment_log_doc.insert()
+		filename = (
+			"CITI_IN_Pay_"
+			+ getdate().strftime("%d%m%Y")
+			+ "_"
+			+ payment_log_id
+			+ "_"
+			+ mot
+			+ ".xml"
+		)
+		create_new_folder("Payment Log", "Home")
+		file = frappe.new_doc("File")
+		file.file_name = filename
+		file.content = file_content
+		file.folder = "Home/Payment Log"
+		file.attached_to_doctype = "Payment Log"
+		file.attached_to_name = payment_log_id
+		file.attached_to_field = f"{mot}_payment_file"
+		file.insert()
 
-		self.make_payment_file(payment_log_doc.name)
+		frappe.db.set_value(
+			"Payment Log", payment_log_id, f"{mot}_payment_file", file.file_url
+		)
 
-		if commit:
-			frappe.db.commit()
-
-		return payment_log_doc.name
+		return file.file_url
 
 	def make_payment_file(self, payment_log_id):
 		payment_log_doc = frappe.get_doc("Payment Log", payment_log_id)
@@ -101,119 +85,13 @@ class CITIH2HConnector(BaseHost):
 			xml_str = tostring(root, encoding="utf-8")
 			file_content = parseString(xml_str).toprettyxml(indent="    ")
 
-			if file_content:
-				filename = (
-					"CITI_IN_Pay_"
-					+ getdate().strftime("%d%m%Y")
-					+ "_"
-					+ payment_log_id
-					+ "_"
-					+ mot
-					+ ".xml"
-				)
-				create_new_folder("Payment Log", "Home")
-				file = frappe.new_doc("File")
-				file.file_name = filename
-				file.content = file_content
-				file.folder = "Home/Payment Log"
-				file.attached_to_doctype = "Payment Log"
-				file.attached_to_name = payment_log_id
-				file.attached_to_field = f"{mot}_payment_file"
-				file.insert()
-
-				frappe.db.set_value(
-					"Payment Log", payment_log_id, f"{mot}_payment_file", file.file_url
-				)
-
-				requested_data[mot] = file_content
-				file_urls[f"{mot}_payment_file"] = file.file_url
+			file_url = self.make_payment_log(mot, file_content, payment_log_id)
+			requested_data[mot] = file_content
+			file_urls[f"{mot}_payment_file"] = file_url
 
 		values = file_urls
 		values["request"] = json.dumps(requested_data)
 		frappe.db.set_value("Payment Log", payment_log_id, values)
-
-	def update_summary_details(self):
-		file_mot = []
-		payment_details = frappe._dict(self.doc)
-
-		for summary in payment_details.summary:
-			summary = frappe._dict(summary)
-			mot = ""
-			# Round Bank rounding decimal 2 (eg. .989 to .99)
-			summary["amount"] = flt(summary.get("amount", 0.0), 2)
-			if "a2a" in summary.mode_of_transfer.lower():
-				mot = "a2a"
-				if self.summary_details.get(mot):
-					self.summary_details[mot]["summary"].append(summary)
-					self.summary_details[mot]["total"] += summary.amount
-				else:
-					self.summary_details[mot] = {}
-					self.summary_details[mot]["summary"] = [summary]
-					self.summary_details[mot]["total"] = summary.amount
-			elif "rtgs" in summary.mode_of_transfer.lower():
-				mot = "rtgs"
-				if self.summary_details.get(mot):
-					self.summary_details[mot]["summary"].append(summary)
-					self.summary_details[mot]["total"] += summary.amount
-				else:
-					self.summary_details[mot] = {}
-					self.summary_details[mot]["summary"] = [summary]
-					self.summary_details[mot]["total"] = summary.amount
-			else:
-				mot = "neft"
-				if self.summary_details.get(mot):
-					self.summary_details[mot]["summary"].append(summary)
-					self.summary_details[mot]["total"] += summary.amount
-				else:
-					self.summary_details[mot] = {}
-					self.summary_details[mot]["summary"] = [summary]
-					self.summary_details[mot]["total"] = summary.amount
-
-			file_mot.append(mot)
-
-		self.to_be_generate_mot = list(set(file_mot))
-
-	def build_xml_from_dict(self, parent, data):
-		if isinstance(data, dict):
-			for key, value in data.items():
-				if key.startswith("@"):
-					parent.set(key[1:], str(value))
-					continue
-				elif key == "#text":
-					parent.text = str(value)
-					return
-
-				if isinstance(value, (dict, list)):
-					if key.startswith("CdtTrfTxInf-"):
-						key = "CdtTrfTxInf"
-					child = SubElement(parent, key)
-					self.build_xml_from_dict(child, value)
-				else:
-					child = SubElement(parent, key)
-					child.text = str(value)
-		elif isinstance(data, list):
-			for item in data:
-				item_tag = parent.tag[:-1] if parent.tag.endswith("s") else parent.tag
-				child = SubElement(parent, item_tag)
-				self.build_xml_from_dict(child, item)
-		else:
-			parent.text = str(data)
-
-	def build_element(self, tag, value):
-		attrs = {}
-		text = None
-		if isinstance(value, dict):
-			for k in list(value.keys()):
-				if k.startswith("@"):
-					attrs[k[1:]] = value.pop(k)
-				elif k == "#text":
-					text = value.pop(k)
-		elem = Element(tag, attrs)
-		if text:
-			elem.text = text
-
-		self.build_xml_from_dict(elem, value)
-		return elem
 
 	def get_mode_of_transfer(self, mot):
 		if mot in ["rtgs", "a2a"]:
@@ -223,7 +101,7 @@ class CITIH2HConnector(BaseHost):
 		else:
 			return "URNS"
 
-	def get_transactions(self, mot, summary_details):
+	def get_transactions(self, summary_details):
 		transactions = {}
 		for summary in summary_details:
 			# Round Bank rounding decimal 2 (eg. .989 to .99)
@@ -294,7 +172,10 @@ class CITIH2HConnector(BaseHost):
 			}
 		)
 
-		xml_dict = {
+		return self.map_dict_to_xml(payment_dict, mot)
+
+	def map_dict_to_xml(self, payment_dict, mot):
+		return {
 			"Document": {
 				"@xmlns": "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03",
 				"@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
@@ -319,7 +200,7 @@ class CITIH2HConnector(BaseHost):
 							**(
 								{
 									"SvcLvl": {
-										"Cd": "URNS",
+										"Cd": self.get_mode_of_transfer(mot),
 									},
 								}
 								if mot == "neft"
@@ -356,24 +237,13 @@ class CITIH2HConnector(BaseHost):
 						},
 						"ChrgBr": "DEBT",
 						# Transactions
-						**self.get_transactions(mot, payment_dict.summary_details),
+						**self.get_transactions(
+							summary_details=payment_dict.summary_details
+						),
 					},
 				},
 			}
 		}
-
-		return xml_dict
-
-	def process_payment(self, log_id):
-		self.make_payment_file(log_id)
-
-		if self.encrypt_payment_file:
-			self.encrypt_payment_files(log_id)
-
-		if self.upload_payment_file:
-			return self.upload_payment_files_to_server(log_id)
-
-		return frappe.get_doc("Payment Log", log_id).get_summary_details()
 
 	def encrypt_payment_files(self, log_id):
 		payment_log_doc = frappe.get_doc("Payment Log", log_id)
@@ -452,8 +322,9 @@ class CITIH2HConnector(BaseHost):
 
 		if encrypted_file_urls:
 			frappe.db.set_value("Payment Log", log_id, encrypted_file_urls)
-		elif to_be_enc_mot:
-			frappe.throw("Failed to encrypt payment file")
+			return True
+
+		return False
 
 	def init_gpg(self):
 		gpg_home = "/tmp/.gnupg_citi_h2h/"
@@ -475,37 +346,6 @@ class CITIH2HConnector(BaseHost):
 
 		return gpg
 
-	def get_not_uploaded_files(self, payment_log_doc):
-		not_uploaded_files = []
-
-		encrypted = "_encrypted_" if self.encrypt_payment_file else "_"
-
-		if payment_log_doc.get("a2a" + encrypted + "payment_file"):
-			if not payment_log_doc.uploaded_a2a:
-				not_uploaded_files.append(
-					("a2a", payment_log_doc.get("a2a" + encrypted + "payment_file"))
-				)
-
-		if payment_log_doc.get("neft" + encrypted + "payment_file"):
-			if not payment_log_doc.uploaded_neft:
-				not_uploaded_files.append(
-					("neft", payment_log_doc.get("neft" + encrypted + "payment_file"))
-				)
-
-		if payment_log_doc.get("rtgs" + encrypted + "payment_file"):
-			if not payment_log_doc.uploaded_rtgs:
-				not_uploaded_files.append(
-					("rtgs", payment_log_doc.get("rtgs" + encrypted + "payment_file"))
-				)
-
-		if payment_log_doc.get("imps" + encrypted + "payment_file"):
-			if not payment_log_doc.uploaded_imps:
-				not_uploaded_files.append(
-					("imps", payment_log_doc.get("imps" + encrypted + "payment_file"))
-				)
-
-		return not_uploaded_files
-
 	def get_sftp_client(self):
 		return CitiSFTPClient(
 			host=self.hostname,
@@ -516,70 +356,6 @@ class CITIH2HConnector(BaseHost):
 			if self.password
 			else None,
 		)
-
-	def upload_payment_files_to_server(self, log_id):
-		payment_log_doc = frappe.get_doc("Payment Log", log_id)
-
-		not_uploaded_files = self.get_not_uploaded_files(payment_log_doc)
-
-		if not not_uploaded_files:
-			payment_log_doc.reload()
-			return payment_log_doc.get_summary_details()
-
-		try:
-			uploaded_count = 0
-			for mot, payout_file in not_uploaded_files:
-				payment_file_path = get_file_path(payout_file)
-				try:
-					client = self.get_sftp_client()
-					source_file_name = Path(payment_file_path).name
-					destination_path = os.path.join(
-						self.payment_folder, source_file_name
-					)
-					frappe.log_error(
-						f"Uploading to SFTP Path for {mot} <destination_path>",
-						destination_path,
-					)
-					status = client.upload(
-						str(payment_file_path), "/" + destination_path
-					)
-					if status:
-						uploaded_count += 1
-						field_uploaded = f"uploaded_{mot}"
-						frappe.db.set_value("Payment Log", log_id, field_uploaded, 1)
-						frappe.db.commit()
-				except Exception:
-					frappe.log_error(
-						f"Payment File Upload Failed for {mot}",
-						frappe.get_traceback(with_context=True),
-					)
-					self.update_log_status(log_id, "Pending Upload")
-		except Exception:
-			frappe.log_error(
-				"Payment File Upload Failed",
-				frappe.get_traceback(with_context=True),
-			)
-			self.update_log_status(log_id, "Pending Upload")
-		else:
-			status = (
-				"Uploaded"
-				if uploaded_count == len(not_uploaded_files)
-				else "Pending Upload"
-			)
-			frappe.log_error(
-				f"Payment File Upload Status for {log_id}",
-				f"Uploaded {uploaded_count} out of {len(not_uploaded_files)} files.",
-			)
-			self.update_log_status(log_id, status)
-		finally:
-			client.close()
-
-		payment_log_doc.reload()
-		return payment_log_doc.get_summary_details()
-
-	def update_log_status(self, log_id, status):
-		frappe.db.set_value("Payment Log", log_id, "status", status)
-		frappe.db.commit()
 
 	def create_new_file(self, file_name: str):
 		r_file = frappe.new_doc("File")
@@ -602,10 +378,6 @@ class CITIH2HConnector(BaseHost):
 		status_log.host_name = self.name
 		status_log.save()
 		return status_log
-
-	def fetch_files_from_server(self):
-		self.is_h2h_enabled()
-		self.get_status_from_server()
 
 	def decrypt_file_content(
 		self, file_name: str = None, file_content: str = None
@@ -708,32 +480,12 @@ class CITIH2HConnector(BaseHost):
 		return formated_response
 
 	def get_status_map(self, file_status) -> dict:
-		if file_status in ["ACCP", "CACC", "CACC"]:
+		if file_status in ["ACCP", "CACC"]:
 			return "Accepted"
 		elif file_status in ["RJCT", "REJT"]:
 			return "Rejected"
 
 		return "Pending"
-
-	def get_status_from_server(self, force_fetch=False):
-		"""Fetch status files from SFTP server and process them."""
-		if not self.reversefeed_folder:
-			if force_fetch:
-				frappe.throw("Reversefeed folder is cannot be empty.")
-			return
-
-		# Skip fetching if auto_fetch is disabled and not forced
-		if not self.auto_fetch and not force_fetch:
-			return
-
-		client = self.get_sftp_client()
-		files = client.list_files(close=False)
-
-		self.get_files_from_server(client, files, self.reversefeed_folder)
-
-	def write_file_content(self, file_path: str, content: bytes):
-		with open(file_path, "wb") as f:
-			f.write(content)
 
 	def get_files_from_server(
 		self, client: CitiSFTPClient, files: list, folder: str = "."
