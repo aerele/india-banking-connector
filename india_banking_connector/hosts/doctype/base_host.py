@@ -92,8 +92,8 @@ class BaseHost(Document, ABC):
 			mot = ""
 			# Round Bank rounding decimal 2 (eg. .989 to .99)
 			summary["amount"] = flt(summary.get("amount", 0.0), 2)
-			if "a2a" in summary.mode_of_transfer.lower():
-				mot = "a2a"
+			if "imps" in summary.mode_of_transfer.lower() and self.enable_imps_payment:
+				mot = "imps"
 				if self.summary_details.get(mot):
 					self.summary_details[mot]["summary"].append(summary)
 					self.summary_details[mot]["total"] += summary.amount

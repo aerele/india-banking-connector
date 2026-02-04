@@ -29,7 +29,9 @@
   "payment_folder",
   "column_break_enfp",
   "reversefeed_folder",
-  "amended_from"
+  "amended_from",
+  "allowed_payment_mode_section",
+  "enable_imps_payment"
  ],
  "fields": [
   {
@@ -171,13 +173,25 @@
    "fieldtype": "Button",
    "label": "Force Fetch Status",
    "options": "force_fetch_status"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "allowed_payment_mode_section",
+   "fieldtype": "Section Break",
+   "label": "Allowed Payment Mode"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_imps_payment",
+   "fieldtype": "Check",
+   "label": "Enable IMPS Payment"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-29 17:38:55.578879",
+ "modified": "2026-02-04 23:49:35.378339",
  "modified_by": "Administrator",
  "module": "Hosts",
  "name": "CITI H2H Connector",
