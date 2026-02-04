@@ -681,6 +681,8 @@ class CITIH2HConnector(BaseHost):
 		else:
 			frappe.throw("Unknown file type for formatting response.")
 
+		return formated_response
+
 	def format_response(self, file_name, decrypted_data: str) -> str:
 		formated_response = {}
 		try:
@@ -747,7 +749,7 @@ class CITIH2HConnector(BaseHost):
 
 		for file_name in files:
 			if frappe.db.exists("Status Log", {"source_file_name": file_name}):
-				frappe.get_doc("Status Log", file_name).set_formated_response()
+				frappe.get_doc("Status Log", file_name).format_response()
 				continue
 			file_path = os.path.join(folder, file_name)
 			try:
@@ -777,7 +779,7 @@ class CITIH2HConnector(BaseHost):
 					# Save the Status file content to the Status Log document to avoid Data Loss
 					frappe.db.commit()
 			status_log.reload()
-			status_log.set_formated_response()
+			status_log.format_response()
 			frappe.db.commit()
 
 	@frappe.whitelist()
