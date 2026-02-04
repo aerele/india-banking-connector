@@ -278,8 +278,8 @@ class CITIH2HConnector(BaseHost):
 
 		gpg = self.init_gpg()
 
-		recipient_fingerprint = self.citi_finger_print
-		signer_fingerprint = self.client_finger_print
+		recipient_fingerprint = self.citi_fingerprint
+		signer_fingerprint = self.client_fingerprint
 
 		encrypted_file_urls = {}
 		for mot, payment_file in to_be_enc_mot:

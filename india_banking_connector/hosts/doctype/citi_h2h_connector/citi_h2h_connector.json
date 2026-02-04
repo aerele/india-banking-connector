@@ -9,34 +9,43 @@
   "section_break_egib",
   "active",
   "testing",
+  "upload_payment_file",
   "column_break_mwck",
   "encrypt_payment_file",
-  "upload_payment_file",
   "auto_fetch",
   "force_fetch_status",
   "section_break_jujv",
   "account_number",
-  "ifsc_code",
-  "column_break_qwyl",
-  "hostname",
-  "port",
   "username",
   "password",
+  "hostname",
+  "port",
+  "ifsc_code",
+  "column_break_qwyl",
   "sftp_key",
   "private_key",
   "public_key",
+  "encryption__decryption_key_section",
+  "pgp_public_key",
+  "pgp_private_key",
+  "client_fingerprint",
+  "pgp_private_key_password",
+  "column_break_ypdk",
+  "citi_pgp_public_key",
+  "citi_fingerprint",
   "locations_section",
   "payment_folder",
+  "enable_imps_payment",
   "column_break_enfp",
   "reversefeed_folder",
-  "amended_from",
-  "allowed_payment_mode_section",
-  "enable_imps_payment"
+  "amended_from"
  ],
  "fields": [
   {
+   "collapsible": 1,
    "fieldname": "section_break_egib",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Settings"
   },
   {
    "default": "1",
@@ -175,23 +184,60 @@
    "options": "force_fetch_status"
   },
   {
-   "collapsible": 1,
-   "fieldname": "allowed_payment_mode_section",
-   "fieldtype": "Section Break",
-   "label": "Allowed Payment Mode"
-  },
-  {
    "default": "0",
    "fieldname": "enable_imps_payment",
    "fieldtype": "Check",
    "label": "Enable IMPS Payment"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "encryption__decryption_key_section",
+   "fieldtype": "Section Break",
+   "label": "Encryption & Decryption Key"
+  },
+  {
+   "fieldname": "pgp_private_key",
+   "fieldtype": "Attach",
+   "label": "PGP Private Key"
+  },
+  {
+   "fieldname": "column_break_ypdk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pgp_public_key",
+   "fieldtype": "Attach",
+   "label": "PGP Public Key"
+  },
+  {
+   "fieldname": "citi_pgp_public_key",
+   "fieldtype": "Attach",
+   "label": "CITI PGP Public Key"
+  },
+  {
+   "depends_on": "eval: !!doc.citi_pgp_public_key",
+   "fieldname": "citi_fingerprint",
+   "fieldtype": "Data",
+   "label": "CITI Fingerprint"
+  },
+  {
+   "depends_on": "eval: !!doc.pgp_private_key",
+   "fieldname": "client_fingerprint",
+   "fieldtype": "Data",
+   "label": "Client Fingerprint"
+  },
+  {
+   "depends_on": "eval: !!doc.pgp_private_key",
+   "fieldname": "pgp_private_key_password",
+   "fieldtype": "Password",
+   "label": "PGP Private Key Password"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-04 23:49:35.378339",
+ "modified": "2026-02-05 01:25:30.080444",
  "modified_by": "Administrator",
  "module": "Hosts",
  "name": "CITI H2H Connector",
