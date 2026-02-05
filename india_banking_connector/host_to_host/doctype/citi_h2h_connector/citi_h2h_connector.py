@@ -55,7 +55,7 @@ class CITIH2HConnector(BaseHost):
 		file.file_name = filename
 		file.content = file_content
 		file.folder = "Home/Payment Log"
-		file.attached_to_doctype = "Payment Log"
+		file.attached_to_doctype = "H2H Payment Log"
 		file.attached_to_name = payment_log_id
 		file.attached_to_field = f"{mot}_payment_file"
 		file.insert()
@@ -306,7 +306,7 @@ class CITIH2HConnector(BaseHost):
 					file.content = encrypted.data
 					file.file_name = file_name + ".pgp"
 					file.folder = "Home/Payment Log/Encrypted"
-					file.attached_to_doctype = "Payment Log"
+					file.attached_to_doctype = "H2H Payment Log"
 					file.attached_to_name = log_id
 					file.is_private = 1
 					file.attached_to_field = f"{mot}_encrypted_payment_file"
@@ -362,7 +362,7 @@ class CITIH2HConnector(BaseHost):
 		r_file.file_name = file_name
 		r_file.content = file_name.encode()
 		r_file.folder = "Home/Status Log"
-		r_file.attached_to_doctype = "Status Log"
+		r_file.attached_to_doctype = "H2H Status Log"
 		r_file.attached_to_name = file_name
 		r_file.file_type = "TXT"
 		r_file.is_private = 1
