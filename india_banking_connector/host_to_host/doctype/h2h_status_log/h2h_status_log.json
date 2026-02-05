@@ -84,7 +84,7 @@
  "links": [],
  "modified": "2026-02-01 20:01:47.881571",
  "modified_by": "Administrator",
- "module": "Hosts",
+ "module": "Host to Host",
  "name": "H2H Status Log",
  "naming_rule": "By fieldname",
  "owner": "Administrator",

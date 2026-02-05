@@ -239,7 +239,7 @@
  "links": [],
  "modified": "2026-02-05 01:25:30.080444",
  "modified_by": "Administrator",
- "module": "Hosts",
+ "module": "Host to Host",
  "name": "CITI H2H Connector",
  "naming_rule": "By fieldname",
  "owner": "Administrator",

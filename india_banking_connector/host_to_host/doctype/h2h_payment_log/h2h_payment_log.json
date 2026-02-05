@@ -178,7 +178,7 @@
  "links": [],
  "modified": "2026-02-05 12:41:57.472722",
  "modified_by": "Administrator",
- "module": "Hosts",
+ "module": "Host to Host",
  "name": "H2H Payment Log",
  "naming_rule": "By fieldname",
  "owner": "Administrator",

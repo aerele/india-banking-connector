@@ -14,8 +14,8 @@ from frappe.core.api.file import create_new_folder
 from frappe.utils import cint, cstr, flt, get_datetime, getdate
 from frappe.utils.file_manager import get_file_path
 
-from india_banking_connector.hosts.doctype.base_host import BaseHost
-from india_banking_connector.hosts.doctype.citi_h2h_connector.citi_sftp_client import (
+from india_banking_connector.host_to_host.doctype.base_host import BaseHost
+from india_banking_connector.host_to_host.doctype.citi_h2h_connector.citi_sftp_client import (
 	CitiSFTPClient,
 )
 from india_banking_connector.utils import get_id

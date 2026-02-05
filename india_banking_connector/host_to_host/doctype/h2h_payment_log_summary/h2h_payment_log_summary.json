@@ -1,38 +1,36 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-01-21 12:14:56.709805",
+ "creation": "2026-01-22 11:31:28.877904",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "bank",
-  "host"
+  "payment_id",
+  "status"
  ],
  "fields": [
   {
-   "fieldname": "bank",
-   "fieldtype": "Link",
+   "fieldname": "payment_id",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Bank",
-   "options": "Bank"
+   "label": "Payment ID"
   },
   {
-   "fieldname": "host",
-   "fieldtype": "Link",
+   "fieldname": "status",
+   "fieldtype": "Code",
    "in_list_view": 1,
-   "label": "Host",
-   "options": "DocType"
+   "label": "Status"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-21 12:14:56.709805",
+ "modified": "2026-02-04 03:03:52.716549",
  "modified_by": "Administrator",
- "module": "Hosts",
- "name": "H2H Connector Map",
+ "module": "Host to Host",
+ "name": "H2H Payment Log Summary",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",
