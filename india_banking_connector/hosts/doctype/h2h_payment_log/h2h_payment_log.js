@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Payment Log", {
+frappe.ui.form.on("H2H Payment Log", {
 	refresh(frm) {
 		frappe.call("india_banking_connector.utils.get_default_hosts").then((r) => {
 			frm.set_query("host", function (frm) {

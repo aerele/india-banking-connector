@@ -7,7 +7,7 @@ import frappe
 from frappe.model.document import Document
 
 
-class PaymentLog(Document):
+class H2HPaymentLog(Document):
 	def get_summary_details(self, action=None):
 		"""
 		summarize the payment log.

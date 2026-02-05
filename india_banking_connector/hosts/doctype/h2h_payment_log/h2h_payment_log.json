@@ -152,7 +152,7 @@
    "fieldname": "payment_summary",
    "fieldtype": "Table",
    "label": "Payment Summary",
-   "options": "Payment Log Summary"
+   "options": "H2H Payment Log Summary"
   },
   {
    "collapsible": 1,
@@ -176,10 +176,10 @@
  "in_create": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-04 03:03:40.762870",
+ "modified": "2026-02-05 12:41:57.472722",
  "modified_by": "Administrator",
  "module": "Hosts",
- "name": "Payment Log",
+ "name": "H2H Payment Log",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [

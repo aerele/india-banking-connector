@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class PaymentLogSummary(Document):
+class H2HPaymentLogSummary(Document):
 	pass

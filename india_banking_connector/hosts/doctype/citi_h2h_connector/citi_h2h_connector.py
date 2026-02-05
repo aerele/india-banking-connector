@@ -61,13 +61,13 @@ class CITIH2HConnector(BaseHost):
 		file.insert()
 
 		frappe.db.set_value(
-			"Payment Log", payment_log_id, f"{mot}_payment_file", file.file_url
+			"H2H Payment Log", payment_log_id, f"{mot}_payment_file", file.file_url
 		)
 
 		return file.file_url
 
 	def make_payment_file(self, payment_log_id):
-		payment_log_doc = frappe.get_doc("Payment Log", payment_log_id)
+		payment_log_doc = frappe.get_doc("H2H Payment Log", payment_log_id)
 		self.update_summary_details()
 
 		requested_data = {}
@@ -91,7 +91,7 @@ class CITIH2HConnector(BaseHost):
 
 		values = file_urls
 		values["request"] = json.dumps(requested_data)
-		frappe.db.set_value("Payment Log", payment_log_id, values)
+		frappe.db.set_value("H2H Payment Log", payment_log_id, values)
 
 	def get_mode_of_transfer(self, mot):
 		if mot in ["rtgs", "a2a"]:
@@ -246,7 +246,7 @@ class CITIH2HConnector(BaseHost):
 		}
 
 	def encrypt_payment_files(self, log_id):
-		payment_log_doc = frappe.get_doc("Payment Log", log_id)
+		payment_log_doc = frappe.get_doc("H2H Payment Log", log_id)
 		payment_files = (
 			(
 				"a2a",
@@ -321,7 +321,7 @@ class CITIH2HConnector(BaseHost):
 					)
 
 		if encrypted_file_urls:
-			frappe.db.set_value("Payment Log", log_id, encrypted_file_urls)
+			frappe.db.set_value("H2H Payment Log", log_id, encrypted_file_urls)
 			return True
 
 		return False
@@ -371,7 +371,7 @@ class CITIH2HConnector(BaseHost):
 		return r_file
 
 	def create_status_log(self, file_name: str, status_file_url: str):
-		status_log = frappe.new_doc("Status Log")
+		status_log = frappe.new_doc("H2H Status Log")
 		status_log.source_file_name = file_name
 		status_log.status_file = status_file_url
 		status_log.host = self.doctype
@@ -428,8 +428,8 @@ class CITIH2HConnector(BaseHost):
 			payment_id = msg_id.split("_")[:-1][0]
 			status = self.get_status_map(file_status)
 			logs = frappe.db.get_all(
-				"Payment Log Summary",
-				{"parent": payment_id, "parenttype": "Payment Log"},
+				"H2H Payment Log Summary",
+				{"parent": payment_id, "parenttype": "H2H Payment Log"},
 				pluck="payment_id",
 			)
 			if logs:
@@ -511,13 +511,13 @@ class CITIH2HConnector(BaseHost):
 
 		if formated_response:
 			frappe.db.set_value(
-				"Status Log",
+				"H2H Status Log",
 				file_name,
 				"formatted_data",
 				json.dumps(formated_response, indent=4),
 			)
 			frappe.db.commit()
-			frappe.get_doc("Status Log", file_name).update_payment_status()
+			frappe.get_doc("H2H Status Log", file_name).update_payment_status()
 
 		return formated_response
 
@@ -542,8 +542,8 @@ class CITIH2HConnector(BaseHost):
 			files = [files]
 
 		for file_name in files:
-			if frappe.db.exists("Status Log", {"source_file_name": file_name}):
-				frappe.get_doc("Status Log", file_name).format_response()
+			if frappe.db.exists("H2H Status Log", {"source_file_name": file_name}):
+				frappe.get_doc("H2H Status Log", file_name).format_response()
 				continue
 			file_path = os.path.join(folder, file_name)
 			try:
@@ -562,7 +562,7 @@ class CITIH2HConnector(BaseHost):
 
 				if status_file_content:
 					frappe.db.set_value(
-						"Status Log",
+						"H2H Status Log",
 						status_log.name,
 						"decrypted_data",
 						status_file_content,

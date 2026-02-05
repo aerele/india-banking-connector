@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestPaymentLog(FrappeTestCase):
+class TestH2HPaymentLog(FrappeTestCase):
 	pass

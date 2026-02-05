@@ -33,7 +33,7 @@ class BaseHost(Document, ABC):
 		payment_details = self.doc
 		unique_id = get_id(payment_details.name)
 
-		existing_payment = get_existing_doc("Payment Log", unique_id)
+		existing_payment = get_existing_doc("H2H Payment Log", unique_id)
 
 		if existing_payment:
 			if existing_payment.status == "Pending Upload":
@@ -52,7 +52,7 @@ class BaseHost(Document, ABC):
 		payment_details = frappe._dict(self.doc)
 		unique_id = get_id(payment_details.name)
 
-		existing_payment = get_existing_doc("Payment Log", unique_id)
+		existing_payment = get_existing_doc("H2H Payment Log", unique_id)
 
 		if existing_payment:
 			return existing_payment.get_summary_details(action="get_payment_status")
@@ -60,7 +60,7 @@ class BaseHost(Document, ABC):
 		return {"message": "Payment not found"}
 
 	def create_payment_log(self, payment_details, commit=False):
-		payment_log_doc = frappe.new_doc("Payment Log")
+		payment_log_doc = frappe.new_doc("H2H Payment Log")
 		payment_log_doc.payment_log_id = get_id(self.doc.name)
 		payment_log_doc.payment_status = "Pending Upload"
 		payment_log_doc.host = self.doctype
@@ -133,7 +133,7 @@ class BaseHost(Document, ABC):
 		if self.upload_payment_file:
 			return self.upload_payment_files_to_server(log_id)
 
-		return frappe.get_doc("Payment Log", log_id).get_summary_details()
+		return frappe.get_doc("H2H Payment Log", log_id).get_summary_details()
 
 	def fetch_files_from_server(self):
 		self.is_h2h_enabled()
@@ -213,7 +213,7 @@ class BaseHost(Document, ABC):
 		return not_uploaded_files
 
 	def upload_payment_files_to_server(self, log_id):
-		payment_log_doc = frappe.get_doc("Payment Log", log_id)
+		payment_log_doc = frappe.get_doc("H2H Payment Log", log_id)
 
 		not_uploaded_files = self.get_not_uploaded_files(payment_log_doc)
 
@@ -237,7 +237,9 @@ class BaseHost(Document, ABC):
 					if status:
 						uploaded_count += 1
 						field_uploaded = f"uploaded_{mot}"
-						frappe.db.set_value("Payment Log", log_id, field_uploaded, 1)
+						frappe.db.set_value(
+							"H2H Payment Log", log_id, field_uploaded, 1
+						)
 						frappe.db.commit()
 				except Exception:
 					frappe.log_error(
@@ -265,7 +267,7 @@ class BaseHost(Document, ABC):
 		return payment_log_doc.get_summary_details()
 
 	def update_log_status(self, log_id, status):
-		frappe.db.set_value("Payment Log", log_id, "status", status)
+		frappe.db.set_value("H2H Payment Log", log_id, "status", status)
 		frappe.db.commit()
 
 	def get_status_from_server(self, force_fetch=False):

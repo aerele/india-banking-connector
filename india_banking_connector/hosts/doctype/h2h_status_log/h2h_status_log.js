@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Status Log", {
+frappe.ui.form.on("H2H Status Log", {
 	refresh(frm) {
 		frm.add_custom_button("Decrypt File", function () {
 			frm.call("decrypt_file").then((r) => {

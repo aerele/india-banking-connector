@@ -30,7 +30,7 @@
  "modified": "2026-02-04 03:03:52.716549",
  "modified_by": "Administrator",
  "module": "Hosts",
- "name": "Payment Log Summary",
+ "name": "H2H Payment Log Summary",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",

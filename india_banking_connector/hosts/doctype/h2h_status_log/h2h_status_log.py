@@ -7,12 +7,12 @@ import frappe
 from frappe.model.document import Document
 
 
-class StatusLog(Document):
+class H2HStatusLog(Document):
 	def update_payment_status(self):
 		if self.formatted_data:
 			for unique_id, data in json.loads(self.formatted_data).items():
 				if log_summary := frappe.db.exists(
-					"Payment Log Summary", {"payment_id": unique_id}
+					"H2H Payment Log Summary", {"payment_id": unique_id}
 				):
 					# format bank statement data
 					if "CITI_IN_MT940" in self.name:
@@ -27,7 +27,7 @@ class StatusLog(Document):
 							"utr_number": data.get("bank_reference"),
 						}
 					frappe.db.set_value(
-						"Payment Log Summary",
+						"H2H Payment Log Summary",
 						log_summary,
 						"status",
 						json.dumps(data, indent=4),
