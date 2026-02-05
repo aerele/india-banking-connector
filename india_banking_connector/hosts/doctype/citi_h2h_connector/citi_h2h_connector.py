@@ -408,6 +408,9 @@ class CITIH2HConnector(BaseHost):
 	def get_formated_response(self, file_name, content: str) -> str:
 		formated_response = {}
 
+		if file_name.upper().startswith("CITI_IN_MT940"):
+			return self.format_statement_data(content, formated_response)
+
 		root = ET.fromstring(content)
 		# Define namespace
 		ns = {"ns": "urn:iso:std:iso:20022:tech:xsd:pain.002.001.03"}
@@ -460,15 +463,39 @@ class CITIH2HConnector(BaseHost):
 					"amount": amount,
 					"currency": currency,
 				}
-		elif file_name.upper().startswith("CITI_IN_MT940"):
-			self.format_statement_data(content)
 		else:
 			frappe.throw("Unknown file type for formatting response.")
 
 		return formated_response
 
 	def format_statement_data(self, file_content, formated_response):
-		pass
+		import mt940
+
+		try:
+			transactions = mt940.parse(file_content)
+			for transaction in transactions:
+				transaction = frappe._dict(transaction.data)
+				amount_obj = transaction.amount
+				formated_response[transaction.customer_reference] = {
+					"customer_reference": transaction.customer_reference,
+					"unique_id": transaction.customer_reference,
+					"transaction_reference": transaction.transaction_reference,
+					"reference_number": transaction.bank_reference,
+					"transaction_amount": cstr(amount_obj.amount),
+					"currency": transaction.currency,
+					"transaction_date": cstr(transaction.date),
+					"transaction_description": transaction.purpose,
+					"description": transaction.posting_text,
+					"transaction_code": transaction.transaction_code,
+					"bank_reference": transaction.bank_reference,
+				}
+		except Exception as e:
+			frappe.log_error(
+				"MT940 statement parsing failure", frappe.get_traceback(with_context=1)
+			)
+			formated_response["error"] = str(e)
+
+		return formated_response
 
 	def format_response(self, file_name, decrypted_data: str) -> str:
 		formated_response = {}

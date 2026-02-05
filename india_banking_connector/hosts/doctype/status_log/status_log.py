@@ -14,6 +14,18 @@ class StatusLog(Document):
 				if log_summary := frappe.db.exists(
 					"Payment Log Summary", {"payment_id": unique_id}
 				):
+					# format bank statement data
+					if "CITI_IN_MT940" in self.name:
+						data = {
+							"unique_id": unique_id,
+							"value_date": data.get("transaction_date"),
+							"amount": data.get("transaction_amount"),
+							"bank_ref_no": data.get("bank_reference"),
+							"status_code": data.get("transaction_code"),
+							"status": "Processed",
+							"status_description": data.get("description"),
+							"utr_number": data.get("bank_reference"),
+						}
 					frappe.db.set_value(
 						"Payment Log Summary",
 						log_summary,
