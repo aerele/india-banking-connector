@@ -68,7 +68,7 @@ def create_connector_settings():
 				},
 			)
 
-	settings_doc.save()
+	settings_doc.insert(ignore_links=True)
 
 
 def create_bank_doctype():
