@@ -43,17 +43,26 @@ class H2HStatusLog(Document):
 
 	@frappe.whitelist()
 	def decrypt_file(self):
-		if self.host and self.host_name:
-			host = frappe.get_doc(self.host, self.host_name)
-			if hasattr(host, "decrypt_file_content"):
-				getattr(host, "decrypt_file_content")(self.name)
+		if not (self.host and self.host_name):
+			return
+
+		host = frappe.get_doc(self.host, self.host_name)
+		if hasattr(host, "decrypt_file_content"):
+			decrypted_data = getattr(host, "decrypt_file_content")(self.name)
+			if decrypted_data:
+				frappe.db.set_value(
+					"H2H Status Log", self.name, "decrypted_data", decrypted_data
+				)
 
 	@frappe.whitelist()
 	def format_response(self):
-		if self.host and self.host_name:
-			host = frappe.get_doc(self.host, self.host_name)
-			if hasattr(host, "format_response"):
-				getattr(host, "format_response")(self.name, self.decrypted_data)
+		if not (self.host and self.host_name):
+			return
+		host = frappe.get_doc(self.host, self.host_name)
+		host.reload()
+		data = self.response if host.encrypt_payment_file else self.decrypted_data
+		if hasattr(host, "format_response"):
+			getattr(host, "format_response")(self.name, data)
 
 	def set_formated_response(self) -> str:
 		if not (self.host and self.host_name):

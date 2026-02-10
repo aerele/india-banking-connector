@@ -331,7 +331,7 @@ class CITIH2HConnector(BaseHost):
 		gpg_home = frappe.get_site_path("private", "gnupg", frappe.scrub(self.name))
 		os.makedirs(gpg_home, exist_ok=True)
 		os.chmod(gpg_home, stat.S_IRWXU)
-		gpg = gnupg.GPG(gnupghome=gpg_home)
+		gpg = gnupg.GPG(gnupghome=gpg_home, options=["--ignore-mdc-error"])
 
 		# Import Client Private key
 		with open(get_file_path(self.pgp_private_key), "rb") as f:
@@ -498,7 +498,24 @@ class CITIH2HConnector(BaseHost):
 
 		return formated_response
 
+	def get_decrypted_response(self, encrypted_data: str):
+		if not self.encrypt_payment_file:
+			return encrypted_data
+		try:
+			return self.decrypt_file_content(file_content=encrypted_data)
+		except Exception:
+			return encrypted_data
+
 	def format_response(self, file_name, decrypted_data: str) -> str:
+		decrypted_data = self.get_decrypted_response(decrypted_data)
+		frappe.db.set_value(
+			"H2H Status Log",
+			file_name,
+			"decrypted_data",
+			decrypted_data,
+		)
+		frappe.db.commit()
+
 		formated_response = {}
 		try:
 			formated_response = self.get_formated_response(file_name, decrypted_data)
@@ -567,8 +584,10 @@ class CITIH2HConnector(BaseHost):
 					frappe.db.set_value(
 						"H2H Status Log",
 						status_log.name,
-						"decrypted_data",
-						status_file_content,
+						{
+							"response": status_file_content,
+							"decrypted_data": status_file_content,
+						},
 					)
 					self.write_file_content(
 						get_file_path(r_file.file_url), status_file_content.encode()
