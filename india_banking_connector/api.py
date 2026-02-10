@@ -29,7 +29,7 @@ def connect(**payload):
 
 
 class PayloadValidator:
-	def __init__(self, payload: str | dict) -> bool:
+	def __init__(self, payload: str | dict) -> None:
 		self.connector_status = None
 		self.error = None
 		self.data = None

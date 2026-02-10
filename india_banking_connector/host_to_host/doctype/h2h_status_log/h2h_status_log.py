@@ -57,6 +57,7 @@ class H2HStatusLog(Document):
 
 	def set_formated_response(self) -> str:
 		host_doc = frappe.get_doc(self.host, self.host_name)
+		self.decrypted_data = None
 
 		if host_doc.encrypt_payment_file:
 			try:
@@ -65,6 +66,7 @@ class H2HStatusLog(Document):
 					self.decrypted_data = decrypted_data
 			except Exception:
 				self.error = frappe.get_traceback(with_context=True)
+				return
 		else:
 			self.decrypted_data = self.response
 
