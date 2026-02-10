@@ -6,3 +6,7 @@ app_email = "hello@aerele.in"
 app_license = "mit"
 
 after_install = "india_banking_connector.install.after_install"
+
+default_log_clearing_doctypes = {
+	"Bank Request Log": 60,
+}
