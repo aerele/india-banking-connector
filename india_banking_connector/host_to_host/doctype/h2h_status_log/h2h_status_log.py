@@ -56,6 +56,9 @@ class H2HStatusLog(Document):
 				getattr(host, "format_response")(self.name, self.decrypted_data)
 
 	def set_formated_response(self) -> str:
+		if not (self.host and self.host_name):
+			return
+
 		host_doc = frappe.get_doc(self.host, self.host_name)
 		self.decrypted_data = None
 

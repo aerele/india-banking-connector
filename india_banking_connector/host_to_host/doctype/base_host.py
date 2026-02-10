@@ -62,7 +62,7 @@ class BaseHost(Document, ABC):
 	def create_payment_log(self, payment_details, commit=False):
 		payment_log_doc = frappe.new_doc("H2H Payment Log")
 		payment_log_doc.payment_log_id = get_id(self.doc.name)
-		payment_log_doc.payment_status = "Pending Upload"
+		payment_log_doc.status = "Pending Upload"
 		payment_log_doc.host = self.doctype
 		payment_log_doc.host_name = self.name
 
