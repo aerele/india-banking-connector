@@ -27,6 +27,7 @@ class CITIH2HConnector(BaseHost):
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.summary_details = {}
 		self.to_be_generate_mot = []
+		self.is_private = 1
 
 	@frappe.whitelist()
 	def get_files_list(self, folder=None):
@@ -308,7 +309,7 @@ class CITIH2HConnector(BaseHost):
 					file.folder = "Home/Payment Log/Encrypted"
 					file.attached_to_doctype = "H2H Payment Log"
 					file.attached_to_name = log_id
-					file.is_private = 1
+					file.is_private = self.is_private
 					file.attached_to_field = f"{mot}_encrypted_payment_file"
 					file.file_type = "pgp"
 					file.insert()
@@ -365,7 +366,7 @@ class CITIH2HConnector(BaseHost):
 		r_file.attached_to_doctype = "H2H Status Log"
 		r_file.attached_to_name = file_name
 		r_file.file_type = "TXT"
-		r_file.is_private = 1
+		r_file.is_private = self.is_private
 		r_file.attached_to_field = "status_file"
 		r_file.insert()
 		return r_file
@@ -417,7 +418,7 @@ class CITIH2HConnector(BaseHost):
 
 		payment_order = root.find(".//ns:OrgnlGrpInfAndSts/ns:OrgnlMsgId", ns)
 		if payment_order is not None:
-			payment_order = payment_order.text
+			payment_order = payment_order.text or ""
 
 		if file_name.upper().startswith("CITI_FILE_ACK"):
 			msg_id = root.find(".//ns:OrgnlGrpInfAndSts/ns:OrgnlMsgId", ns).text
