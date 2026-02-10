@@ -5,11 +5,11 @@ import json
 import os
 import stat
 from xml.dom.minidom import parseString
-from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import tostring
 
 import frappe
 import gnupg
+from defusedxml import ElementTree as ET
 from frappe.core.api.file import create_new_folder
 from frappe.utils import cint, cstr, flt, get_datetime, getdate
 from frappe.utils.file_manager import get_file_path
@@ -107,8 +107,8 @@ class CITIH2HConnector(BaseHost):
 		for summary in summary_details:
 			# Round Bank rounding decimal 2 (eg. .989 to .99)
 			amount = cstr(flt(summary.get("amount", 0.0), 2))
-			remarks = (
-				summary.get("remarks") or "Payment from " + summary.get("parent") or ""
+			remarks = summary.get("remarks") or "Payment from " + (
+				summary.get("parent") or ""
 			)
 			tx_dict = {
 				f"CdtTrfTxInf-{summary.name}": {
@@ -157,7 +157,7 @@ class CITIH2HConnector(BaseHost):
 		if payment_details.company_address:
 			company_address = json.loads(payment_details.company_address)
 		address = frappe._dict(company_address)
-
+		address_lines = address.get("AddressLine") or []
 		payment_dict = frappe._dict(
 			{
 				"unique_id": f"{unique_id}_{mot}",
@@ -165,8 +165,8 @@ class CITIH2HConnector(BaseHost):
 				"summary_details": self.summary_details[mot]["summary"],
 				# Bank rounding decimal 2 (eg. .989 to .99)
 				"total": flt(self.summary_details[mot]["total"], 2),
-				"street_name": ", ".join(address.get("AddressLine", [])),
-				"building_no": address.get("AddressLine", [1])[0],
+				"street_name": ", ".join(address_lines),
+				"building_no": address_lines[0] if address_lines else "",
 				"post_code": address.get("PostCode"),
 				"town_name": address.get("TownName"),
 				"country": address.get("Country", "").upper(),
@@ -328,7 +328,7 @@ class CITIH2HConnector(BaseHost):
 		return False
 
 	def init_gpg(self):
-		gpg_home = "/tmp/.gnupg_citi_h2h/"
+		gpg_home = frappe.get_site_path("private", "gnupg", frappe.scrub(self.name))
 		os.makedirs(gpg_home, exist_ok=True)
 		os.chmod(gpg_home, stat.S_IRWXU)
 		gpg = gnupg.GPG(gnupghome=gpg_home)
@@ -543,8 +543,10 @@ class CITIH2HConnector(BaseHost):
 			files = [files]
 
 		for file_name in files:
-			if frappe.db.exists("H2H Status Log", {"source_file_name": file_name}):
-				frappe.get_doc("H2H Status Log", file_name).format_response()
+			if log_name := frappe.db.exists(
+				"H2H Status Log", {"source_file_name": file_name}
+			):
+				frappe.get_doc("H2H Status Log", log_name).format_response()
 				continue
 			file_path = os.path.join(folder, file_name)
 			try:

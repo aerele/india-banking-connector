@@ -39,9 +39,11 @@ class PayloadValidator:
 	def validate_payload_params(self, payload):
 		if not payload:
 			self.error = (
-				"Invalid request parameters. Please verify the payload and try again.",
+				"Invalid request parameters. Please verify the payload and try again."
 			)
+
 			self.connector_status = "failed"
+			return
 
 		try:
 			self.data = (

@@ -85,7 +85,7 @@ class BaseHost(Document, ABC):
 
 	def update_summary_details(self):
 		file_mot = set()
-		payment_details = frappe._dict(self.doc)
+		payment_details = frappe._dict(self.doc or {})
 
 		for summary in payment_details.summary:
 			summary = frappe._dict(summary)
@@ -221,6 +221,7 @@ class BaseHost(Document, ABC):
 			payment_log_doc.reload()
 			return payment_log_doc.get_summary_details()
 
+		client = None
 		try:
 			uploaded_count = 0
 			for mot, payout_file in not_uploaded_files:
@@ -261,7 +262,8 @@ class BaseHost(Document, ABC):
 			)
 			self.update_log_status(log_id, status)
 		finally:
-			client.close()
+			if client:
+				client.close()
 
 		payment_log_doc.reload()
 		return payment_log_doc.get_summary_details()
@@ -299,5 +301,5 @@ class BaseHost(Document, ABC):
 		pass
 
 	@abstractmethod
-	def get_files_from_server(self, force_fetch=False):
+	def get_files_from_server(self, client, files, folder: str = "."):
 		pass

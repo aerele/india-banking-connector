@@ -11,6 +11,7 @@ class CitiSFTPClient:
 		port: int = 22,
 		private_key_passphrase: str | None = None,
 		timeout: int = 20,
+		verify_host_key: bool = True,
 	):
 		self.host = host
 		self.port = port
@@ -18,6 +19,7 @@ class CitiSFTPClient:
 		self.private_key_path = private_key_path
 		self.private_key_passphrase = private_key_passphrase
 		self.timeout = timeout
+		self.verify_host_key = verify_host_key
 
 		self.client = None
 		self.sftp = None
@@ -28,8 +30,12 @@ class CitiSFTPClient:
 		try:
 			self.client = paramiko.SSHClient()
 
-			# Banks rarely provide known_hosts
-			self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+			if self.verify_host_key:
+				self.client.load_system_host_keys()
+				self.client.set_missing_host_key_policy(paramiko.RejectPolicy())
+			else:
+				# Explicit opt-out only
+				self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 			self.client.connect(
 				hostname=self.host,

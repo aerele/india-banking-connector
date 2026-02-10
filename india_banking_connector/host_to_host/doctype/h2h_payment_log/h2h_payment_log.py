@@ -8,6 +8,12 @@ from frappe.model.document import Document
 
 
 class H2HPaymentLog(Document):
+	def _safe_load(self, value):
+		try:
+			return json.loads(value) if value else {}
+		except json.JSONDecodeError:
+			return {}
+
 	def get_summary_details(self, action=None):
 		"""
 		summarize the payment log.
@@ -26,7 +32,7 @@ class H2HPaymentLog(Document):
 			)
 
 			res_dict.summary_details = {
-				sd.payment_id: json.loads(sd.status) or {}
+				sd.payment_id: self._safe_load(sd.status) or {}
 				for sd in self.payment_summary
 			}
 		else:
