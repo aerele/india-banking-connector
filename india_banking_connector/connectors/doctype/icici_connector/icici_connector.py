@@ -72,6 +72,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("register"),
 			ref_doctype=self.doc.doctype,
 			ref_docname=self.doc.name,
+			connector=self,
 		)
 
 		res = self.get_decrypted_response(response, method="register", log_id=log_id)
@@ -95,6 +96,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("registration_status"),
 			ref_doctype=self.doc.doctype,
 			ref_docname=self.doc.name,
+			connector=self,
 		)
 
 		res = self.get_decrypted_response(
@@ -130,6 +132,7 @@ class ICICIConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -158,6 +161,7 @@ class ICICIConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -180,6 +184,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("generate_otp"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -561,14 +566,6 @@ class ICICIConnector(BankConnector):
 					}
 				}
 
-	def get_summary_details(self, status):
-		summary_details = {}
-
-		for summary in self.doc.summary:
-			summary_details.update({summary.get("name"): {"payment_status": status}})
-
-		return summary_details
-
 	def handle_bulk_transaction_response(self, data, res_dict, method):
 		if method == "generate_otp" and data:
 			if data.get("RESPONSE") == "Success":
@@ -713,6 +710,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("bank_balance"),
 			ref_doctype="Bank Balance",
 			ref_docname=self.account_number,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -736,6 +734,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("bank_statement"),
 			ref_doctype="Bank Statement",
 			ref_docname=self.account_number,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(

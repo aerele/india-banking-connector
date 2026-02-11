@@ -89,6 +89,7 @@ class UnionBankConnector(BankConnector):
 			account_config=self.account_config,
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -122,6 +123,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -150,6 +152,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=payment_details.parenttype,
 			ref_docname=payment_details.parent,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -181,6 +184,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -212,6 +216,7 @@ class UnionBankConnector(BankConnector):
 			ref_doctype=self.doctype,
 			ref_docname=self.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -235,6 +240,7 @@ class UnionBankConnector(BankConnector):
 		return self.aes_encrypt_data(self.account_config, self.AES_KEY)
 
 	def get_decrypted_response(self, response, method, log_id=None):
+		self.update_aes_and_iv()
 		res_dict = frappe._dict({})
 		if response.ok:
 			decrypted_data = self.aes_decrypt_data(response.text, self.AES_KEY)

@@ -6,18 +6,37 @@ frappe.ui.form.on("Bank Request Log", {
 		if (!frappe.user_roles.includes("System Manager")) {
 			return;
 		}
-
-		frm.add_custom_button(__("Decrypt Log"), () => {
-			frm.call({
-				method: "decrypt_log",
-				doc: frm.doc,
-			}).then((r) => {
-				if (!r.exc && r.message) {
-					Object.keys(r.message).forEach((key) => {
-						frm.set_value(key, r.message[key]);
-					});
-				}
-			});
-		});
+		// Add button to decrypt the log details
+		frm.add_custom_button(
+			__("Decrypt Log"),
+			() => {
+				frm.call({
+					method: "decrypt_log",
+					doc: frm.doc,
+				}).then((r) => {
+					if (!r.exc && r.message) {
+						Object.keys(r.message).forEach((key) => {
+							frm.set_value(key, r.message[key]);
+						});
+					}
+				});
+			},
+			__("Actions")
+		);
+		// Add button to decrypt the encrypted response
+		frm.add_custom_button(
+			__("Decrypt Response"),
+			() => {
+				frm.call({
+					method: "decrypt_and_set_response",
+					doc: frm.doc,
+				}).then((r) => {
+					if (!r.exc) {
+						frm.reload_doc();
+					}
+				});
+			},
+			__("Actions")
+		);
 	},
 });

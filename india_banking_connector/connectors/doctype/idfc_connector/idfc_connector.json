@@ -1,0 +1,215 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2025-12-18 10:37:13.726617",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "active",
+  "column_break_hwur",
+  "testing",
+  "section_break_imef",
+  "account_number",
+  "account_holder_name",
+  "mobile_number",
+  "client_id",
+  "corp_id",
+  "maker_id",
+  "checker_id",
+  "approver_id",
+  "scope",
+  "column_break_asqc",
+  "signing_key",
+  "aes_key",
+  "private_key",
+  "public_key",
+  "balance_and_statement_section",
+  "balance_check",
+  "statement_fetch",
+  "tab_2_tab",
+  "api_endpoints_section",
+  "api_endpoints",
+  "get_api_endpoints",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "aes_key",
+   "fieldtype": "Password",
+   "label": "AES Key(Secret key)",
+   "reqd": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "balance_and_statement_section",
+   "fieldtype": "Section Break",
+   "label": "Balance and Statement"
+  },
+  {
+   "default": "0",
+   "fieldname": "balance_check",
+   "fieldtype": "Check",
+   "label": "Balance check"
+  },
+  {
+   "default": "0",
+   "fieldname": "statement_fetch",
+   "fieldtype": "Check",
+   "label": "Statement Fetch"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "API Endpoints"
+  },
+  {
+   "fieldname": "api_endpoints_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "api_endpoints",
+   "fieldtype": "Table",
+   "options": "Endpoint URLs"
+  },
+  {
+   "fieldname": "get_api_endpoints",
+   "fieldtype": "Button",
+   "label": "Get API endpoints",
+   "options": "get_api_endpoints"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "IDFC Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_hwur",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_imef",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_asqc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Password",
+   "label": "Client ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "signing_key",
+   "fieldtype": "Password",
+   "label": "Signing Key(KID)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "public_key",
+   "fieldtype": "Attach",
+   "label": "Public Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "corp_id",
+   "fieldtype": "Data",
+   "label": "Corp ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "maker_id",
+   "fieldtype": "Data",
+   "label": "Maker ID"
+  },
+  {
+   "fieldname": "checker_id",
+   "fieldtype": "Data",
+   "label": "Checker ID"
+  },
+  {
+   "fieldname": "approver_id",
+   "fieldtype": "Data",
+   "label": "Approver ID"
+  },
+  {
+   "default": "cmsapibridge-payments-MultiPayment cmsapibridge-payments-MultiPaymentStatusEnquiry",
+   "fieldname": "scope",
+   "fieldtype": "Small Text",
+   "label": "Scope",
+   "read_only": 1
+  },
+  {
+   "fieldname": "account_holder_name",
+   "fieldtype": "Data",
+   "label": "A/c Holder Name"
+  },
+  {
+   "fieldname": "mobile_number",
+   "fieldtype": "Data",
+   "label": "Mobile Number"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-12-18 19:34:17.910042",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "IDFC Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

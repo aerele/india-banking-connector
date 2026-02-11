@@ -6,3 +6,13 @@ app_email = "hello@aerele.in"
 app_license = "mit"
 
 after_install = "india_banking_connector.install.after_install"
+
+scheduler_events = {
+	"cron": {
+		"*/5 * * * *": "india_banking_connector.tasks.fetch_payment_status",
+	},
+}
+
+default_log_clearing_doctypes = {
+	"Bank Request Log": 60,
+}

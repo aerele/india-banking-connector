@@ -5,21 +5,27 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "connectors"
+  "connectors",
+  "hosts"
  ],
  "fields": [
   {
    "fieldname": "connectors",
    "fieldtype": "Table",
    "label": "Connectors",
-   "options": "Connector Map",
-   "read_only": 1
+   "options": "Connector Map"
+  },
+  {
+   "fieldname": "hosts",
+   "fieldtype": "Table",
+   "label": "Hosts",
+   "options": "H2H Connector Map"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-01-02 18:18:41.268407",
+ "modified": "2026-01-21 12:43:02.237663",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Connector Settings",
@@ -36,6 +42,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
