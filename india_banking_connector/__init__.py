@@ -1,1 +1,2 @@
-__version__ = "0.0.1"
+__version__ = "15.0.0"
+__title__ = "India Banking Connector"
