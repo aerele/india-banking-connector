@@ -76,7 +76,8 @@
   {
    "fieldname": "formatted_data",
    "fieldtype": "Code",
-   "label": "Formatted Data"
+   "label": "Formatted Data",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

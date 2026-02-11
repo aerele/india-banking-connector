@@ -26,14 +26,35 @@ frappe.ui.form.on("H2H Status Log", {
 	},
 });
 
+// Escape HTML to prevent XSS
+function escapeHtml(str) {
+	if (str == null) return "";
+	return String(str).replace(
+		/[&<>"']/g,
+		(m) =>
+			({
+				"&": "&amp;",
+				"<": "&lt;",
+				">": "&gt;",
+				'"': "&quot;",
+				"'": "&#39;",
+			}[m])
+	);
+}
+
+let _statusListData = [];
+
 function showStatusList(statuses) {
+	_statusListData = statuses;
 	let list_html = `<ul class="list-group">`;
 	statuses.forEach((txn, index) => {
 		list_html += `
             <li class="list-group-item">
-                <button class="btn btn-link" onclick="showStatusDetails(${index})">
-                    <b>${txn.payment_order}</b>(${txn.key}) - ₹${txn.amount}
-                </button>
+                <button class="btn btn-link" onclick="window._showStatusDetail(${index})">
+                    <b>${escapeHtml(txn.payment_order)}</b>(${escapeHtml(txn.key)}) - ₹${escapeHtml(
+			txn.amount
+		)}
+                 </button>
             </li>`;
 	});
 	list_html += `</ul>`;
@@ -51,11 +72,11 @@ function showStatusList(statuses) {
 	});
 
 	listDialog.show();
-
-	window.showStatusDetails = function (index) {
-		showStatusDetails(statuses[index]);
-	};
 }
+
+window._showStatusDetail = function (index) {
+	showStatusDetails(_statusListData[index]);
+};
 
 /**
  * Show status details in a Frappe Dialog.
@@ -66,8 +87,8 @@ function showStatusDetails(status) {
 			.map(
 				([key, value]) => `
             <tr>
-                <td><b>${key}</b></td>
-                <td>${value || "-"}</td>
+                <td><b>${escapeHtml(key)}</b></td>
+                <td>${escapeHtml(value) || "-"}</td>
             </tr>`
 			)
 			.join("")}

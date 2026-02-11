@@ -266,8 +266,19 @@ class HDFCConnector(BankConnector):
 
 			create_api_log(response, action="Get OAuth Token", connector=self)
 
-			if response.ok:
-				return response.json().get("access_token")
+			if not response.ok:
+				frappe.throw(
+					_("Authentication failed: {0}").format(
+						response.text or response.status_code
+					)
+				)
+			token = response.json().get("access_token")
+			if not token:
+				frappe.throw(
+					_("Authentication succeeded but no access token was returned.")
+				)
+			return token
+
 		except requests.exceptions.SSLError:
 			frappe.log_error("Oauth Failed", frappe.get_traceback(with_context=True))
 			frappe.throw(
