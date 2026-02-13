@@ -9,7 +9,14 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=15.0.0" # Installed and managed by bench.
-    "pycryptodome", "python-jose", "cryptography", "urllib3", "xmltodict", "defusedxml"
+    "pycryptodome",
+    "python-jose",
+    "cryptography",
+    "urllib3",
+    "xmltodict",
+    "defusedxml",
+    "paramiko",
+    "python-gnupg"
 ]
 
 [build-system]
@@ -24,3 +31,6 @@ build-backend = "flit_core.buildapi"
 quote-style = "double"
 indent-style = "tab"
 docstring-code-format = true
+
+[tool.bench.frappe-dependencies]
+frappe = ">=14,<16"

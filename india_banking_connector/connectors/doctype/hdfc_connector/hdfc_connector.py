@@ -102,10 +102,18 @@ class HDFCConnector(BankConnector):
 			unique_id=unique_id,
 			connector=self,
 		)
+		try:
+			return self.get_decrypted_response(
+				response, method="payment_status", log_id=log_id
+			)
+		except Exception as e:
+			frappe.log_error("Decryption Failed", frappe.get_traceback(with_context=True))
+			return {
+				"status": "Request Failure",
+				"message": str(e),
+				"response": response
+			}
 
-		return self.get_decrypted_response(
-			response, method="payment_status", log_id=log_id
-		)
 
 	def set_decrypted_response(self, log_id, response_data):
 		if isinstance(response_data, str):
