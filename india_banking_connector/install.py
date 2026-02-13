@@ -30,9 +30,10 @@ def create_default_bank():
 			bank_doc.save()
 
 
-def create_connector_settings():
+def create_connector_settings(update=False):
 	click.echo(" -> Updating Connector Settings")
 	settings_doc = frappe.get_doc("Connector Settings")
+
 	for bank, connector in BANKS_CONNECTOR_MAP.items():
 		if frappe.db.exists(
 			"Connector Map",
@@ -67,6 +68,9 @@ def create_connector_settings():
 					"host": host,
 				},
 			)
+	if update:
+		settings_doc.save()
+		return
 
 	settings_doc.insert(ignore_links=True)
 
