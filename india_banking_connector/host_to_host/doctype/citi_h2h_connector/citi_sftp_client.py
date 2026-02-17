@@ -1,3 +1,7 @@
+import base64
+import hashlib
+import hmac
+
 import frappe
 import paramiko
 
@@ -7,6 +11,7 @@ class CitiSFTPClient:
 		self,
 		host: str,
 		username: str,
+		public_key_path: str,
 		private_key_path: str,
 		port: int = 22,
 		private_key_passphrase: str | None = None,
@@ -16,6 +21,7 @@ class CitiSFTPClient:
 		self.host = host
 		self.port = port
 		self.username = username
+		self.public_key_path = public_key_path
 		self.private_key_path = private_key_path
 		self.private_key_passphrase = private_key_passphrase
 		self.timeout = timeout
@@ -29,13 +35,7 @@ class CitiSFTPClient:
 	def connect(self) -> bool:
 		try:
 			self.client = paramiko.SSHClient()
-
-			if self.verify_host_key:
-				self.client.load_system_host_keys()
-				self.client.set_missing_host_key_policy(paramiko.RejectPolicy())
-			else:
-				# Explicit opt-out only
-				self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+			self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 			self.client.connect(
 				hostname=self.host,
@@ -58,6 +58,8 @@ class CitiSFTPClient:
 				},
 			)
 
+			self.validate_finger_print()
+
 			self.sftp = self.client.open_sftp()
 			return True
 
@@ -66,6 +68,26 @@ class CitiSFTPClient:
 				"Citi SFTP Connection Failed", frappe.get_traceback(with_context=True)
 			)
 			return False
+
+	def validate_finger_print(self):
+		if not self.public_key_path:
+			return
+
+		transport = self.client.get_transport()
+		key = transport.get_remote_server_key()
+
+		raw = key.asbytes()
+		digest = hashlib.sha256(raw).digest()
+		fp = "SHA256:" + base64.b64encode(digest).decode().rstrip("=")
+
+		expected = None
+		if self.public_key_path:
+			expected = open(self.public_key_path).read()
+
+		if expected and not hmac.compare_digest(fp, expected):
+			frappe.throw(
+				f"Host key fingerprint mismatch! Expected {expected}, got {fp}"
+			)
 
 	def upload(self, local_path: str, remote_path: str) -> bool:
 		try:

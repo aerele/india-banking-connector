@@ -351,7 +351,8 @@ class CITIH2HConnector(BaseHost):
 		return CitiSFTPClient(
 			host=self.hostname,
 			username=self.username,
-			private_key_path=get_file_path(self.sftp_key),
+			public_key_path=get_file_path(self.public_key) if self.public_key else None,
+			private_key_path=get_file_path(self.sftp_key) if self.sftp_key else None,
 			port=cint(self.port) or 22,
 			private_key_passphrase=self.get_password("password")
 			if self.password
