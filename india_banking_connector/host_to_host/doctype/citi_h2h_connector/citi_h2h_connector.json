@@ -22,8 +22,8 @@
   "port",
   "ifsc_code",
   "column_break_qwyl",
-  "sftp_key",
   "private_key",
+  "sftp_key",
   "public_key",
   "encryption__decryption_key_section",
   "pgp_public_key",
@@ -96,7 +96,7 @@
   {
    "fieldname": "private_key",
    "fieldtype": "Attach",
-   "label": "Private Key"
+   "label": "Private Key(PPK)"
   },
   {
    "collapsible": 1,
@@ -227,7 +227,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-05 01:25:30.080444",
+ "modified": "2026-02-17 09:17:27.474635",
  "modified_by": "Administrator",
  "module": "Host to Host",
  "name": "CITI H2H Connector",
