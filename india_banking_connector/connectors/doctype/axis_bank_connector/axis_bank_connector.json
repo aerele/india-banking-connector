@@ -12,12 +12,12 @@
   "section_break_imef",
   "account_number",
   "corp_id",
+  "client_id",
+  "client_secret",
   "column_break_asqc",
   "cert",
   "private_key",
   "public_key",
-  "client_id",
-  "client_secret",
   "balance_and_statement_section",
   "balance_check",
   "column_break_lziw",
@@ -59,7 +59,7 @@
   },
   {
    "fieldname": "client_id",
-   "fieldtype": "Password",
+   "fieldtype": "Data",
    "label": "Client ID",
    "reqd": 1
   },
@@ -118,26 +118,6 @@
    "options": "get_api_endpoints"
   },
   {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Axis Bank Connector",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Axis Bank Connector",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
    "fieldname": "column_break_lziw",
    "fieldtype": "Column Break"
   },
@@ -154,15 +134,25 @@
   },
   {
    "fieldname": "client_secret",
-   "fieldtype": "Data",
+   "fieldtype": "Password",
    "label": "Client Secret",
    "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Axis Bank Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-13 12:49:15.085481",
+ "modified": "2026-02-18 19:17:22.490282",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Axis Bank Connector",
