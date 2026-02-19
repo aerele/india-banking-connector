@@ -11,6 +11,7 @@
   "testing",
   "section_break_imef",
   "account_number",
+  "channel_id",
   "corp_id",
   "client_id",
   "client_secret",
@@ -147,12 +148,20 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "channel_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Channel ID",
+   "reqd": 1,
+   "unique": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-18 19:17:22.490282",
+ "modified": "2026-02-19 08:22:23.057157",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Axis Bank Connector",
