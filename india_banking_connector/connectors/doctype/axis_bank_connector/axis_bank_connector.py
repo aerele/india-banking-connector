@@ -223,8 +223,39 @@ class AxisBankConnector(BankConnector):
 			for summary in payment_doc.summary
 		]
 
-	def get_decrypted_response(self):
+	def get_decrypted_response(self, method, response, log_id=None):
+		res_dict = frappe._dict({})
+		if response.ok:
+			jws_verified = self.jws_verify(
+				response.text, self.get_file_content(self.public_key)
+			)
+
+			jwe_decrypted = self.jwe_decrypt(
+				jws_verified, self.get_file_content(self.private_key)
+			)
+
+			self.set_decrypted_response(log_id, jwe_decrypted)
+			self.get_formated_response(jwe_decrypted, res_dict, method)
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.error = response.text
+
+		return res_dict
+
+	def format_payment_response(self, decrypted_data, res_dict):
 		pass
+
+	def format_payment_status_response(self, decrypted_data, res_dict):
+		pass
+
+	def get_formated_response(self, decrypted_data, res_dict, method):
+		method_map = {
+			"make_payment": self.format_payment_response,
+			"payment_status": self.format_payment_status_response,
+		}
+
+		if method in method_map:
+			method_map[method](decrypted_data, res_dict)
 
 	def get_payment_status(self):
 		pass
