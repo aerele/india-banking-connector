@@ -158,36 +158,38 @@ class BankConnector(Document):
 
 		return summary_details
 
-	# HDFC Encryption and Decryption
-	# Generate JWS with RS256
-	def generate_jws_with_rs256(self, content: str | dict, private_key, kid: str):
-		headers = {"typ": "JWS", "kid": kid}
+	def sign_jws(
+		self,
+		content_bytes: dict | str | bytes,
+		sign_key: str,
+		headers: dict | None = None,
+		algorithm: str = "RS256",
+	) -> bytes:
+		if isinstance(content_bytes, dict):
+			content_bytes = json.dumps(content_bytes)
 
-		# Convert content to bytes
-		if isinstance(content, dict):
-			content_bytes = json.dumps(content).encode("utf-8")
-		else:
-			content_bytes = content.encode("utf-8")
+		if isinstance(content_bytes, str):
+			content_bytes = content_bytes.encode("utf-8")
 
-		return jws.sign(content_bytes, private_key, algorithm="RS256", headers=headers)
+		return jws.sign(content_bytes, sign_key, algorithm=algorithm, headers=headers)
 
-	def encrypt_payload(self, payload):
-		jws_signed = self.generate_jws_with_rs256(
-			payload,
-			self.get_file_content(self.private_key),
-			kid=self.generate_kid(self.sign_key),
+	def jwe_encrypt(
+		self,
+		plaintext: str | bytes,
+		encryption_key: str,
+		media_type: str | None = "JWE",
+		encryption="A256GCM",
+		algorithm="RSA-OAEP-256",
+		kid=None,
+	):
+		return jwe.encrypt(
+			plaintext=plaintext,
+			key=encryption_key,
+			encryption=encryption,
+			algorithm=algorithm,
+			cty=media_type,
+			kid=kid,
 		)
-
-		encrypted_payload = jwe.encrypt(
-			plaintext=jws_signed,
-			key=self.get_file_content(self.public_key),
-			encryption="A256GCM",
-			algorithm="RSA-OAEP-256",
-			cty="JWE",
-			kid=self.generate_kid(self.public_key),
-		)
-
-		return encrypted_payload
 
 	def decrypt_response(self, response):
 		jwe_decrypted = jwe.decrypt(
