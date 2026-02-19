@@ -107,13 +107,14 @@ class HDFCConnector(BankConnector):
 				response, method="payment_status", log_id=log_id
 			)
 		except Exception as e:
-			frappe.log_error("Decryption Failed", frappe.get_traceback(with_context=True))
+			frappe.log_error(
+				"Decryption Failed", frappe.get_traceback(with_context=True)
+			)
 			return {
 				"status": "Request Failure",
 				"message": str(e),
-				"response": response
+				"response": response,
 			}
-
 
 	def set_decrypted_response(self, log_id, response_data):
 		if isinstance(response_data, str):
@@ -206,7 +207,18 @@ class HDFCConnector(BankConnector):
 			return
 
 	def get_encrypted_payload(self, method):
-		return self.encrypt_payload(self.get_account_config(method))
+		headers = {"typ": "JWS", "kid": self.generate_kid(self.sign_key)}
+		jws_signed = self.sign_jws(
+			self.get_account_config(method),
+			self.get_file_content(self.private_key),
+			headers,
+		)
+
+		return self.jwe_encrypt(
+			jws_signed,
+			self.get_file_content(self.public_key),
+			kid=self.generate_kid(self.public_key),
+		)
 
 	def get_account_config(self, method):
 		def _clean_string(text):
