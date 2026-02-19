@@ -127,10 +127,15 @@ class HDFCConnector(BankConnector):
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 		if response.ok:
-			decrypted_response = self.decrypt_response(response)
+			jwe_decrypted = self.jwe_decrypt(
+				response.text, self.get_file_content(self.private_key)
+			)
+			jws_verified = self.jws_verify(
+				jwe_decrypted, self.get_file_content(self.public_key)
+			)
 
-			self.set_decrypted_response(log_id, decrypted_response)
-			self.get_formated_response(decrypted_response, res_dict, method)
+			self.set_decrypted_response(log_id, jws_verified)
+			self.get_formated_response(jws_verified, res_dict, method)
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.error = response.text
