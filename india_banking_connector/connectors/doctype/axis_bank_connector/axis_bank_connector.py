@@ -1,12 +1,13 @@
 # Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
+import hashlib
 import re
 
 import frappe
 import requests
 from frappe.query_builder import DocType
-from frappe.utils import flt, getdate
+from frappe.utils import cstr, flt, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -94,6 +95,34 @@ class AxisBankConnector(BankConnector):
 		if method in method_map:
 			method_map[method]()
 
+	def build_checksum_string(self, data: dict | list | str) -> str:
+		"""build checksum string."""
+		result = []
+
+		if isinstance(data, dict):
+			for key, value in data.items():
+				if key == "checksum":
+					continue  # skip checksum field
+				result.append(self.build_checksum_string(value))
+		elif isinstance(data, list):
+			for item in data:
+				result.append(self.build_checksum_string(item))
+		else:
+			# primitive value
+			result.append(cstr(data))
+
+		return "".join(result)
+
+	def hash_data(self, text: bytes | str, mode="md5") -> str:
+		if isinstance(text, str):
+			text = text.encode()
+
+		return hashlib.md5(text).hexdigest()
+
+	def generate_checksum(self, data: dict) -> str:
+		checksum_string = self.build_checksum_string(data)
+		return self.hash_data(checksum_string)
+
 	def set_payment_data(self):
 		self.account_config.update(
 			{
@@ -104,6 +133,10 @@ class AxisBankConnector(BankConnector):
 				},
 				"Risk": {},
 			}
+		)
+		# Update checksum
+		self.account_config["Data"]["checksum"] = self.generate_checksum(
+			self.account_config["Data"]
 		)
 
 	def get_payment_mode(self, mode_of_transfer: str) -> str:
@@ -120,8 +153,12 @@ class AxisBankConnector(BankConnector):
 
 		return payment_mode
 
-	def get_transactions(self) -> list:
+	def get_transactions(self, id_only=False) -> list:
 		payment_doc = self.doc
+
+		if id_only:
+			return [summary.name for summary in payment_doc.summary]
+
 		return [
 			{
 				"txnPaymode": self.get_payment_mode(summary.mode_of_transfer),
@@ -183,7 +220,20 @@ class AxisBankConnector(BankConnector):
 		pass
 
 	def set_payment_status_data(self):
-		self.account_config.update({})
+		self.account_config.update(
+			{
+				"Data": {
+					"channelId": self.channel_id,
+					"corpCode": self.corp_id,
+					"crn": self.get_transactions(id_only=True),
+				}
+			}
+		)
+
+		# Update checksum
+		self.account_config["Data"]["checksum"] = self.generate_checksum(
+			self.account_config["Data"]
+		)
 
 	def get_bank_balance(self):
 		frappe.throw(
