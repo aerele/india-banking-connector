@@ -85,6 +85,16 @@ class AxisBankConnector(BankConnector):
 
 	def get_encrypted_payload(self, method):
 		self.update_account_config(method)
+		# Encrypt Payload
+		encrypted = self.jwe_encrypt(
+			self.account_config,
+			self.get_file_content(self.public_key),
+		)
+		# Sign the Encypted Payload
+		return self.sign_jws(
+			encrypted,
+			self.get_file_content(self.private_key),
+		)
 
 	def update_account_config(self, method):
 		method_map = {
