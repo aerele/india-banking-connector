@@ -85,16 +85,34 @@ def decrypt(data, key=None):
 
 
 class ResponseObject:
-	def __init__(self, text, status_code):
+	def __init__(
+		self, text, status_code, method="POST", url=None, headers=None, body=None
+	):
 		self.text = text
 		self.status_code = cint(status_code)
 		self.ok = self.status_code == 200
 		self.validate_json_text()
 
+	@property
+	def request(self):
+		return frappe._dict(
+			{
+				"method": self.get("method", ""),
+				"url": self.get("url", ""),
+				"headers": self.get("headers", ""),
+				"body": self.get("body", ""),
+			}
+		)
+
 	def json(self):
 		try:
+			if isinstance(self.text, dict):
+				return self.text
 			return json.loads(self.text)
 		except Exception:
+			frappe.log_error(
+				"Response Object ERROR:", frappe.get_traceback(with_context=1)
+			)
 			try:
 				# Convert JSON string
 				text = self.text.replace("'", '"')
