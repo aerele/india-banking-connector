@@ -191,6 +191,23 @@ class BankConnector(Document):
 			kid=kid,
 		)
 
+	def jwe_decrypt(self, text: str | bytes, decryption_key: str) -> bytes:
+		if isinstance(text, str):
+			text = text.encode("utf-8")
+
+		return jwe.decrypt(text, decryption_key)
+
+	def jws_verify(
+		self, text: bytes, verify_key: str, algorithms: list[str] = ["RS256"]
+	) -> str:
+		jws_verified = jws.verify(
+			text,
+			verify_key,
+			algorithms=algorithms,
+		)
+
+		return jws_verified.decode("utf-8")
+
 	def decrypt_response(self, response):
 		jwe_decrypted = jwe.decrypt(
 			response.text.encode("utf-8"), self.get_file_content(self.private_key)
