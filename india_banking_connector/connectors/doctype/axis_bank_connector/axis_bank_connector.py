@@ -1,9 +1,17 @@
 # Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
+import re
+
 import frappe
+import requests
+from frappe.query_builder import DocType
 
 from india_banking_connector.connectors.bank_connector import BankConnector
+from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
+	create_api_log,
+)
+from india_banking_connector.utils import get_current_time_in_milliseconds, get_id
 
 
 class AxisBankConnector(BankConnector):
@@ -17,11 +25,85 @@ class AxisBankConnector(BankConnector):
 
 		self.account_config = {}
 
+	@property
+	def urls(self):
+		CONNECTOR = DocType(self.doctype)
+		EU = DocType("Endpoint URLs")
+		urls = (
+			frappe.qb.from_(CONNECTOR)
+			.join(EU)
+			.on(EU.parent == self.name)
+			.select(EU.action, EU.url)
+			.orderby(EU.idx)
+		).run()
+
+		return frappe._dict(dict(urls))
+
+	@property
+	def headers(self):
+		return {
+			"x-fapi-epoch-millis": get_current_time_in_milliseconds(),
+			"x-fapi-channel-id": self.channel_id,
+			"x-fapi-uuid": get_id(15),
+			"x-fapi-serviceId": "OpenApi",
+			"x-fapi-serviceVersion": "1.0",
+			"X-IBM-Client-Id": self.client_id,
+			"X-IBM-Client-Secret": self.get_password("client_secret"),
+			"content-type": "text/plain",
+		}
+
 	def initiate_payment(self):
+		payment_details = self.doc if self.bulk_transaction else self.payment_doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		if existing_payment_response := self.validate_duplicate_payments(
+			unique_id=unique_id,
+		):
+			return existing_payment_response
+
+		url = self.urls.make_payment
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="make_payment")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Initiate Payment",
+			account_config=self.account_config,
+			ref_doctype=payment_details.doctype,
+			ref_docname=payment_details.name,
+			unique_id=unique_id,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="make_payment", log_id=log_id
+		)
+
+	def get_encrypted_payload(self, method):
+		self.update_account_config(method)
+
+	def update_account_config(self, method):
+		method_map = {
+			"make_payment": self.set_payment_data,
+			"payment_status": self.set_payment_status_data,
+		}
+
+		if method in method_map:
+			method_map[method]()
+
+	def set_payment_data(self):
+		self.account_config.update({})
+
+	def get_decrypted_response(self):
 		pass
 
 	def get_payment_status(self):
 		pass
+
+	def set_payment_status_data(self):
+		self.account_config.update({})
 
 	def get_bank_balance(self):
 		frappe.throw(

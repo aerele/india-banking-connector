@@ -7,7 +7,7 @@ import string
 import frappe
 from cryptography.fernet import Fernet
 from frappe.model.document import Document
-from frappe.utils import cint
+from frappe.utils import cint, get_datetime
 
 from india_banking_connector.default import DEFAULT_CONNECTOR, DEFAULT_HOSTS
 
@@ -147,3 +147,7 @@ def get_existing_doc(doctype: str, filters: dict = None) -> Document | None:
 		doc = frappe.get_all(doctype, filters=filters, limit_page_length=1)
 		return frappe.get_doc(doctype, doc[0].name) if doc else None
 	return None
+
+
+def get_current_time_in_milliseconds():
+	return int(get_datetime().timestamp())
