@@ -6,6 +6,7 @@ import re
 import frappe
 import requests
 from frappe.query_builder import DocType
+from frappe.utils import flt, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -94,7 +95,86 @@ class AxisBankConnector(BankConnector):
 			method_map[method]()
 
 	def set_payment_data(self):
-		self.account_config.update({})
+		self.account_config.update(
+			{
+				"Data": {
+					"channelId": self.channel_id,
+					"corpCode": self.corp_id,
+					"paymentDetails": self.get_transactions(),
+				},
+				"Risk": {},
+			}
+		)
+
+	def get_payment_mode(self, mode_of_transfer: str) -> str:
+		mode_of_transfer = mode_of_transfer.lower()
+		payment_mode = None
+		if "a2a" in mode_of_transfer:
+			payment_mode = "FT"
+		elif "imps" in mode_of_transfer:
+			payment_mode = "PA"
+		elif "neft" in mode_of_transfer:
+			payment_mode = "NE"
+		elif "rtgs" in mode_of_transfer:
+			payment_mode = "RT"
+
+		return payment_mode
+
+	def get_transactions(self) -> list:
+		payment_doc = self.doc
+		return [
+			{
+				"txnPaymode": self.get_payment_mode(summary.mode_of_transfer),
+				"custUniqRef": summary.name,
+				"corpAccNum": self.account_number,
+				"valueDate": getdate().strftime("%y-%m-%d"),
+				"txnAmount": flt(summary.amount, 2),
+				"beneLEI": "",
+				"beneName": summary.party_name or summary.party,
+				"beneCode": summary.party,
+				"beneAccNum": summary.bank_account_no,
+				"beneAcType": "",
+				"beneAddr1": "",
+				"beneAddr2": "",
+				"beneAddr3": "",
+				"beneCity": "",
+				"beneState": "",
+				"benePincode": "",
+				"beneIfscCode": summary.branch_code,
+				"beneBankName": summary.bank,
+				"baseCode": "",
+				"chequeNumber": "",
+				"chequeDate": "",
+				"payableLocation": "",
+				"printLocation": "",
+				"beneEmailAddr1": summary.email,
+				"beneMobileNo": summary.get("mobile", ""),
+				"productCode": "",
+				"txnType": "",
+				"invoiceDetails": [
+					{
+						"invoiceAmount": "",
+						"invoiceNumber": "",
+						"invoiceDate": "",
+						"cashDiscount": "",
+						"tax": "",
+						"netAmount": "",
+						"invoiceInfo1": "",
+						"invoiceInfo2": "",
+						"invoiceInfo3": "",
+						"invoiceInfo4": "",
+						"invoiceInfo5": "",
+					}
+				],
+				"enrichment1": "",
+				"enrichment2": "",
+				"enrichment3": "",
+				"enrichment4": "",
+				"enrichment5": "",
+				"senderToReceiverInfo": "",
+			}
+			for summary in payment_doc.summary
+		]
 
 	def get_decrypted_response(self):
 		pass
