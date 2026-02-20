@@ -69,6 +69,7 @@ def create_connector_settings(update=False):
 				},
 			)
 	if update:
+		settings_doc.flags.ignore_links = True
 		settings_doc.save()
 		return
 
