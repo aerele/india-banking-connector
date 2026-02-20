@@ -11,7 +11,7 @@ class ConnectorNotFoundError(Exception):
 
 
 class ConnectorSettings(Document):
-	def get_connector(self, payload: (str | dict)) -> str:
+	def get_connector(self, payload: (str | dict), bulk_transaction=None) -> str:
 		"""
 		Get the connector based on the bank in the payload.
 
@@ -34,7 +34,7 @@ class ConnectorSettings(Document):
 				connector_filter.update({"bulk_payment": doc.bulk_transaction})
 
 			connector_doc = frappe.get_doc(connector, connector_filter)
-			connector_doc.bulk_transaction = doc.bulk_transaction
+			connector_doc.bulk_transaction = bulk_transaction
 			connector_doc.doc = doc
 			connector_doc.payment_doc = payload
 			return connector_doc
