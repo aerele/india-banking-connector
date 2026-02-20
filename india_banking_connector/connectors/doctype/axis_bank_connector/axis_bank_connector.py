@@ -67,7 +67,9 @@ class AxisBankConnector(BankConnector):
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="make_payment")
 
-		response = requests.post(url, headers=headers, data=payload)
+		response = requests.post(
+			url, headers=headers, data=payload, cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response,
@@ -223,7 +225,7 @@ class AxisBankConnector(BankConnector):
 			for summary in payment_doc.summary
 		]
 
-	def get_decrypted_response(self, method, response, log_id=None):
+	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
 		if response.ok:
 			jws_verified = self.jws_verify(
@@ -295,7 +297,9 @@ class AxisBankConnector(BankConnector):
 		headers = self.headers
 		payload = self.get_encrypted_payload(method="payment_status")
 
-		response = requests.post(url, headers=headers, data=payload)
+		response = requests.post(
+			url, headers=headers, data=payload, cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response,
