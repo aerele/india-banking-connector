@@ -17,7 +17,7 @@ def connect(**payload):
 
 	try:
 		settings = frappe.get_single("Connector Settings")
-		connector = settings.get_connector(PV.data)
+		connector = settings.get_connector(PV.data, payload.get("bulk_transaction"))
 
 		if isinstance(connector, frappe.model.document.Document):
 			return connector.get_response(PV.data.method)
