@@ -46,6 +46,12 @@ class BankConnector(Document):
 
 		return frappe._dict(dict(urls))
 
+	def get_cert(self):
+		return (
+			self.get_file_relative_path(self.cert),
+			self.get_file_relative_path(self.private_key),
+		)
+
 	def validate_user_permission(self):
 		if not frappe.has_permission("Bank Request Log", "write"):
 			frappe.throw("Not permitted", frappe.PermissionError)
