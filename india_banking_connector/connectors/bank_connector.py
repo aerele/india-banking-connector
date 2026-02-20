@@ -175,13 +175,18 @@ class BankConnector(Document):
 
 	def jwe_encrypt(
 		self,
-		plaintext: str | bytes,
+		plaintext: str | bytes | dict,
 		encryption_key: str,
 		media_type: str | None = "JWE",
 		encryption="A256GCM",
 		algorithm="RSA-OAEP-256",
 		kid=None,
 	):
+		if isinstance(plaintext, dict):
+			plaintext = json.dumps(plaintext)
+		if isinstance(plaintext, str):
+			plaintext = plaintext.encode()
+
 		return jwe.encrypt(
 			plaintext=plaintext,
 			key=encryption_key,

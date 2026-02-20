@@ -44,7 +44,7 @@ class AxisBankConnector(BankConnector):
 	@property
 	def headers(self):
 		return {
-			"x-fapi-epoch-millis": get_current_time_in_milliseconds(),
+			"x-fapi-epoch-millis": cstr(get_current_time_in_milliseconds()),
 			"x-fapi-channel-id": self.channel_id,
 			"x-fapi-uuid": get_id(15),
 			"x-fapi-serviceId": "OpenApi",
@@ -167,19 +167,19 @@ class AxisBankConnector(BankConnector):
 		payment_doc = self.doc
 
 		if id_only:
-			return [summary.name for summary in payment_doc.summary]
+			return [summary.get("name") for summary in payment_doc.summary]
 
 		return [
 			{
-				"txnPaymode": self.get_payment_mode(summary.mode_of_transfer),
-				"custUniqRef": summary.name,
+				"txnPaymode": self.get_payment_mode(summary.get("mode_of_transfer")),
+				"custUniqRef": summary.get("name"),
 				"corpAccNum": self.account_number,
 				"valueDate": getdate().strftime("%y-%m-%d"),
-				"txnAmount": flt(summary.amount, 2),
+				"txnAmount": cstr(flt(summary.get("amount"), 2)),
 				"beneLEI": "",
-				"beneName": summary.party_name or summary.party,
-				"beneCode": summary.party,
-				"beneAccNum": summary.bank_account_no,
+				"beneName": summary.get("party_name") or summary.get("party"),
+				"beneCode": summary.get("party"),
+				"beneAccNum": summary.get("bank_account_no"),
 				"beneAcType": "",
 				"beneAddr1": "",
 				"beneAddr2": "",
@@ -187,14 +187,14 @@ class AxisBankConnector(BankConnector):
 				"beneCity": "",
 				"beneState": "",
 				"benePincode": "",
-				"beneIfscCode": summary.branch_code,
-				"beneBankName": summary.bank,
+				"beneIfscCode": summary.get("branch_code"),
+				"beneBankName": summary.get("bank"),
 				"baseCode": "",
 				"chequeNumber": "",
 				"chequeDate": "",
 				"payableLocation": "",
 				"printLocation": "",
-				"beneEmailAddr1": summary.email,
+				"beneEmailAddr1": summary.get("email"),
 				"beneMobileNo": summary.get("mobile", ""),
 				"productCode": "",
 				"txnType": "",
@@ -245,8 +245,38 @@ class AxisBankConnector(BankConnector):
 	def format_payment_response(self, decrypted_data, res_dict):
 		pass
 
+	def get_status(self, status_code):
+		status = "Pending"
+		if status_code == "ACAR":
+			status = "Processed"
+
+		return status
+
 	def format_payment_status_response(self, decrypted_data, res_dict):
-		pass
+		data = decrypted_data.get("Data", {})
+
+		if data and data.get("status") == "S":
+			res_dict.payment_status = "PROCESSED"
+			res_dict.message = "Payment status fetched successfully."
+		else:
+			res_dict.payment_status = "Request Failure"
+			res_dict.message = "Invalid response format."
+
+		summary_details = {}
+		transactions = data.get("data", {}).get("CUR_TXN_ENQ")
+		for transaction in transactions:
+			transaction = frappe._dict(transaction)
+			summary_details[transaction.crn] = {
+				"unique_id": transaction.crn,
+				"status_code": transaction.responseCode,
+				"status": self.get_status(transaction.responseCode),
+				"utr_number": transaction.utrNo,
+				"message": transaction.statusDescription,
+			}
+
+		res_dict.summary_details = summary_details
+
+		return res_dict
 
 	def get_formated_response(self, decrypted_data, res_dict, method):
 		method_map = {
@@ -258,7 +288,28 @@ class AxisBankConnector(BankConnector):
 			method_map[method](decrypted_data, res_dict)
 
 	def get_payment_status(self):
-		pass
+		payment_details = self.doc if self.bulk_transaction else self.payment_doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		url = self.urls.payment_status
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="payment_status")
+
+		response = requests.post(url, headers=headers, data=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Get Payment Status",
+			account_config=self.account_config,
+			ref_doctype=payment_details.doctype,
+			ref_docname=payment_details.name,
+			unique_id=unique_id,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="payment_status", log_id=log_id
+		)
 
 	def set_payment_status_data(self):
 		self.account_config.update(
