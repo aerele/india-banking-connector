@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import hashlib
+import json
 import re
 
 import frappe
@@ -245,7 +246,29 @@ class AxisBankConnector(BankConnector):
 		return res_dict
 
 	def format_payment_response(self, decrypted_data, res_dict):
-		pass
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "Failure"
+					res_dict.message = "Failed to parse payment response."
+					return
+
+		decrypted_data = frappe._dict(decrypted_data)
+
+		status = decrypted_data.get("Data", {}).get("status", "")
+
+		if status == "S":
+			res_dict.payment_status = "ACCEPTED"
+			res_dict.message = "Payment initiated successfully."
+			res_dict.summary_details = self.get_summary_details("Accepted")
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.message = "Unexpected response format."
 
 	def get_status(self, status_code):
 		status = "Pending"
