@@ -389,7 +389,6 @@ class AxisBankConnector(BankConnector):
 		from india_banking_connector.install import decrypt
 
 		decrypted = decrypt(AXIS_ENCRYPTED_END_POINTS)
-		print(decrypted)
 		self.extend(
 			"api_endpoints",
 			[{"action": action, "url": url} for action, url in decrypted.items()],

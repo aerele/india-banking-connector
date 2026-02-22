@@ -131,7 +131,8 @@
   {
    "fieldname": "cert",
    "fieldtype": "Attach",
-   "label": "Cert"
+   "label": "Cert",
+   "reqd": 1
   },
   {
    "fieldname": "client_secret",
@@ -161,7 +162,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-19 08:22:23.057157",
+ "modified": "2026-02-23 12:35:02.956854",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Axis Bank Connector",
