@@ -56,7 +56,7 @@ class AxisBankConnector(BankConnector):
 		}
 
 	def initiate_payment(self):
-		payment_details = self.doc if self.bulk_transaction else self.payment_doc
+		payment_details = self.doc
 		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
 
 		if existing_payment_response := self.validate_duplicate_payments(
@@ -177,11 +177,11 @@ class AxisBankConnector(BankConnector):
 				"txnPaymode": self.get_payment_mode(summary.get("mode_of_transfer")),
 				"custUniqRef": summary.get("name"),
 				"corpAccNum": self.account_number,
-				"valueDate": getdate().strftime("%y-%m-%d"),
+				"valueDate": getdate().strftime("%Y-%m-%d"),
 				"txnAmount": cstr(flt(summary.get("amount"), 2)),
 				"beneLEI": "",
 				"beneName": summary.get("party_name") or summary.get("party"),
-				"beneCode": summary.get("party"),
+				"beneCode": get_id(summary.get("party")).upper(),
 				"beneAccNum": summary.get("bank_account_no"),
 				"beneAcType": "",
 				"beneAddr1": "",
@@ -235,7 +235,7 @@ class AxisBankConnector(BankConnector):
 
 			jwe_decrypted = self.jwe_decrypt(
 				jws_verified, self.get_file_content(self.private_key)
-			)
+			).decode()
 
 			self.set_decrypted_response(log_id, jwe_decrypted)
 			self.get_formated_response(jwe_decrypted, res_dict, method)
@@ -261,23 +261,42 @@ class AxisBankConnector(BankConnector):
 		decrypted_data = frappe._dict(decrypted_data)
 
 		status = decrypted_data.get("Data", {}).get("status", "")
+		message = decrypted_data.get("Data", {}).get("message", "")
 
 		if status == "S":
 			res_dict.payment_status = "ACCEPTED"
 			res_dict.message = "Payment initiated successfully."
 			res_dict.summary_details = self.get_summary_details("Accepted")
+		elif status == "F":
+			res_dict.payment_status = "FAILED"
+			res_dict.message = message
+			res_dict.summary_details = self.get_summary_details("Failed")
 		else:
 			res_dict.status = "Request Failure"
 			res_dict.message = "Unexpected response format."
 
 	def get_status(self, status_code):
 		status = "Pending"
-		if status_code == "ACAR":
+		if status_code == "PROCESSED":
 			status = "Processed"
+		elif status_code == "REJECTED":
+			status = "Failed"
 
 		return status
 
 	def format_payment_status_response(self, decrypted_data, res_dict):
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "Failure"
+					res_dict.message = "Failed to parse payment response."
+					return
+
 		data = decrypted_data.get("Data", {})
 
 		if data and data.get("status") == "S":
@@ -294,7 +313,7 @@ class AxisBankConnector(BankConnector):
 			summary_details[transaction.crn] = {
 				"unique_id": transaction.crn,
 				"status_code": transaction.responseCode,
-				"status": self.get_status(transaction.responseCode),
+				"status": self.get_status(transaction.transactionStatus),
 				"utr_number": transaction.utrNo,
 				"message": transaction.statusDescription,
 			}
@@ -313,7 +332,7 @@ class AxisBankConnector(BankConnector):
 			method_map[method](decrypted_data, res_dict)
 
 	def get_payment_status(self):
-		payment_details = self.doc if self.bulk_transaction else self.payment_doc
+		payment_details = self.doc
 		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
 
 		url = self.urls.payment_status
