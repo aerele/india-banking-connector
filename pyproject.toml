@@ -8,14 +8,13 @@ requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
-    # "frappe~=15.0.0" # Installed and managed by bench.
     "pycryptodome",
-    "python-jose",
-    "cryptography",
+    "python-jose~=3.5.0",
+    "cryptography~=42.0.5",
     "urllib3",
     "xmltodict",
     "defusedxml",
-    "paramiko",
+    "paramiko~=4.0.0",
     "python-gnupg"
 ]
 
