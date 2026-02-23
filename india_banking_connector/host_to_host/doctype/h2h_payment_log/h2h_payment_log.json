@@ -174,7 +174,7 @@
  ],
  "grid_page_length": 50,
  "in_create": 1,
- "index_web_pages_for_search": 1,
+ "index_web_pages_for_search": 0,
  "links": [],
  "modified": "2026-02-05 12:41:57.472722",
  "modified_by": "Administrator",

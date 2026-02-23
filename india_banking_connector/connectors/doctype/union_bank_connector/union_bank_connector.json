@@ -166,7 +166,7 @@
    "options": "get_api_endpoints"
   }
  ],
- "index_web_pages_for_search": 1,
+ "index_web_pages_for_search": 0,
  "is_submittable": 1,
  "links": [],
  "modified": "2025-09-11 01:50:07.176572",
