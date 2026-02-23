@@ -279,7 +279,7 @@ class AxisBankConnector(BankConnector):
 		status = "Pending"
 		if status_code == "PROCESSED":
 			status = "Processed"
-		elif status_code == "REJECTED":
+		elif status_code in ["REJECTED", "RETURN"]:
 			status = "Failed"
 
 		return status
