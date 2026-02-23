@@ -134,7 +134,7 @@
    "read_only": 1
   }
  ],
- "index_web_pages_for_search": 1,
+ "index_web_pages_for_search": 0,
  "is_submittable": 1,
  "links": [],
  "modified": "2025-11-05 16:34:20.052261",
