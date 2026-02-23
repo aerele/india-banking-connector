@@ -157,7 +157,7 @@
    "mandatory_depends_on": "encrypted"
   }
  ],
- "index_web_pages_for_search": 1,
+ "index_web_pages_for_search": 0,
  "is_submittable": 1,
  "links": [],
  "modified": "2025-09-23 13:20:40.862184",
