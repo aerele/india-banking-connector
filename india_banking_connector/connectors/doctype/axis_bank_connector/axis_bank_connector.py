@@ -228,22 +228,22 @@ class AxisBankConnector(BankConnector):
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		res_dict = frappe._dict({})
-		if response.ok:
+		try:
 			jws_verified = self.jws_verify(
 				response.text, self.get_file_content(self.public_key)
 			)
-
 			jwe_decrypted = self.jwe_decrypt(
 				jws_verified, self.get_file_content(self.private_key)
 			).decode()
-
 			self.set_decrypted_response(log_id, jwe_decrypted)
 			self.get_formated_response(jwe_decrypted, res_dict, method)
-		else:
-			res_dict.status = "Request Failure"
-			res_dict.error = response.text
-
-		return res_dict
+		except Exception:
+			frappe.log_error(
+				"Axis Bank response decryption/verification failed",
+				frappe.get_traceback(with_context=True),
+			)
+			res_dict.status = "Decryption Failure"
+			res_dict.error = "Failed to verify or decrypt bank response."
 
 	def format_payment_response(self, decrypted_data, res_dict):
 		if isinstance(decrypted_data, str):

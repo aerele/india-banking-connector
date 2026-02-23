@@ -89,7 +89,8 @@ def format_with_indent(data):
 			return parseString(data).toprettyxml(indent=" " * 4)
 	except Exception:
 		frappe.log_error(
-			title="Error in formatting data", message=frappe.get_traceback()
+			title="Error in formatting data",
+			message=frappe.get_traceback(with_context=True),
 		)
 	return data
 
@@ -150,7 +151,8 @@ def create_api_log(
 		log_doc.save()
 	except Exception:
 		frappe.log_error(
-			title="Error in creating API Log", message=frappe.get_traceback()
+			title="Error in creating API Log",
+			message=frappe.get_traceback(with_context=True),
 		)
 	else:
 		frappe.db.commit()
