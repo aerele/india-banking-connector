@@ -150,4 +150,4 @@ def get_existing_doc(doctype: str, filters: dict = None) -> Document | None:
 
 
 def get_current_time_in_milliseconds():
-	return int(get_datetime().timestamp())
+	return int(get_datetime().timestamp() * 1000)
