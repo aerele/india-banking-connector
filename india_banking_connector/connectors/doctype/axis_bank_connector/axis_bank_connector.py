@@ -307,7 +307,7 @@ class AxisBankConnector(BankConnector):
 			res_dict.message = "Invalid response format."
 
 		summary_details = {}
-		transactions = data.get("data", {}).get("CUR_TXN_ENQ")
+		transactions = data.get("data", {}).get("CUR_TXN_ENQ") or []
 		for transaction in transactions:
 			transaction = frappe._dict(transaction)
 			summary_details[transaction.crn] = {
