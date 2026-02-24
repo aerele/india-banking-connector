@@ -381,10 +381,13 @@ class UnionBankConnector(BankConnector):
 				response_data = frappe._dict(data.get("data", {}))
 				payment_status = self.get_status_details(response_data.responseCode)
 				if response_data.responseCode == "000":
+					utr_number = response_data.NeftRefId
+					if self.payment_doc.bank == "":
+						utr_number = self.payment_doc.name
 					res_dict.summary_details = {
 						self.payment_doc.name: {
 							"status": payment_status,
-							"utr_number": response_data.NeftRefId,
+							"utr_number": utr_number,
 							"processed_date": get_datetime(
 								response_data.transactionTime
 							).strftime("%Y-%m-%d"),
