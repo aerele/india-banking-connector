@@ -244,6 +244,8 @@ class AxisBankConnector(BankConnector):
 			)
 			res_dict.status = "Decryption Failure"
 			res_dict.error = "Failed to verify or decrypt bank response."
+		
+		return res_dict
 
 	def format_payment_response(self, decrypted_data, res_dict):
 		if isinstance(decrypted_data, str):
