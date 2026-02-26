@@ -287,7 +287,7 @@ class UnionBankConnector(BankConnector):
 					or payment_details.party,
 					"beneficiaryAddress": "India",
 					"beneficiaryBankIFSCCode": payment_details.branch_code,
-					"beneficiaryMobileNumber": payment_details.mobile_no,
+					"beneficiaryMobileNumber": payment_details.mobile_no or "9999999999",
 					"beneficiaryEmailId": payment_details.email,
 					"transactionAmount": cstr(payment_details.amount),
 					"transactionDate": getdate().strftime("%Y%m%d"),
