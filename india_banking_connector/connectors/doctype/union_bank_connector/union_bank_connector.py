@@ -483,7 +483,6 @@ class UnionBankConnector(BankConnector):
 			"904",
 			"996",
 			"914",
-			"999",
 			"101",
 			"103",
 			"105",
@@ -517,7 +516,6 @@ class UnionBankConnector(BankConnector):
 			"505",
 			"522",
 			"525",
-			"904",
 			"913",
 		]
 		pending_status_code = [
@@ -532,6 +530,7 @@ class UnionBankConnector(BankConnector):
 			"998",
 			"401",
 			"601",
+			"999",
 		]
 
 		if status_code == "000":
