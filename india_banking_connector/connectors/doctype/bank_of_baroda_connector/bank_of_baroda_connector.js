@@ -2,9 +2,9 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Bank of Baroda Connector", {
-  get_api_endpoints(frm) {
-    frm.call("get_api_endpoints").then(() => {
-      frm.dirty();
-    });
-  },
+	reset_endpoints(frm) {
+		frm.call("reset_endpoints").then(() => {
+			frm.dirty();
+		});
+	},
 });

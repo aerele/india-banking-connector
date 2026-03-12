@@ -505,18 +505,3 @@ class BankofBarodaConnector(BankConnector):
 			else:
 				res_dict.status = "Failed"
 				res_dict.message = data
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import BOB_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(BOB_ENCRYPTED_END_POINTS)
-		stagin_or_prod = "testing" if self.testing else "production"
-		endpoints = decrypted[self.bank][stagin_or_prod]["composite"]
-
-		self.api_endpoints = []
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in endpoints.items()],
-		)
