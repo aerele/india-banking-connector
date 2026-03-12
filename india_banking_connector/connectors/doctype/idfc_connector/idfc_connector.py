@@ -409,18 +409,3 @@ class IDFCConnector(BankConnector):
 				}
 			}
 		)
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import IDFC_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(IDFC_ENCRYPTED_END_POINTS)
-		stagin_or_prod = "testing" if self.testing else "production"
-		endpoints = decrypted[self.bank][stagin_or_prod]["composite"]
-
-		self.api_endpoints = []
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in endpoints.items()],
-		)
