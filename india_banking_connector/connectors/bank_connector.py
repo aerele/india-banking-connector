@@ -14,6 +14,16 @@ from frappe.model.document import Document
 from frappe.query_builder import DocType
 from jose import jwe, jws
 
+ACTIONS = [
+	"host",
+	"make_payment",
+	"payment_status",
+	"bank_balance",
+	"bank_statement",
+	"register",
+	"registration_status",
+]
+
 
 class BankConnector(Document):
 	def __init__(self, *args, **kwargs):
@@ -26,22 +36,14 @@ class BankConnector(Document):
 
 	@property
 	def urls(self):
-		end_point_url = DocType("Endpoint URLs")
-		bank_api_endpoint = DocType("Bank API Endpoint")
+		CONNECTOR = DocType(self.doctype)
+		EU = DocType("Endpoint URLs")
 		urls = (
-			frappe.qb.from_(end_point_url)
-			.join(bank_api_endpoint)
-			.on(end_point_url.parent == bank_api_endpoint.name)
-			.select(end_point_url.action, end_point_url.url)
-			.where(bank_api_endpoint.bank == self.bank)
-			.where(
-				bank_api_endpoint.environment
-				== ("Testing" if self.testing else "Production")
-			)
-			.where(
-				bank_api_endpoint.bulk_transaction
-				== (1 if self.bulk_transaction else 0)
-			)
+			frappe.qb.from_(CONNECTOR)
+			.join(EU)
+			.on(EU.parent == self.name)
+			.select(EU.action, EU.url)
+			.orderby(EU.idx)
 		).run()
 
 		return frappe._dict(dict(urls))
@@ -411,3 +413,44 @@ class BankConnector(Document):
 					"encrypted": 1 if _encrypt else 0,
 				},
 			)
+
+	@frappe.whitelist()
+	def reset_endpoints(self):
+		self.api_endpoints = []
+		self.extend(
+			"api_endpoints",
+			[{"action": action, "url": ""} for action in ACTIONS],
+		)
+
+	def on_update(self):
+		if self.has_value_changed("base_url"):
+			self.update_endpoints()
+
+	def update_endpoints(self):
+		from urllib.parse import urlparse
+
+		updated_endpoints = []
+		for row in self.api_endpoints:
+			if row.action == "host":
+				parsed = urlparse(self.base_url)
+				url = parsed.netloc
+			elif not row.url:
+				url = ""
+			else:
+				parsed = urlparse(row.url)
+				url = self.base_url + "/" + parsed.path.lstrip("/")
+				if not self.testing and url and urlparse(url).scheme != "https":
+					print(url)
+					frappe.throw("URL must use HTTPS")
+
+			updated_endpoints.append(
+				{
+					"action": row.action,
+					"url": url,
+				}
+			)
+		self.api_endpoints = []
+		self.extend(
+			"api_endpoints",
+			updated_endpoints,
+		)
