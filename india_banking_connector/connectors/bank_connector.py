@@ -422,7 +422,7 @@ class BankConnector(Document):
 			[{"action": action, "url": ""} for action in ACTIONS],
 		)
 
-	def on_update(self):
+	def validate(self):
 		if self.has_value_changed("base_url"):
 			self.update_endpoints()
 
