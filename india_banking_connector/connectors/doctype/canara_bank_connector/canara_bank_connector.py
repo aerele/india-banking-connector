@@ -1,9 +1,8 @@
 # Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
-# import frappe
-from frappe.model.document import Document
+from india_banking_connector.connectors.bank_connector import BankConnector
 
 
-class CanaraBankConnector(Document):
-	pass
+class CanaraBankConnector(BankConnector):
+	bank = "Canara Bank"
