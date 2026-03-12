@@ -7,6 +7,7 @@ STD_BANK_LIST = [
 	"Union Bank of India",
 	"Bank of Baroda",
 	"IDFC Bank",
+	"Canara Bank",
 ]
 
 DEFAULT_CONNECTOR = [
@@ -16,6 +17,7 @@ DEFAULT_CONNECTOR = [
 	"Kotak Mahindra Connector",
 	"Bank of Baroda Connector",
 	"IDFC Connector",
+	"Canara Bank Connector",
 ]
 
 DEFAULT_HOSTS = [
