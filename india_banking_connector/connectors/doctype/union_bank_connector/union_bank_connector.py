@@ -287,7 +287,8 @@ class UnionBankConnector(BankConnector):
 					or payment_details.party,
 					"beneficiaryAddress": "India",
 					"beneficiaryBankIFSCCode": payment_details.branch_code,
-					"beneficiaryMobileNumber": payment_details.mobile_no or "9999999999",
+					"beneficiaryMobileNumber": payment_details.mobile_no
+					or "9999999999",
 					"beneficiaryEmailId": payment_details.email,
 					"transactionAmount": cstr(payment_details.amount),
 					"transactionDate": getdate().strftime("%Y%m%d"),
@@ -541,18 +542,3 @@ class UnionBankConnector(BankConnector):
 			return "Failed"
 		elif status_code in pending_status_code:
 			return "Pending"
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import UBI_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(UBI_ENCRYPTED_END_POINTS)
-		stagin_or_prod = "testing" if self.testing else "production"
-		endpoints = decrypted[self.bank][stagin_or_prod]["composite"]
-
-		self.api_endpoints = []
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in endpoints.items()],
-		)
