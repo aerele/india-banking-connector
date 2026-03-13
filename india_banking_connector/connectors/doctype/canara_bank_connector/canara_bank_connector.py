@@ -6,6 +6,7 @@ import re
 import frappe
 import requests
 from frappe.utils import cstr, get_datetime
+from jose.constants import ALGORITHMS
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -24,6 +25,8 @@ class CanaraBankConnector(BankConnector):
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
 
 		self.account_config = {}
+
+		self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
 
 	@property
 	def urls(self):
@@ -59,10 +62,12 @@ class CanaraBankConnector(BankConnector):
 
 		url = self.urls.make_payment
 		headers = self.headers
-		payload = self.get_encrypted_payload(method="make_payment")
+
+		signature, payload = self.get_encrypted_payload(method="make_payment")
+		headers["x-signature"] = signature
 
 		response = requests.post(
-			url, headers=headers, data=payload, cert=self.get_cert()
+			url, headers=headers, json=payload, cert=self.get_cert()
 		)
 
 		log_id = create_api_log(
@@ -81,6 +86,28 @@ class CanaraBankConnector(BankConnector):
 
 	def get_encrypted_payload(self, method):
 		self.update_account_config(method)
+		encrypted = self.jwe_encrypt(
+			self.account_config["Request"]["body"]["encryptData"],
+			self.get_file_content(self.AES_KEY),
+			encryption=ALGORITHMS.A128CBC_HS256,
+			algorithm=ALGORITHMS.A256KW,
+		)
+
+		payload = {
+			"Request": {
+				"body": {
+					"branchCode": self.branch_code,
+					"encryptData": encrypted.decode("utf-8"),
+				}
+			}
+		}
+
+		return (
+			self.generate_signature(
+				self.account_config, self.get_file_content(self.private_key)
+			),
+			payload,
+		)
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		pass

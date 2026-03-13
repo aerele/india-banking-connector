@@ -10,8 +10,11 @@
   "account_number",
   "client_id",
   "client_secret",
+  "branch_code",
   "column_break_gvmt",
   "testing",
+  "cert",
+  "aes_key",
   "balance_and_statement_section",
   "balance_check",
   "column_break_tveq",
@@ -116,11 +119,26 @@
    "fieldtype": "Password",
    "label": "Client Secret",
    "reqd": 1
+  },
+  {
+   "fieldname": "cert",
+   "fieldtype": "Attach",
+   "label": "Cert(Client)"
+  },
+  {
+   "fieldname": "aes_key",
+   "fieldtype": "Password",
+   "label": "AES key"
+  },
+  {
+   "fieldname": "branch_code",
+   "fieldtype": "Data",
+   "label": "Branch Code"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 12:40:44.966175",
+ "modified": "2026-03-13 16:22:42.803068",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Canara Bank Connector",
