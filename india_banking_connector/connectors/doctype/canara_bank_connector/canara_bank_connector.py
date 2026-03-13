@@ -80,7 +80,30 @@ class CanaraBankConnector(BankConnector):
 		)
 
 	def get_encrypted_payload(self, method):
-		pass
+		self.update_account_config(method)
 
 	def get_decrypted_response(self, response, method, log_id=None):
 		pass
+
+	def update_account_config(self, method):
+		method_map = {
+			"make_payment": self.set_payment_data,
+			"payment_status": self.set_payment_status_data,
+			"bank_balance": self.set_balance_data,
+			"bank_statement": self.set_statement_data,
+		}
+
+		if method in method_map:
+			method_map[method]()
+
+	def set_payment_data(self):
+		self.account_config.update({})
+
+	def set_payment_status_data(self):
+		self.account_config.update({})
+
+	def set_balance_data(self):
+		self.account_config.update({})
+
+	def set_statement_data(self):
+		self.account_config.update({})
