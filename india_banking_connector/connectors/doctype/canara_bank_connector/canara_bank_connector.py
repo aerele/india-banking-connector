@@ -165,7 +165,24 @@ class CanaraBankConnector(BankConnector):
 		self.account_config.update({})
 
 	def set_payment_status_data(self):
-		self.account_config.update({})
+		payment_details = self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"TFAPassword": self.tfa_password,
+							"Key": self.customer_key,
+							"CustomerID": self.customer_id,
+							"BatchRequestID": unique_id,
+							"TxnRefNo": "",
+						}
+					}
+				}
+			}
+		)
 
 	def set_balance_data(self):
 		self.account_config.update(
