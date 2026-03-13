@@ -11,6 +11,7 @@
   "branch_code",
   "customer_id",
   "customer_key",
+  "tfa_password",
   "column_break_gvmt",
   "testing",
   "client_id",
@@ -152,11 +153,16 @@
    "fieldname": "private_keyclient",
    "fieldtype": "Attach",
    "label": "Private Key(Client)"
+  },
+  {
+   "fieldname": "tfa_password",
+   "fieldtype": "Password",
+   "label": "TFAPassword"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 17:48:15.004568",
+ "modified": "2026-03-13 18:07:35.971617",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Canara Bank Connector",
