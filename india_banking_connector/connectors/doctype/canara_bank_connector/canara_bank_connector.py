@@ -168,7 +168,21 @@ class CanaraBankConnector(BankConnector):
 		self.account_config.update({})
 
 	def set_balance_data(self):
-		self.account_config.update({})
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"branchCode": self.branch_code,
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"acctNumber": self.account_number,
+							"customerID": self.customer_id,
+							"key": self.customer_key,
+						},
+					}
+				}
+			}
+		)
 
 	def set_statement_data(self):
 		payload_details = self.doc
