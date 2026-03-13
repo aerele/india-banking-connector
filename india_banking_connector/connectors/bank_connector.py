@@ -9,7 +9,8 @@ from Crypto.Cipher import PKCS1_v1_5 as Cipher_PKCS1_v1_5
 from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from frappe.model.document import Document
 from frappe.query_builder import DocType
 from jose import jwe, jws
@@ -221,17 +222,6 @@ class BankConnector(Document):
 
 		return jws_verified.decode("utf-8")
 
-	def decrypt_response(self, response):
-		jwe_decrypted = jwe.decrypt(
-			response.text.encode("utf-8"), self.get_file_content(self.private_key)
-		)
-		jws_verified = jws.verify(
-			jwe_decrypted,
-			self.get_file_content(self.public_key),
-			algorithms=["RS256"],
-		)
-		return jws_verified.decode("utf-8")
-
 	def generate_kid(self, file_name):
 		public_key_pem_str = self.get_file_content(file_name)
 
@@ -258,6 +248,19 @@ class BankConnector(Document):
 
 	def get_file_relative_path(self, file_url):
 		return frappe.get_doc("File", {"file_url": file_url}).get_full_path()
+
+	def generate_signature(self, data: bytes, key: bytes):
+		if isinstance(data, dict):
+			data = json.dumps(data, separators=(",", ":"))
+
+		if isinstance(data, str):
+			data = data.encode("utf-8")
+		if isinstance(key, str):
+			key = key.encode("utf-8")
+
+		private_key = serialization.load_pem_private_key(key, password=None)
+		signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
+		return b64encode(signature).decode("utf-8")
 
 	# Kotak Encryption and Decryption
 
