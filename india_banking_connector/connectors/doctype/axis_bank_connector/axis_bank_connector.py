@@ -7,7 +7,6 @@ import re
 
 import frappe
 import requests
-from frappe.query_builder import DocType
 from frappe.utils import cstr, flt, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -30,17 +29,7 @@ class AxisBankConnector(BankConnector):
 
 	@property
 	def urls(self):
-		CONNECTOR = DocType(self.doctype)
-		EU = DocType("Endpoint URLs")
-		urls = (
-			frappe.qb.from_(CONNECTOR)
-			.join(EU)
-			.on(EU.parent == self.name)
-			.select(EU.action, EU.url)
-			.orderby(EU.idx)
-		).run()
-
-		return frappe._dict(dict(urls))
+		return super().urls
 
 	@property
 	def headers(self):
