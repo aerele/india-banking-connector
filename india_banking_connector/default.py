@@ -27,7 +27,7 @@ DEFAULT_HOSTS = [
 BANKS_CONNECTOR_MAP = {
 	"ICICI Bank": "ICICI Connector",
 	"HDFC Bank": "HDFC Connector",
-	"Yes Bank": "YES BANK Connector",
+	"Yes Bank": "YES Bank Connector",
 	"Kotak Mahindra Bank": "Kotak Mahindra Connector",
 	"Union Bank of India": "Union Bank Connector",
 	"Bank of Baroda": "Bank of Baroda Connector",

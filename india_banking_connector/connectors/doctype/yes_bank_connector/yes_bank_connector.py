@@ -13,7 +13,7 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 )
 
 
-class YESBANKConnector(BankConnector):
+class YESBankConnector(BankConnector):
 	bank = "YES Bank"
 
 	__all__ = ["initiate_payment", "get_payment_status"]
