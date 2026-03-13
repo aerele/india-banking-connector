@@ -8,6 +8,7 @@ STD_BANK_LIST = [
 	"Bank of Baroda",
 	"IDFC Bank",
 	"Canara Bank",
+	"CITI Bank",
 ]
 
 DEFAULT_CONNECTOR = [
@@ -15,8 +16,10 @@ DEFAULT_CONNECTOR = [
 	"HDFC Connector",
 	"YES Bank Connector",
 	"Kotak Mahindra Connector",
+	"Union Bank Connector",
 	"Bank of Baroda Connector",
 	"IDFC Connector",
+	"Axis Bank Connector",
 	"Canara Bank Connector",
 ]
 
@@ -24,6 +27,7 @@ DEFAULT_HOSTS = [
 	"CITI H2H Connector",
 ]
 
+#
 BANKS_CONNECTOR_MAP = {
 	"ICICI Bank": "ICICI Connector",
 	"HDFC Bank": "HDFC Connector",
@@ -33,6 +37,7 @@ BANKS_CONNECTOR_MAP = {
 	"Bank of Baroda": "Bank of Baroda Connector",
 	"IDFC Bank": "IDFC Connector",
 	"Axis Bank": "Axis Bank Connector",
+	"Canara Bank": "Canara Bank Connector",
 }
 
 BANKS_H2H_MAP = {
