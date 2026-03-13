@@ -9,7 +9,6 @@ import frappe
 import jwt
 import requests
 from frappe import _
-from frappe.query_builder import DocType
 from frappe.utils import add_to_date, get_datetime
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -42,17 +41,8 @@ class IDFCConnector(BankConnector):
 		self.update_aes_and_iv()
 		if not self.bulk_transaction:
 			frappe.throw("The scope has not been implemented.")
-		CONNECTOR = DocType(self.doctype)
-		EU = DocType("Endpoint URLs")
-		urls = (
-			frappe.qb.from_(CONNECTOR)
-			.join(EU)
-			.on(EU.parent == self.name)
-			.select(EU.action, EU.url)
-			.orderby(EU.idx)
-		).run()
 
-		return frappe._dict(dict(urls))
+		return super().urls
 
 	def update_aes_and_iv(self):
 		self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))

@@ -7,7 +7,6 @@ import json
 import frappe
 import requests
 from frappe import _
-from frappe.query_builder import DocType
 from frappe.utils import cstr, flt, get_datetime, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -53,17 +52,7 @@ class BankofBarodaConnector(BankConnector):
 	def urls(self):
 		self.update_aes_and_iv()
 
-		CONNECTOR = DocType(self.doctype)
-		EU = DocType("Endpoint URLs")
-		urls = (
-			frappe.qb.from_(CONNECTOR)
-			.join(EU)
-			.on(EU.parent == self.name)
-			.select(EU.action, EU.url)
-			.orderby(EU.idx)
-		).run()
-
-		return frappe._dict(dict(urls))
+		return super().urls
 
 	def headers(self):
 		return {
