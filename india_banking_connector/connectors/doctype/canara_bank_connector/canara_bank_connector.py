@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
+import json
 import re
 
 import frappe
@@ -109,8 +110,38 @@ class CanaraBankConnector(BankConnector):
 			payload,
 		)
 
-	def get_decrypted_response(self, response, method, log_id=None):
-		pass
+	def get_decrypted_response(self, response, method: str, log_id: str):
+		res_dict = frappe._dict({})
+		if response.ok:
+			decrypted_data = frappe._dict({})
+			try:
+				response = json.loads(response.text)
+				encrypted_data = (
+					response.get("Response", {}).get("body", {}).get("encryptData", "")
+				)
+				if not encrypted_data:
+					res_dict.status = "FAILED"
+					res_dict.message = "Data Not Found!"
+
+				decrypted_data = self.jwe_decrypt(
+					encrypted_data,
+					self.AES_KEY,
+				)
+				self.set_decrypted_response(log_id, decrypted_data)
+			except Exception:
+				frappe.log_error(
+					"Decryption Failed", frappe.get_traceback(with_context=1)
+				)
+				res_dict.status = "FAILED"
+				res_dict.message = "Response Decryption Failed!"
+				return res_dict
+
+			self.get_formated_response(decrypted_data, res_dict, method)
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.message = response.text or response.status_code
+
+		return res_dict
 
 	def update_account_config(self, method):
 		method_map = {
@@ -134,3 +165,26 @@ class CanaraBankConnector(BankConnector):
 
 	def set_statement_data(self):
 		self.account_config.update({})
+
+	def get_formated_response(self, decrypted_data, res_dict, method):
+		method_map = {
+			"make_payment": self.format_payment_response,
+			"payment_status": self.format_payment_status_response,
+			"bank_balance": self.format_bank_balance_response,
+			"bank_statement": self.format_statement_response,
+		}
+
+		if method in method_map:
+			method_map[method](decrypted_data, res_dict)
+
+	def format_payment_response(self, decrypted_data, res_dict):
+		pass
+
+	def format_payment_status_response(self, decrypted_data, res_dict):
+		pass
+
+	def format_bank_balance_response(self, decrypted_data, res_dict):
+		pass
+
+	def format_statement_response(self, decrypted_data, res_dict):
+		pass
