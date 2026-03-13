@@ -7,7 +7,7 @@ from base64 import b64encode
 
 import frappe
 import requests
-from frappe.utils import cstr, get_datetime, getdate
+from frappe.utils import cstr, flt, get_datetime, getdate
 from jose.constants import ALGORITHMS
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -162,7 +162,60 @@ class CanaraBankConnector(BankConnector):
 			method_map[method]()
 
 	def set_payment_data(self):
-		self.account_config.update({})
+		payment_details = self.doc
+		transaction_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"TFAPassword": self.get_password("tfa_password"),
+							"Key": self.get_password("customer_key"),
+							"CustomerID": self.customer_id,
+							"TotAmt": cstr(flt(payment_details.total, 2)),
+							"TxnCnt": cstr(len(payment_details.get("summary"))),
+							"DatTxn": getdate().strftime("%Y%m%d"),
+							"BatchRequestID": transaction_id,
+							"TxnDtls": {
+								"Txn": self.get_transactions(),
+							},
+						}
+					}
+				}
+			}
+		)
+
+	def get_transactions(self):
+		return [
+			{
+				"TxnRefNo": summary.get("name"),
+				"DrAcct": summary.get("bank_account_no"),
+				"SndrNm": self.account_name,
+				"TxnAmt": cstr(flt(summary.get("amount"), 2)),
+				"TxnType": self.get_payment_mode(summary.get("mode_of_transfer")),
+				"BenefIFSC": summary.get("branch_code"),
+				"BenefAcNo": summary.get("bank_account_no"),
+				"BenefAcNm": summary.get("party_name") or summary.get("party"),
+				"Nrtv": f'Payment from {summary.get("parent", "")} for {summary.get("party_name", "") or summary.get("party", "")}',
+			}
+			for summary in self.doc.get("summary")
+		]
+
+	def get_payment_mode(self, mode_of_transfer: str) -> str:
+		mode_of_transfer = mode_of_transfer.lower()
+		payment_mode = None
+		if "a2a" in mode_of_transfer:
+			payment_mode = "INTRA"
+		elif "imps" in mode_of_transfer:
+			payment_mode = "IMPS"
+		elif "neft" in mode_of_transfer:
+			payment_mode = "NEFT"
+		elif "rtgs" in mode_of_transfer:
+			payment_mode = "RTGS"
+
+		return payment_mode
 
 	def set_payment_status_data(self):
 		payment_details = self.doc
