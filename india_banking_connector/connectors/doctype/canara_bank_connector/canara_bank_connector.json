@@ -8,12 +8,15 @@
  "field_order": [
   "active",
   "account_number",
-  "client_id",
-  "client_secret",
   "branch_code",
+  "customer_id",
+  "customer_key",
   "column_break_gvmt",
   "testing",
+  "client_id",
+  "client_secret",
   "cert",
+  "private_keyclient",
   "aes_key",
   "balance_and_statement_section",
   "balance_check",
@@ -110,7 +113,7 @@
   },
   {
    "fieldname": "client_id",
-   "fieldtype": "Data",
+   "fieldtype": "Password",
    "label": "Client Id",
    "reqd": 1
   },
@@ -134,11 +137,26 @@
    "fieldname": "branch_code",
    "fieldtype": "Data",
    "label": "Branch Code"
+  },
+  {
+   "fieldname": "customer_id",
+   "fieldtype": "Data",
+   "label": "Customer ID"
+  },
+  {
+   "fieldname": "customer_key",
+   "fieldtype": "Data",
+   "label": "Customer key"
+  },
+  {
+   "fieldname": "private_keyclient",
+   "fieldtype": "Attach",
+   "label": "Private Key(Client)"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 16:22:42.803068",
+ "modified": "2026-03-13 17:48:15.004568",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Canara Bank Connector",
