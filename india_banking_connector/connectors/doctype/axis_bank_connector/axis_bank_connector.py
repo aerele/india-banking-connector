@@ -244,7 +244,7 @@ class AxisBankConnector(BankConnector):
 			)
 			res_dict.status = "Decryption Failure"
 			res_dict.error = "Failed to verify or decrypt bank response."
-		
+
 		return res_dict
 
 	def format_payment_response(self, decrypted_data, res_dict):
@@ -383,15 +383,4 @@ class AxisBankConnector(BankConnector):
 	def get_bank_statement(self):
 		frappe.throw(
 			"Bank statement API is not currently supported by the Axis Bank Connector."
-		)
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import AXIS_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(AXIS_ENCRYPTED_END_POINTS)
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in decrypted.items()],
 		)
