@@ -8,6 +8,7 @@
  "field_order": [
   "active",
   "account_number",
+  "account_name",
   "branch_code",
   "customer_id",
   "customer_key",
@@ -158,11 +159,17 @@
    "fieldname": "tfa_password",
    "fieldtype": "Password",
    "label": "TFAPassword"
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "label": "Account Name",
+   "reqd": 1
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 18:07:35.971617",
+ "modified": "2026-03-13 18:24:54.191780",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Canara Bank Connector",
