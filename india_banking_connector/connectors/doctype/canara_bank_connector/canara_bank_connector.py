@@ -3,10 +3,11 @@
 
 import json
 import re
+from base64 import b64encode
 
 import frappe
 import requests
-from frappe.utils import cstr, get_datetime
+from frappe.utils import cstr, get_datetime, getdate
 from jose.constants import ALGORITHMS
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -43,7 +44,7 @@ class CanaraBankConnector(BankConnector):
 		)  # normalise
 
 		return {
-			"x-client-id": self.client_id,
+			"x-client-id": self.get_password("client_id"),
 			"x-client-secret": self.get_password("client_secret"),
 			"x-client-certificate": cert_key,
 			"x-api-interaction-id": "1",
@@ -51,6 +52,12 @@ class CanaraBankConnector(BankConnector):
 			"x-signature": "",
 			"Content-Type": "application/json",
 		}
+
+	def get_auth(self):
+		auth_string = (
+			self.get_password("client_id") + ":" + self.get_password("client_secret")
+		)
+		return b64encode(auth_string.encode()).decode()
 
 	def initiate_payment(self):
 		payment_details = self.doc
@@ -164,7 +171,29 @@ class CanaraBankConnector(BankConnector):
 		self.account_config.update({})
 
 	def set_statement_data(self):
-		self.account_config.update({})
+		payload_details = self.doc
+
+		from_date = getdate(payload_details.get("from_date", "")).strftime("%d-%m-%Y")
+		to_date = getdate(payload_details.get("to_date", "")).strftime("%d-%m-%Y")
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"acctNumber": self.account_number,
+							"customerID": self.customer_id,
+							"NUMBEROFTXN": "n",
+							"FROMDATE": from_date,
+							"TODATE": to_date,
+							"searchBy": "",
+							"branchCode": self.branch_code,
+							"key": self.customer_key,
+						}
+					}
+				}
+			}
+		)
 
 	def get_formated_response(self, decrypted_data, res_dict, method):
 		method_map = {
