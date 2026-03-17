@@ -28,7 +28,9 @@ class CanaraBankConnector(BankConnector):
 
 		self.account_config = {}
 
-		self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
+		self.AES_KEY = None
+		if self.aes_key:
+			self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
 
 	@property
 	def urls(self):
