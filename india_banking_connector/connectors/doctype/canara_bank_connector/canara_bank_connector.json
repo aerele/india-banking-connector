@@ -11,14 +11,17 @@
   "account_name",
   "branch_code",
   "customer_id",
-  "customer_key",
   "tfa_password",
+  "enable_password_encryption",
+  "encryption_key",
+  "encrypted_tfa_password",
   "column_break_gvmt",
   "testing",
+  "auth_key",
   "client_id",
   "client_secret",
   "cert",
-  "private_keyclient",
+  "private_key",
   "aes_key",
   "balance_and_statement_section",
   "balance_check",
@@ -136,6 +139,7 @@
    "label": "AES key"
   },
   {
+   "default": "404",
    "fieldname": "branch_code",
    "fieldtype": "Data",
    "label": "Branch Code"
@@ -144,16 +148,6 @@
    "fieldname": "customer_id",
    "fieldtype": "Data",
    "label": "Customer ID"
-  },
-  {
-   "fieldname": "customer_key",
-   "fieldtype": "Data",
-   "label": "Customer key"
-  },
-  {
-   "fieldname": "private_keyclient",
-   "fieldtype": "Attach",
-   "label": "Private Key(Client)"
   },
   {
    "fieldname": "tfa_password",
@@ -165,11 +159,46 @@
    "fieldtype": "Data",
    "label": "Account Name",
    "reqd": 1
+  },
+  {
+   "depends_on": "enable_password_encryption",
+   "description": "Use Random Key",
+   "fieldname": "encryption_key",
+   "fieldtype": "Password",
+   "label": "Encryption Key",
+   "mandatory_depends_on": "enable_password_encryption"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private Key(Client)"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: !!doc.tfa_password",
+   "fieldname": "enable_password_encryption",
+   "fieldtype": "Check",
+   "label": "Enable Password Encryption"
+  },
+  {
+   "depends_on": "testing",
+   "fieldname": "auth_key",
+   "fieldtype": "Data",
+   "label": "Auth Key",
+   "mandatory_depends_on": "testing"
+  },
+  {
+   "depends_on": "enable_password_encryption",
+   "description": "Steps to encrypt the transaction password:</br></br>\n\nStep 1: Open the Password Encryption Tool.</br>\nStep 2: Enter the Transaction Password and Encryption Key.</br>\nStep 3: Click Generate to create the encrypted password.</br>\nStep 4: Paste the generated value into the Encrypted TFAPassword field.</br>",
+   "fieldname": "encrypted_tfa_password",
+   "fieldtype": "Password",
+   "label": "Encrypted TFAPassword",
+   "mandatory_depends_on": "enable_password_encryption"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 18:24:54.191780",
+ "modified": "2026-03-18 13:22:10.112803",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Canara Bank Connector",
