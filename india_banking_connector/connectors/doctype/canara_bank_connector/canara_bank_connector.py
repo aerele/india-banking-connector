@@ -129,6 +129,34 @@ class CanaraBankConnector(BankConnector):
 			response, method="bank_balance", log_id=log_id
 		)
 
+	def get_bank_statement(self):
+		if not self.statement_fetch:
+			frappe.throw(_("Statement fetch is disabled."))
+
+		url = self.urls.bank_statement
+		headers = self.headers()
+
+		signature, payload = self.get_encrypted_payload(method="bank_statement")
+		headers["x-signature"] = signature
+
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Statement",
+			account_config=self.account_config,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+			unique_id=self.name,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_statement", log_id=log_id
+		)
+
 	def get_encrypted_payload(self, method):
 		self.update_account_config(method)
 		encrypted = self.jwe_encrypt(
@@ -345,4 +373,20 @@ class CanaraBankConnector(BankConnector):
 		res_dict.current_balance = decrypted_data.get("currentBalance", 0)
 
 	def format_statement_response(self, decrypted_data, res_dict):
-		pass
+		transactions = []
+
+		for txn in decrypted_data.get("transactions", []):
+			amount = abs(flt(txn.get("transactionAmount")))
+			if txn.get("creditDebitFlag").lower() == "d":
+				amount = -1 * amount
+			transaction = {
+				"transaction_date": txn.get("transactionDate", ""),
+				"transaction_amount": amount,
+				"reference_number": txn.get("txnRefNumber"),
+				"user_ref_number": txn.get("userRefNumber", ""),
+				"transaction_description": txn.get("description", ""),
+			}
+			transactions.append(transaction)
+
+		res_dict.server_status = "Success"
+		res_dict.bank_statements = transactions
