@@ -10,7 +10,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import padding
 from frappe.model.document import Document
 from frappe.query_builder import DocType
 from jose import jwe, jws
@@ -249,7 +249,7 @@ class BankConnector(Document):
 	def get_file_relative_path(self, file_url):
 		return frappe.get_doc("File", {"file_url": file_url}).get_full_path()
 
-	def generate_signature(self, data: bytes, key: bytes):
+	def generate_signature(self, data: bytes, key: bytes, password: str = None):
 		if isinstance(data, dict):
 			data = json.dumps(data, separators=(",", ":"))
 
@@ -258,8 +258,8 @@ class BankConnector(Document):
 		if isinstance(key, str):
 			key = key.encode("utf-8")
 
-		private_key = serialization.load_pem_private_key(key, password=None)
-		signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
+		private_key = serialization.load_pem_private_key(key, password=password)
+		signature = private_key.sign(data, padding.PKCS1v15(), hashes.SHA256())
 		return b64encode(signature).decode("utf-8")
 
 	# Kotak Encryption and Decryption

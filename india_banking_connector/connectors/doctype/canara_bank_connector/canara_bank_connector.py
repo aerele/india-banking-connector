@@ -7,6 +7,7 @@ from base64 import b64encode
 
 import frappe
 import requests
+from frappe import _
 from frappe.utils import cstr, flt, get_datetime, getdate
 from jose.constants import ALGORITHMS
 
@@ -28,12 +29,9 @@ class CanaraBankConnector(BankConnector):
 
 		self.account_config = {}
 
-		self.AES_KEY = None
-		if self.aes_key:
-			self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
-
 	@property
 	def urls(self):
+		self.update_aes_key()
 		return super().urls
 
 	@property
@@ -56,10 +54,19 @@ class CanaraBankConnector(BankConnector):
 		}
 
 	def get_auth(self):
+		if self.testing:
+			return self.auth_key
+
 		auth_string = (
-			self.get_password("client_id") + ":" + self.get_password("client_secret")
+			self.get_password("client_id")
+			+ ":"
+			+ self.get_password("encrypted_tfa_password")
 		)
 		return b64encode(auth_string.encode()).decode()
+
+	def update_aes_key(self):
+		if self.aes_key:
+			self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
 
 	def initiate_payment(self):
 		payment_details = self.doc
@@ -94,11 +101,39 @@ class CanaraBankConnector(BankConnector):
 			response, method="make_payment", log_id=log_id
 		)
 
+	def get_bank_balance(self):
+		if not self.balance_check:
+			frappe.throw(_("Bank Balance is disabled."))
+
+		url = self.urls.bank_balance
+		headers = self.headers()
+
+		signature, payload = self.get_encrypted_payload(method="bank_balance")
+		headers["x-signature"] = signature
+
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Balance",
+			account_config=self.account_config,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+			unique_id=self.name,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_balance", log_id=log_id
+		)
+
 	def get_encrypted_payload(self, method):
 		self.update_account_config(method)
 		encrypted = self.jwe_encrypt(
 			self.account_config["Request"]["body"]["encryptData"],
-			self.get_file_content(self.AES_KEY),
+			self.AES_KEY,
 			encryption=ALGORITHMS.A128CBC_HS256,
 			algorithm=ALGORITHMS.A256KW,
 		)
@@ -106,11 +141,13 @@ class CanaraBankConnector(BankConnector):
 		payload = {
 			"Request": {
 				"body": {
-					"branchCode": self.branch_code,
 					"encryptData": encrypted.decode("utf-8"),
 				}
 			}
 		}
+
+		if method == "bank_balance":
+			payload["Request"]["body"]["branchCode"] = self.branch_code
 
 		return (
 			self.generate_signature(
@@ -120,6 +157,7 @@ class CanaraBankConnector(BankConnector):
 		)
 
 	def get_decrypted_response(self, response, method: str, log_id: str):
+		self.update_aes_key()
 		res_dict = frappe._dict({})
 		if response.ok:
 			decrypted_data = frappe._dict({})
@@ -228,7 +266,9 @@ class CanaraBankConnector(BankConnector):
 					"body": {
 						"encryptData": {
 							"Authorization": "Basic " + self.get_auth(),
-							"TFAPassword": self.tfa_password,
+							"TFAPassword": self.get_password("tfa_password")
+							if self.tfa_password
+							else "",
 							"Key": self.customer_key,
 							"CustomerID": self.customer_id,
 							"BatchRequestID": unique_id,
@@ -299,7 +339,10 @@ class CanaraBankConnector(BankConnector):
 		pass
 
 	def format_bank_balance_response(self, decrypted_data, res_dict):
-		pass
+		res_dict.server_status = "Success"
+		res_dict.balance = decrypted_data.get("balAvailable", 0)
+		res_dict.date = getdate()
+		res_dict.current_balance = decrypted_data.get("currentBalance", 0)
 
 	def format_statement_response(self, decrypted_data, res_dict):
 		pass
