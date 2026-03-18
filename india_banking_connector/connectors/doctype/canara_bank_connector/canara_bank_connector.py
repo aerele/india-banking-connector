@@ -57,11 +57,11 @@ class CanaraBankConnector(BankConnector):
 		if self.testing:
 			return self.auth_key
 
-		auth_string = (
-			self.get_password("client_id")
-			+ ":"
-			+ self.get_password("encrypted_tfa_password")
-		)
+		tfa_password = self.get_password("tfa_password")
+		if self.enable_password_encryption:
+			tfa_password = self.get_password("encrypted_tfa_password")
+
+		auth_string = self.get_password("client_id") + ":" + tfa_password
 		return b64encode(auth_string.encode()).decode()
 
 	def update_aes_key(self):
@@ -106,7 +106,7 @@ class CanaraBankConnector(BankConnector):
 			frappe.throw(_("Bank Balance is disabled."))
 
 		url = self.urls.bank_balance
-		headers = self.headers()
+		headers = self.headers
 
 		signature, payload = self.get_encrypted_payload(method="bank_balance")
 		headers["x-signature"] = signature
@@ -134,7 +134,7 @@ class CanaraBankConnector(BankConnector):
 			frappe.throw(_("Statement fetch is disabled."))
 
 		url = self.urls.bank_statement
-		headers = self.headers()
+		headers = self.headers
 
 		signature, payload = self.get_encrypted_payload(method="bank_statement")
 		headers["x-signature"] = signature
@@ -233,14 +233,20 @@ class CanaraBankConnector(BankConnector):
 		payment_details = self.doc
 		transaction_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
 
+		tfa_password = self.get_password("tfa_password")
+		key = ""
+		if self.enable_password_encryption:
+			tfa_password = self.get_password("encrypted_tfa_password")
+			key = self.get_password("encryption_key")
+
 		self.account_config.update(
 			{
 				"Request": {
 					"body": {
 						"encryptData": {
 							"Authorization": "Basic " + self.get_auth(),
-							"TFAPassword": self.get_password("tfa_password"),
-							"Key": self.get_password("customer_key"),
+							"TFAPassword": tfa_password,
+							"Key": key,
 							"CustomerID": self.customer_id,
 							"TotAmt": cstr(flt(payment_details.total, 2)),
 							"TxnCnt": cstr(len(payment_details.get("summary"))),
@@ -288,16 +294,21 @@ class CanaraBankConnector(BankConnector):
 	def set_payment_status_data(self):
 		payment_details = self.doc
 		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		key = ""
+		tfa_password = self.get_password("tfa_password")
+		if self.enable_password_encryption:
+			key = self.get_password("encryption_key")
+			tfa_password = self.get_password("encrypted_tfa_password")
+
 		self.account_config.update(
 			{
 				"Request": {
 					"body": {
 						"encryptData": {
 							"Authorization": "Basic " + self.get_auth(),
-							"TFAPassword": self.get_password("tfa_password")
-							if self.tfa_password
-							else "",
-							"Key": self.customer_key,
+							"TFAPassword": tfa_password,
+							"Key": key,
 							"CustomerID": self.customer_id,
 							"BatchRequestID": unique_id,
 							"TxnRefNo": "",
@@ -308,6 +319,10 @@ class CanaraBankConnector(BankConnector):
 		)
 
 	def set_balance_data(self):
+		key = ""
+		if self.enable_password_encryption:
+			key = self.get_password("encryption_key")
+
 		self.account_config.update(
 			{
 				"Request": {
@@ -317,7 +332,7 @@ class CanaraBankConnector(BankConnector):
 							"Authorization": "Basic " + self.get_auth(),
 							"acctNumber": self.account_number,
 							"customerID": self.customer_id,
-							"key": self.customer_key,
+							"key": key,
 						},
 					}
 				}
@@ -329,6 +344,11 @@ class CanaraBankConnector(BankConnector):
 
 		from_date = getdate(payload_details.get("from_date", "")).strftime("%d-%m-%Y")
 		to_date = getdate(payload_details.get("to_date", "")).strftime("%d-%m-%Y")
+
+		key = ""
+		if self.enable_password_encryption:
+			key = self.get_password("encryption_key")
+
 		self.account_config.update(
 			{
 				"Request": {
@@ -342,7 +362,7 @@ class CanaraBankConnector(BankConnector):
 							"TODATE": to_date,
 							"searchBy": "",
 							"branchCode": self.branch_code,
-							"key": self.customer_key,
+							"key": key,
 						}
 					}
 				}
