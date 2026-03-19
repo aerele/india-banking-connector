@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Aerele Technologies Private Limited and contributors
 # For license information, please see license.txt
 
+import copy
 import json
 import re
 from base64 import b64encode
@@ -41,7 +42,7 @@ class CanaraBankConnector(BankConnector):
 			cert.lstrip("-----BEGIN CERTIFICATE-----")
 			.rstrip("-----END CERTIFICATE-----")
 			.strip()
-		)  # normalise
+		).replace("\n", "")  # normalise
 
 		return {
 			"x-client-id": self.get_password("client_id"),
@@ -67,6 +68,9 @@ class CanaraBankConnector(BankConnector):
 	def update_aes_key(self):
 		if self.aes_key:
 			self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
+
+	def get_cert(self):
+		return None
 
 	def initiate_payment(self):
 		payment_details = self.doc
@@ -160,26 +164,23 @@ class CanaraBankConnector(BankConnector):
 	def get_encrypted_payload(self, method):
 		self.update_account_config(method)
 		encrypted = self.jwe_encrypt(
-			self.account_config["Request"]["body"]["encryptData"],
+			json.dumps(
+				self.account_config["Request"]["body"]["encryptData"],
+				separators=(",", ":"),
+			),
 			self.AES_KEY,
+			media_type=None,
 			encryption=ALGORITHMS.A128CBC_HS256,
 			algorithm=ALGORITHMS.A256KW,
 		)
 
-		payload = {
-			"Request": {
-				"body": {
-					"encryptData": encrypted.decode("utf-8"),
-				}
-			}
-		}
-
-		if method == "bank_balance":
-			payload["Request"]["body"]["branchCode"] = self.branch_code
+		payload = copy.deepcopy(self.account_config)
+		payload["Request"]["body"]["encryptData"] = encrypted.decode("utf-8")
 
 		return (
 			self.generate_signature(
-				self.account_config, self.get_file_content(self.private_key)
+				json.dumps(self.account_config, separators=(",", ":")),
+				self.get_file_content(self.private_key),
 			),
 			payload,
 		)
@@ -201,7 +202,7 @@ class CanaraBankConnector(BankConnector):
 				decrypted_data = self.jwe_decrypt(
 					encrypted_data,
 					self.AES_KEY,
-				)
+				).decode("utf-8")
 				self.set_decrypted_response(log_id, decrypted_data)
 			except Exception:
 				frappe.log_error(
@@ -370,6 +371,7 @@ class CanaraBankConnector(BankConnector):
 		)
 
 	def get_formated_response(self, decrypted_data, res_dict, method):
+		decrypted_data = json.loads(decrypted_data)
 		method_map = {
 			"make_payment": self.format_payment_response,
 			"payment_status": self.format_payment_status_response,

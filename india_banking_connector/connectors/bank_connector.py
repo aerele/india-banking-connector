@@ -426,6 +426,9 @@ class BankConnector(Document):
 		)
 
 	def validate(self):
+		if not self.base_url:
+			frappe.throw("Base URL is Mandatory!")
+
 		if self.has_value_changed("base_url"):
 			self.update_endpoints()
 
