@@ -105,6 +105,34 @@ class CanaraBankConnector(BankConnector):
 			response, method="make_payment", log_id=log_id
 		)
 
+	def get_payment_status(self):
+		payment_details = self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		url = self.urls.payment_status
+		headers = self.headers
+
+		signature, payload = self.get_encrypted_payload(method="payment_status")
+		headers["x-signature"] = signature
+
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Payment Status",
+			account_config=self.account_config,
+			ref_doctype=payment_details.doctype,
+			ref_docname=payment_details.name,
+			unique_id=unique_id,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="payment_status", log_id=log_id
+		)
+
 	def get_bank_balance(self):
 		if not self.balance_check:
 			frappe.throw(_("Bank Balance is disabled."))
@@ -188,7 +216,7 @@ class CanaraBankConnector(BankConnector):
 	def get_decrypted_response(self, response, method: str, log_id: str):
 		self.update_aes_key()
 		res_dict = frappe._dict({})
-		if response.ok:
+		if response.ok or "encryptData" in response.text:
 			decrypted_data = frappe._dict({})
 			try:
 				response = json.loads(response.text)
@@ -358,10 +386,10 @@ class CanaraBankConnector(BankConnector):
 							"Authorization": "Basic " + self.get_auth(),
 							"acctNumber": self.account_number,
 							"customerID": self.customer_id,
-							"NUMBEROFTXN": "n",
+							"NUMBEROFTXN": "",
 							"FROMDATE": from_date,
 							"TODATE": to_date,
-							"searchBy": "",
+							"searchBy": "3",
 							"branchCode": self.branch_code,
 							"key": key,
 						}
@@ -372,6 +400,23 @@ class CanaraBankConnector(BankConnector):
 
 	def get_formated_response(self, decrypted_data, res_dict, method):
 		decrypted_data = json.loads(decrypted_data)
+		if "ErrorResponse" in decrypted_data:
+			message = (
+				decrypted_data.get("ErrorResponse", {})
+				.get("metadata", {})
+				.get("status", {})
+				.get("desc", "")
+			)
+			error_code = (
+				decrypted_data.get("ErrorResponse", {})
+				.get("metadata", {})
+				.get("status", {})
+				.get("code", "")
+			)
+			res_dict.status = "FAILED"
+			res_dict.message = f"{message} - {error_code}"
+			return
+
 		method_map = {
 			"make_payment": self.format_payment_response,
 			"payment_status": self.format_payment_status_response,
@@ -383,10 +428,91 @@ class CanaraBankConnector(BankConnector):
 			method_map[method](decrypted_data, res_dict)
 
 	def format_payment_response(self, decrypted_data, res_dict):
-		pass
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "Failure"
+					res_dict.message = "Failed to parse payment response."
+					return
+
+		status = decrypted_data.get("status", {})
+		if status.get("result", "").lower() == "accepted":
+			res_dict.payment_status = "ACCEPTED"
+			res_dict.message = status.get("message", {}).get(
+				"code", "Payments Initiated"
+			)
+			res_dict.summary_details = self.get_summary_details("Accepted")
+		elif status.get("result", "").lower() == "accepted":
+			res_dict.payment_status = "ACCEPTED"
+			res_dict.message = status.get("message", {}).get(
+				"code", "Payments Initiated"
+			)
+			res_dict.summary_details = self.get_summary_details("Accepted")
+		else:
+			summary = (
+				decrypted_data.get("Response", {}).get("Body", {}).get("txnSummary", {})
+			)
+			error_code = summary.get("ErrorCode")
+			error_desc = summary.get("ErrorDec")
+			res_dict.status = "Request Failure"
+			res_dict.message = error_desc or "Unexpected response format."
+			res_dict.error_code = error_code
+
+	def get_status(self, status_code):
+		status = "Pending"
+		if status_code == "Initiated":
+			status = "Initiated"
+		elif status_code == "Successful":
+			status = "Processed"
+		elif status_code == "Rejected":
+			status = "Rejected"
+		elif status_code == "Failed":
+			status = "Failed"
+
+		return status
 
 	def format_payment_status_response(self, decrypted_data, res_dict):
-		pass
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "Failure"
+					res_dict.message = "Failed to parse payment response."
+					return
+
+		transactions = decrypted_data.get("TxnDtls", {}).get("Txn")
+
+		if transactions:
+			res_dict.payment_status = "PROCESSED"
+			res_dict.message = "Payment status fetched successfully."
+		else:
+			res_dict.payment_status = "Request Failure"
+			res_dict.message = "Invalid response format."
+
+		summary_details = {}
+		for transaction in transactions:
+			transaction = frappe._dict(transaction)
+			summary_details[transaction.crn] = {
+				"unique_id": transaction.get("TxnRefNo", ""),
+				"status_code": transaction.get("TxnStatus", ""),
+				"status": self.get_status(transaction.get("TxnStatus", "")),
+				"utr_number": transaction.get("utr_RRN_Number", ""),
+				"message": transaction.get("TxnStatus", ""),
+				"approved_date": transaction.get("Approved_Date"),
+			}
+
+		res_dict.summary_details = summary_details
+
+		return res_dict
 
 	def format_bank_balance_response(self, decrypted_data, res_dict):
 		res_dict.server_status = "Success"
