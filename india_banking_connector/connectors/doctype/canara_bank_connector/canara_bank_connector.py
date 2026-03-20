@@ -55,14 +55,12 @@ class CanaraBankConnector(BankConnector):
 		}
 
 	def get_auth(self):
-		if self.testing:
-			return self.auth_key
-
-		tfa_password = self.get_password("tfa_password")
+		login_id = self.login_id
+		login_password = self.login_password
 		if self.enable_password_encryption:
-			tfa_password = self.get_password("encrypted_tfa_password")
+			login_password = self.encrypted_login_password
 
-		auth_string = self.get_password("client_id") + ":" + tfa_password
+		auth_string = login_id + ":" + login_password
 		return b64encode(auth_string.encode()).decode()
 
 	def update_aes_key(self):
@@ -291,17 +289,20 @@ class CanaraBankConnector(BankConnector):
 		)
 
 	def get_transactions(self):
+		def _get_party_name(summary):
+			return self.clean_string(summary.get("party_name") or summary.get("party"))
+
 		return [
 			{
 				"TxnRefNo": summary.get("name"),
 				"DrAcct": summary.get("bank_account_no"),
-				"SndrNm": self.account_name,
+				"SndrNm": self.clean_string(self.account_name),
 				"TxnAmt": cstr(flt(summary.get("amount"), 2)),
 				"TxnType": self.get_payment_mode(summary.get("mode_of_transfer")),
 				"BenefIFSC": summary.get("branch_code"),
 				"BenefAcNo": summary.get("bank_account_no"),
-				"BenefAcNm": summary.get("party_name") or summary.get("party"),
-				"Nrtv": f'Payment from {summary.get("parent", "")} for {summary.get("party_name", "") or summary.get("party", "")}',
+				"BenefAcNm": _get_party_name(summary),
+				"Nrtv": f'Payment from {summary.get("parent", "")} for {_get_party_name(summary)}',
 			}
 			for summary in self.doc.get("summary")
 		]

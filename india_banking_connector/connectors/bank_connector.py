@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from base64 import b64decode, b64encode, urlsafe_b64encode
 
 import frappe
@@ -13,6 +14,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from frappe.model.document import Document
 from frappe.query_builder import DocType
+from frappe.utils import cstr
 from jose import jwe, jws
 
 ACTIONS = [
@@ -34,6 +36,9 @@ class BankConnector(Document):
 	def is_active(self):
 		if not self.active:
 			frappe.throw("Connector inactive. Please contact admin.")
+
+	def clean_string(text):
+		return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", cstr(text))).strip()
 
 	@property
 	def urls(self):

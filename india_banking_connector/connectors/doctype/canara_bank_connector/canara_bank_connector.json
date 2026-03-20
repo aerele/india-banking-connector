@@ -11,13 +11,15 @@
   "account_name",
   "branch_code",
   "customer_id",
+  "login_id",
+  "login_password",
+  "encrypted_login_password",
   "tfa_password",
   "enable_password_encryption",
   "encryption_key",
   "encrypted_tfa_password",
   "column_break_gvmt",
   "testing",
-  "auth_key",
   "client_id",
   "client_secret",
   "cert",
@@ -142,17 +144,20 @@
    "default": "404",
    "fieldname": "branch_code",
    "fieldtype": "Data",
-   "label": "Branch Code"
+   "label": "Branch Code",
+   "reqd": 1
   },
   {
    "fieldname": "customer_id",
    "fieldtype": "Data",
-   "label": "Customer ID"
+   "label": "Customer ID",
+   "reqd": 1
   },
   {
    "fieldname": "tfa_password",
    "fieldtype": "Password",
-   "label": "TFAPassword"
+   "label": "TFAPassword",
+   "reqd": 1
   },
   {
    "fieldname": "account_name",
@@ -181,24 +186,36 @@
    "label": "Enable Password Encryption"
   },
   {
-   "depends_on": "testing",
-   "fieldname": "auth_key",
-   "fieldtype": "Data",
-   "label": "Auth Key",
-   "mandatory_depends_on": "testing"
-  },
-  {
    "depends_on": "enable_password_encryption",
    "description": "Steps to encrypt the transaction password:</br></br>\n\nStep 1: Open the Password Encryption Tool.</br>\nStep 2: Enter the Transaction Password and Encryption Key.</br>\nStep 3: Click Generate to create the encrypted password.</br>\nStep 4: Paste the generated value into the Encrypted TFAPassword field.</br>",
    "fieldname": "encrypted_tfa_password",
    "fieldtype": "Password",
    "label": "Encrypted TFAPassword",
    "mandatory_depends_on": "enable_password_encryption"
+  },
+  {
+   "fieldname": "login_id",
+   "fieldtype": "Data",
+   "label": "Login ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "login_password",
+   "fieldtype": "Password",
+   "label": "Login Password",
+   "reqd": 1
+  },
+  {
+   "depends_on": "enable_password_encryption",
+   "fieldname": "encrypted_login_password",
+   "fieldtype": "Password",
+   "label": "Login Password(Encrypted)",
+   "mandatory_depends_on": "enable_password_encryption"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-18 13:22:10.112803",
+ "modified": "2026-03-20 12:39:42.252304",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Canara Bank Connector",
