@@ -55,12 +55,11 @@ class CanaraBankConnector(BankConnector):
 		}
 
 	def get_auth(self):
-		login_id = self.login_id
-		login_password = self.login_password
+		login_password = self.get_password("login_password")
 		if self.enable_password_encryption:
-			login_password = self.encrypted_login_password
+			login_password = self.get_password("encrypted_login_password")
 
-		auth_string = login_id + ":" + login_password
+		auth_string = self.login_id + ":" + login_password
 		return b64encode(auth_string.encode()).decode()
 
 	def update_aes_key(self):
@@ -472,7 +471,7 @@ class CanaraBankConnector(BankConnector):
 			status = "Processed"
 		elif status_code == "Rejected":
 			status = "Rejected"
-		elif status_code == "Failed":
+		elif status_code in ["Failed", "Error"]:
 			status = "Failed"
 
 		return status
@@ -502,12 +501,20 @@ class CanaraBankConnector(BankConnector):
 		summary_details = {}
 		for transaction in transactions:
 			transaction = frappe._dict(transaction)
-			summary_details[transaction.crn] = {
+			message = transaction.get("TxnStatus", "")
+			if transaction.get("TxnStatus", "") == "Error":
+				message = (
+					transaction.get("Error_Msg", "")
+					+ ":"
+					+ transaction.get("Error_Code", "")
+				)
+
+			summary_details[transaction.get("TxnRefNo", "")] = {
 				"unique_id": transaction.get("TxnRefNo", ""),
 				"status_code": transaction.get("TxnStatus", ""),
 				"status": self.get_status(transaction.get("TxnStatus", "")),
 				"utr_number": transaction.get("utr_RRN_Number", ""),
-				"message": transaction.get("TxnStatus", ""),
+				"message": message,
 				"approved_date": transaction.get("Approved_Date"),
 			}
 
