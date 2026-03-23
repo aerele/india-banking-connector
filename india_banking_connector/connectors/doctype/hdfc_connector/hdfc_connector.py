@@ -8,7 +8,7 @@ import re
 import frappe
 import requests
 from frappe import _
-from frappe.utils import cstr, getdate
+from frappe.utils import getdate
 
 import india_banking_connector.utils as utils
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -226,9 +226,6 @@ class HDFCConnector(BankConnector):
 		)
 
 	def get_account_config(self, method):
-		def _clean_string(text):
-			return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", cstr(text))).strip()
-
 		conector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
 
@@ -245,15 +242,17 @@ class HDFCConnector(BankConnector):
 				"LOGIN_ID": conector_doc.login_id,
 				"INPUT_GCIF": conector_doc.scope,
 				"TRANSFER_TYPE_DESC": mode_of_transfer,
-				"BENE_BANK": _clean_string(payment_details.bank),
+				"BENE_BANK": self.clean_string(payment_details.bank),
 				"INPUT_DEBIT_AMOUNT": str(payment_details.amount),
 				"INPUT_VALUE_DATE": getdate().strftime("%d/%m/%Y"),
 				"TRANSACTION_TYPE": "SINGLE",
-				"INPUT_DEBIT_ORG_ACC_NO": _clean_string(conector_doc.account_number),
+				"INPUT_DEBIT_ORG_ACC_NO": self.clean_string(
+					conector_doc.account_number
+				),
 				"INPUT_BUSINESS_PROD": conector_doc.business_prod,
 				"BENE_ID": "",
 				"BENE_ACC_NAME": bene_name,
-				"BENE_ACC_NO": _clean_string(payment_details.bank_account_no),
+				"BENE_ACC_NO": self.clean_string(payment_details.bank_account_no),
 				"BENE_TYPE": "ADHOC",
 				"BENE_BRANCH": payment_details.branch or payment_details.branch_code,
 				"BENE_IDN_CODE": payment_details.branch_code,

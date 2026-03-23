@@ -37,7 +37,7 @@ class BankConnector(Document):
 		if not self.active:
 			frappe.throw("Connector inactive. Please contact admin.")
 
-	def clean_string(text):
+	def clean_string(self, text):
 		return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", cstr(text))).strip()
 
 	@property
