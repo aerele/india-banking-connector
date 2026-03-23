@@ -294,7 +294,7 @@ class CanaraBankConnector(BankConnector):
 		return [
 			{
 				"TxnRefNo": summary.get("name"),
-				"DrAcct": summary.get("bank_account_no"),
+				"DrAcct": self.account_number,
 				"SndrNm": self.clean_string(self.account_name),
 				"TxnAmt": cstr(flt(summary.get("amount"), 2)),
 				"TxnType": self.get_payment_mode(summary.get("mode_of_transfer")),
