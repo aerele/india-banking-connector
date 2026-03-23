@@ -364,10 +364,6 @@ class ICICIConnector(BankConnector):
 			)
 			return
 		else:
-
-			def _clean_string(s):
-				return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", s)).strip()
-
 			workflow_reqd = "Y"
 			if payment_details.mode_of_transfer.lower() not in ["neft", "imps"]:
 				workflow_reqd = "N"
@@ -393,8 +389,8 @@ class ICICIConnector(BankConnector):
 						payment_details.bank,
 						mode_of_transfer=payment_details.mode_of_transfer,
 					),
-					"PAYEENAME": _clean_string(payment_details.account_name),
-					"REMARKS": f"{payment_details.party_type} {_clean_string(payment_details.party)}",
+					"PAYEENAME": self.clean_string(payment_details.account_name),
+					"REMARKS": f"{payment_details.party_type} {self.clean_string(payment_details.party)}",
 					"WORKFLOW_REQD": workflow_reqd,
 					"BENLEI": payment_details.lei or "",
 				}
