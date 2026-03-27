@@ -7,7 +7,6 @@ import re
 
 import frappe
 import requests
-from frappe.query_builder import DocType
 from frappe.utils import cstr, flt, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -30,17 +29,7 @@ class AxisBankConnector(BankConnector):
 
 	@property
 	def urls(self):
-		CONNECTOR = DocType(self.doctype)
-		EU = DocType("Endpoint URLs")
-		urls = (
-			frappe.qb.from_(CONNECTOR)
-			.join(EU)
-			.on(EU.parent == self.name)
-			.select(EU.action, EU.url)
-			.orderby(EU.idx)
-		).run()
-
-		return frappe._dict(dict(urls))
+		return super().urls
 
 	@property
 	def headers(self):
@@ -245,6 +234,8 @@ class AxisBankConnector(BankConnector):
 			res_dict.status = "Decryption Failure"
 			res_dict.error = "Failed to verify or decrypt bank response."
 
+		return res_dict
+
 	def format_payment_response(self, decrypted_data, res_dict):
 		if isinstance(decrypted_data, str):
 			try:
@@ -279,7 +270,7 @@ class AxisBankConnector(BankConnector):
 		status = "Pending"
 		if status_code == "PROCESSED":
 			status = "Processed"
-		elif status_code == "REJECTED":
+		elif status_code in ["REJECTED", "RETURN"]:
 			status = "Failed"
 
 		return status
@@ -381,15 +372,4 @@ class AxisBankConnector(BankConnector):
 	def get_bank_statement(self):
 		frappe.throw(
 			"Bank statement API is not currently supported by the Axis Bank Connector."
-		)
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import AXIS_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(AXIS_ENCRYPTED_END_POINTS)
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in decrypted.items()],
 		)

@@ -7,7 +7,6 @@ import json
 import frappe
 import requests
 from frappe import _
-from frappe.query_builder import DocType
 from frappe.utils import cstr, flt, get_datetime, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -53,17 +52,7 @@ class BankofBarodaConnector(BankConnector):
 	def urls(self):
 		self.update_aes_and_iv()
 
-		CONNECTOR = DocType(self.doctype)
-		EU = DocType("Endpoint URLs")
-		urls = (
-			frappe.qb.from_(CONNECTOR)
-			.join(EU)
-			.on(EU.parent == self.name)
-			.select(EU.action, EU.url)
-			.orderby(EU.idx)
-		).run()
-
-		return frappe._dict(dict(urls))
+		return super().urls
 
 	def headers(self):
 		return {
@@ -505,18 +494,3 @@ class BankofBarodaConnector(BankConnector):
 			else:
 				res_dict.status = "Failed"
 				res_dict.message = data
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import BOB_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(BOB_ENCRYPTED_END_POINTS)
-		stagin_or_prod = "testing" if self.testing else "production"
-		endpoints = decrypted[self.bank][stagin_or_prod]["composite"]
-
-		self.api_endpoints = []
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in endpoints.items()],
-		)

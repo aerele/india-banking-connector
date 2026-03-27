@@ -1,5 +1,3 @@
-import json
-
 import click
 import frappe
 
@@ -7,10 +5,8 @@ from india_banking_connector.default import (
 	BANKS_CONNECTOR_MAP,
 	BANKS_H2H_MAP,
 	BULK_TRANSACTION_ENABLED_BANK,
-	ENCRYPTED_END_POINTS,
 	STD_BANK_LIST,
 )
-from india_banking_connector.utils import decrypt
 
 
 def after_install():
@@ -117,35 +113,3 @@ def create_bank_doctype():
 			],
 		}
 		frappe.call("frappe.client.insert", doc=doc)
-
-
-@frappe.whitelist()
-def create_bank_api_endpoint():
-	def _create_endpoint_list(urls, **kwargs):
-		doc = frappe.new_doc("Bank API Endpoint")
-		doc.update(kwargs)
-		doc.extend(
-			"end_points",
-			[{"action": action, "url": url} for action, url in urls.items()],
-		)
-		doc.insert(ignore_links=True, ignore_permissions=True)
-
-	decrypted_endpoints = decrypt(ENCRYPTED_END_POINTS)
-
-	if isinstance(decrypted_endpoints, str):
-		decrypted_endpoints = json.loads(decrypted_endpoints)
-
-	for bank, api_detais in decrypted_endpoints.items():
-		bank = bank.replace("_", " ")
-		api_detais = frappe._dict(api_detais)
-		for env in ["production", "testing"]:
-			if api_details := frappe._dict(api_detais.get(env, {})):
-				for transaction_type in ["composite", "bulk"]:
-					if endpoints := frappe._dict(api_details.get(transaction_type, {})):
-						filters = {
-							"bank": bank,
-							"environment": env.capitalize(),
-							"bulk_transaction": 1 if transaction_type == "bulk" else 0,
-						}
-						if not frappe.db.exists("Bank API Endpoint", filters):
-							_create_endpoint_list(endpoints, **filters)

@@ -6,7 +6,6 @@ import json
 import frappe
 import requests
 from frappe import _
-from frappe.query_builder import DocType
 from frappe.utils import cint, cstr, flt, get_datetime, getdate
 
 from india_banking_connector.connectors.bank_connector import BankConnector
@@ -42,17 +41,7 @@ class UnionBankConnector(BankConnector):
 	def urls(self):
 		self.update_aes_and_iv()
 
-		UBC = DocType(self.doctype)
-		EU = DocType("Endpoint URLs")
-		urls = (
-			frappe.qb.from_(UBC)
-			.join(EU)
-			.on(EU.parent == self.name)
-			.select(EU.action, EU.url)
-			.orderby(EU.idx)
-		).run()
-
-		return frappe._dict(dict(urls))
+		return super().urls
 
 	def headers(self, action=None):
 		headers = {"Content-Type": "application/json"}
@@ -287,7 +276,8 @@ class UnionBankConnector(BankConnector):
 					or payment_details.party,
 					"beneficiaryAddress": "India",
 					"beneficiaryBankIFSCCode": payment_details.branch_code,
-					"beneficiaryMobileNumber": payment_details.mobile_no,
+					"beneficiaryMobileNumber": payment_details.mobile_no
+					or "9999999999",
 					"beneficiaryEmailId": payment_details.email,
 					"transactionAmount": cstr(payment_details.amount),
 					"transactionDate": getdate().strftime("%Y%m%d"),
@@ -381,10 +371,13 @@ class UnionBankConnector(BankConnector):
 				response_data = frappe._dict(data.get("data", {}))
 				payment_status = self.get_status_details(response_data.responseCode)
 				if response_data.responseCode == "000":
+					utr_number = response_data.NeftRefId
+					if self.payment_doc.bank == self.bank:
+						utr_number = self.payment_doc.name
 					res_dict.summary_details = {
 						self.payment_doc.name: {
 							"status": payment_status,
-							"utr_number": response_data.NeftRefId,
+							"utr_number": utr_number,
 							"processed_date": get_datetime(
 								response_data.transactionTime
 							).strftime("%Y-%m-%d"),
@@ -480,7 +473,6 @@ class UnionBankConnector(BankConnector):
 			"904",
 			"996",
 			"914",
-			"999",
 			"101",
 			"103",
 			"105",
@@ -514,7 +506,6 @@ class UnionBankConnector(BankConnector):
 			"505",
 			"522",
 			"525",
-			"904",
 			"913",
 		]
 		pending_status_code = [
@@ -529,6 +520,7 @@ class UnionBankConnector(BankConnector):
 			"998",
 			"401",
 			"601",
+			"999",
 		]
 
 		if status_code == "000":
@@ -539,18 +531,3 @@ class UnionBankConnector(BankConnector):
 			return "Failed"
 		elif status_code in pending_status_code:
 			return "Pending"
-
-	@frappe.whitelist()
-	def get_api_endpoints(self):
-		from india_banking_connector.default import UBI_ENCRYPTED_END_POINTS
-		from india_banking_connector.install import decrypt
-
-		decrypted = decrypt(UBI_ENCRYPTED_END_POINTS)
-		stagin_or_prod = "testing" if self.testing else "production"
-		endpoints = decrypted[self.bank][stagin_or_prod]["composite"]
-
-		self.api_endpoints = []
-		self.extend(
-			"api_endpoints",
-			[{"action": action, "url": url} for action, url in endpoints.items()],
-		)

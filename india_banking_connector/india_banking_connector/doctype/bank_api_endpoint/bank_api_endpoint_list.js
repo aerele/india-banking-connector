@@ -2,19 +2,22 @@
 // For license information, please see license.txt
 
 frappe.listview_settings["Bank API Endpoint"] = {
-  onload: function (listview) {
-    listview.page.add_inner_button(__("Regenerate API Endpoint"), () => {
-      frappe.call({
-        method: "india_banking_connector.install.create_bank_api_endpoint",
-        callback: function (r) {
-          if (r.message) {
-            frappe.show_alert({
-              message: __("API Endpoints Regenerated"),
-              indicator: "green",
-            });
-          }
-        },
-      });
-    });
-  },
+	onload: function (listview) {
+		const container = $("<div>", {
+			class: "form-message-container",
+		});
+
+		const message = $("<div>", {
+			class: "form-message border-bottom yellow",
+		});
+
+		const text = $("<div>").html(
+			"<b>Warning:</b> The Bank API Endpoints will be deprecated. Please update the API Endpoints table in the connector."
+		);
+
+		message.append(text);
+		container.append(message);
+
+		$(".page-form.flex").after(container);
+	},
 };

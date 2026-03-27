@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestYESBANKConnector(FrappeTestCase):
+class TestYESBankConnector(FrappeTestCase):
 	pass

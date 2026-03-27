@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from base64 import b64decode, b64encode, urlsafe_b64encode
 
 import frappe
@@ -9,10 +10,23 @@ from Crypto.Cipher import PKCS1_v1_5 as Cipher_PKCS1_v1_5
 from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 from frappe.model.document import Document
 from frappe.query_builder import DocType
+from frappe.utils import cstr
 from jose import jwe, jws
+
+ACTIONS = [
+	"host",
+	"oauth_token",
+	"make_payment",
+	"payment_status",
+	"bank_balance",
+	"bank_statement",
+	"register",
+	"registration_status",
+]
 
 
 class BankConnector(Document):
@@ -24,24 +38,21 @@ class BankConnector(Document):
 		if not self.active:
 			frappe.throw("Connector inactive. Please contact admin.")
 
+	def clean_string(self, text):
+		return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", cstr(text))).strip()
+
 	@property
 	def urls(self):
-		end_point_url = DocType("Endpoint URLs")
-		bank_api_endpoint = DocType("Bank API Endpoint")
+		EU = DocType("Endpoint URLs")
 		urls = (
-			frappe.qb.from_(end_point_url)
-			.join(bank_api_endpoint)
-			.on(end_point_url.parent == bank_api_endpoint.name)
-			.select(end_point_url.action, end_point_url.url)
-			.where(bank_api_endpoint.bank == self.bank)
+			frappe.qb.from_(EU)
+			.select(EU.action, EU.url)
 			.where(
-				bank_api_endpoint.environment
-				== ("Testing" if self.testing else "Production")
+				(EU.parent == self.name)
+				& (EU.parenttype == self.doctype)
+				& (EU.parentfield == "api_endpoints")
 			)
-			.where(
-				bank_api_endpoint.bulk_transaction
-				== (1 if self.bulk_transaction else 0)
-			)
+			.orderby(EU.idx)
 		).run()
 
 		return frappe._dict(dict(urls))
@@ -219,17 +230,6 @@ class BankConnector(Document):
 
 		return jws_verified.decode("utf-8")
 
-	def decrypt_response(self, response):
-		jwe_decrypted = jwe.decrypt(
-			response.text.encode("utf-8"), self.get_file_content(self.private_key)
-		)
-		jws_verified = jws.verify(
-			jwe_decrypted,
-			self.get_file_content(self.public_key),
-			algorithms=["RS256"],
-		)
-		return jws_verified.decode("utf-8")
-
 	def generate_kid(self, file_name):
 		public_key_pem_str = self.get_file_content(file_name)
 
@@ -256,6 +256,19 @@ class BankConnector(Document):
 
 	def get_file_relative_path(self, file_url):
 		return frappe.get_doc("File", {"file_url": file_url}).get_full_path()
+
+	def generate_signature(self, data: bytes, key: bytes, password: str = None):
+		if isinstance(data, dict):
+			data = json.dumps(data, separators=(",", ":"))
+
+		if isinstance(data, str):
+			data = data.encode("utf-8")
+		if isinstance(key, str):
+			key = key.encode("utf-8")
+
+		private_key = serialization.load_pem_private_key(key, password=password)
+		signature = private_key.sign(data, padding.PKCS1v15(), hashes.SHA256())
+		return b64encode(signature).decode("utf-8")
 
 	# Kotak Encryption and Decryption
 
@@ -411,3 +424,46 @@ class BankConnector(Document):
 					"encrypted": 1 if _encrypt else 0,
 				},
 			)
+
+	@frappe.whitelist()
+	def reset_endpoints(self):
+		self.api_endpoints = []
+		self.extend(
+			"api_endpoints",
+			[{"action": action, "url": ""} for action in ACTIONS],
+		)
+
+	def validate(self):
+		if not self.base_url:
+			frappe.throw("Base URL is Mandatory!")
+
+		if self.has_value_changed("base_url"):
+			self.update_endpoints()
+
+	def update_endpoints(self):
+		from urllib.parse import urlparse
+
+		updated_endpoints = []
+		for row in self.api_endpoints:
+			if row.action == "host":
+				parsed = urlparse(self.base_url)
+				url = parsed.netloc
+			elif not row.url:
+				url = ""
+			else:
+				parsed = urlparse(row.url)
+				url = self.base_url + "/" + parsed.path.lstrip("/")
+				if not self.testing and url and urlparse(url).scheme != "https":
+					frappe.throw("URL must use HTTPS")
+
+			updated_endpoints.append(
+				{
+					"action": row.action,
+					"url": url,
+				}
+			)
+		self.api_endpoints = []
+		self.extend(
+			"api_endpoints",
+			updated_endpoints,
+		)

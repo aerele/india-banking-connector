@@ -2,24 +2,32 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:account_number",
- "creation": "2025-09-23 11:43:46.383344",
+ "creation": "2026-03-12 15:37:12.130235",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "active",
-  "encrypted",
-  "column_break_hhss",
-  "testing",
-  "section_break_tyle",
   "account_number",
-  "encrypted_account_number",
-  "client_code",
-  "encrypted_client_code",
-  "column_break_pgif",
+  "account_name",
+  "branch_code",
+  "customer_id",
+  "login_id",
+  "login_password",
+  "encrypted_login_password",
+  "tfa_password",
+  "enable_password_encryption",
+  "encryption_key",
+  "encrypted_tfa_password",
+  "column_break_gvmt",
+  "testing",
+  "client_id",
+  "client_secret",
+  "cert",
+  "private_key",
   "aes_key",
-  "iv",
   "balance_and_statement_section",
   "balance_check",
+  "column_break_tveq",
   "statement_fetch",
   "tab_2_tab",
   "api_endpoints_section",
@@ -36,18 +44,10 @@
    "label": "Active"
   },
   {
-   "fieldname": "column_break_hhss",
-   "fieldtype": "Column Break"
-  },
-  {
    "default": "0",
    "fieldname": "testing",
    "fieldtype": "Check",
    "label": "Testing"
-  },
-  {
-   "fieldname": "section_break_tyle",
-   "fieldtype": "Section Break"
   },
   {
    "fieldname": "account_number",
@@ -56,10 +56,6 @@
    "label": "Account Number",
    "reqd": 1,
    "unique": 1
-  },
-  {
-   "fieldname": "column_break_pgif",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "balance_and_statement_section",
@@ -77,16 +73,6 @@
    "fieldname": "statement_fetch",
    "fieldtype": "Check",
    "label": "Statement Fetch"
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Bank of Baroda Connector",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
   },
   {
    "fieldname": "tab_2_tab",
@@ -108,49 +94,18 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Bank of Baroda Connector",
+   "options": "Canara Bank Connector",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
   },
   {
-   "fieldname": "aes_key",
-   "fieldtype": "Password",
-   "label": "AES Key",
-   "reqd": 1
+   "fieldname": "column_break_gvmt",
+   "fieldtype": "Column Break"
   },
   {
-   "fieldname": "iv",
-   "fieldtype": "Password",
-   "label": "IV",
-   "reqd": 1
-  },
-  {
-   "fieldname": "client_code",
-   "fieldtype": "Data",
-   "label": "Client Code",
-   "reqd": 1
-  },
-  {
-   "default": "0",
-   "description": "If enabled, Send transaction payload to the bank in encrypted format.",
-   "fieldname": "encrypted",
-   "fieldtype": "Check",
-   "label": "Encrypted"
-  },
-  {
-   "depends_on": "encrypted",
-   "fieldname": "encrypted_account_number",
-   "fieldtype": "Data",
-   "label": "Account Number(Encrypted)",
-   "mandatory_depends_on": "encrypted"
-  },
-  {
-   "depends_on": "encrypted",
-   "fieldname": "encrypted_client_code",
-   "fieldtype": "Data",
-   "label": "Client Code(Encrypted)",
-   "mandatory_depends_on": "encrypted"
+   "fieldname": "column_break_tveq",
+   "fieldtype": "Column Break"
   },
   {
    "description": "<p><strong>Base URL:</strong> https://api.bank.in</p>",
@@ -162,14 +117,108 @@
    "fieldname": "reset_endpoints",
    "fieldtype": "Button",
    "label": "Reset Endpoints"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Password",
+   "label": "Client Id",
+   "reqd": 1
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cert",
+   "fieldtype": "Attach",
+   "label": "Cert(Client)"
+  },
+  {
+   "fieldname": "aes_key",
+   "fieldtype": "Password",
+   "label": "AES key"
+  },
+  {
+   "default": "404",
+   "fieldname": "branch_code",
+   "fieldtype": "Data",
+   "label": "Branch Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer_id",
+   "fieldtype": "Data",
+   "label": "Customer ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "tfa_password",
+   "fieldtype": "Password",
+   "label": "TFAPassword",
+   "reqd": 1
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "label": "Account Name",
+   "reqd": 1
+  },
+  {
+   "depends_on": "enable_password_encryption",
+   "description": "Use Random Key",
+   "fieldname": "encryption_key",
+   "fieldtype": "Password",
+   "label": "Encryption Key",
+   "mandatory_depends_on": "enable_password_encryption"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private Key(Client)"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: !!doc.tfa_password",
+   "fieldname": "enable_password_encryption",
+   "fieldtype": "Check",
+   "label": "Enable Password Encryption"
+  },
+  {
+   "depends_on": "enable_password_encryption",
+   "description": "Steps to encrypt the transaction password:</br></br>\n\nStep 1: Open the Password Encryption Tool.</br>\nStep 2: Enter the Transaction Password and Encryption Key.</br>\nStep 3: Click Generate to create the encrypted password.</br>\nStep 4: Paste the generated value into the Encrypted TFAPassword field.</br>",
+   "fieldname": "encrypted_tfa_password",
+   "fieldtype": "Password",
+   "label": "Encrypted TFAPassword",
+   "mandatory_depends_on": "enable_password_encryption"
+  },
+  {
+   "fieldname": "login_id",
+   "fieldtype": "Data",
+   "label": "Login ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "login_password",
+   "fieldtype": "Password",
+   "label": "Login Password",
+   "reqd": 1
+  },
+  {
+   "depends_on": "enable_password_encryption",
+   "fieldname": "encrypted_login_password",
+   "fieldtype": "Password",
+   "label": "Login Password(Encrypted)",
+   "mandatory_depends_on": "enable_password_encryption"
   }
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-03-13 05:44:57.883098",
+ "modified": "2026-03-20 12:39:42.252304",
  "modified_by": "Administrator",
  "module": "Connectors",
- "name": "Bank of Baroda Connector",
+ "name": "Canara Bank Connector",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
