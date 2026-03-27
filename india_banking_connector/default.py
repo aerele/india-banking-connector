@@ -6,7 +6,7 @@ STD_BANK_LIST = [
 	"Kotak Mahindra Bank",
 	"Union Bank of India",
 	"Bank of Baroda",
-	"IDFC Bank",
+	"IDFC First Bank",
 	"Canara Bank",
 	"CITI Bank",
 ]
@@ -35,7 +35,7 @@ BANKS_CONNECTOR_MAP = {
 	"Kotak Mahindra Bank": "Kotak Mahindra Connector",
 	"Union Bank of India": "Union Bank Connector",
 	"Bank of Baroda": "Bank of Baroda Connector",
-	"IDFC Bank": "IDFC Connector",
+	"IDFC First Bank": "IDFC Connector",
 	"Axis Bank": "Axis Bank Connector",
 	"Canara Bank": "Canara Bank Connector",
 }
@@ -47,6 +47,6 @@ BANKS_H2H_MAP = {
 
 BULK_TRANSACTION_ENABLED_BANK = [
 	"ICICI Bank",
-	"IDFC Bank",
+	"IDFC First Bank",
 	"Axis Bank",
 ]
