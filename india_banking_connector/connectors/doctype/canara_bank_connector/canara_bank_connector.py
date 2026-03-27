@@ -39,10 +39,10 @@ class CanaraBankConnector(BankConnector):
 	def headers(self):
 		cert = self.get_file_content(self.cert)
 		cert_key = (
-			cert.lstrip("-----BEGIN CERTIFICATE-----")
-			.rstrip("-----END CERTIFICATE-----")
+			cert.removeprefix("-----BEGIN CERTIFICATE-----")
+			.removesuffix("-----END CERTIFICATE-----")
 			.strip()
-		).replace("\n", "")  # normalise
+		)  # normalise
 
 		return {
 			"x-client-id": self.get_password("client_id"),
