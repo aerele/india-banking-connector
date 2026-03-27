@@ -51,7 +51,7 @@
    "options": "Endpoint URLs"
   }
  ],
- "in_create": 1,
+ "index_web_pages_for_search": 0,
  "links": [],
  "modified": "2026-03-13 11:39:23.429628",
  "modified_by": "Administrator",
