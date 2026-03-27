@@ -41,6 +41,7 @@ class CanaraBankConnector(BankConnector):
 		cert_key = (
 			cert.removeprefix("-----BEGIN CERTIFICATE-----")
 			.removesuffix("-----END CERTIFICATE-----")
+			.replace("\n", "")
 			.strip()
 		)  # normalise
 
