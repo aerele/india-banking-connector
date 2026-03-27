@@ -27,7 +27,7 @@ class IDFCConnector(BankConnector):
 	HIGH_ASCII_LIMIT = 126
 
 	def __init__(self, *args, **kwargs):
-		self.bank = "IDFC"
+		self.bank = "IDFC First Bank"
 		super().__init__(*args, **kwargs)
 
 		self.bulk_transaction = kwargs.get("bulk_transaction")
