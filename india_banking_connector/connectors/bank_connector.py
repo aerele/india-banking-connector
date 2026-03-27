@@ -454,7 +454,6 @@ class BankConnector(Document):
 				parsed = urlparse(row.url)
 				url = self.base_url + "/" + parsed.path.lstrip("/")
 				if not self.testing and url and urlparse(url).scheme != "https":
-					print(url)
 					frappe.throw("URL must use HTTPS")
 
 			updated_endpoints.append(
