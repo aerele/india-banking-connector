@@ -19,14 +19,14 @@ def execute():
 			.where(
 				(EndpointURLs.parenttype == "Bank API Endpoint")
 				& (EndpointURLs.parentfield == "end_points")
-				& (BankAPIEndpoint.bank == "HDFC Bank")
+				& (BankAPIEndpoint.bank == bank)
 				& (BankAPIEndpoint.bulk_transaction == 0)
 				& (BankAPIEndpoint.environment == "Production")
 			)
 		).run(as_dict=True)
 
 		if not urls:
-			return
+			continue
 
 		connectors = frappe.get_all(connector_doc, {"active": 1}, pluck="name")
 		for connector in connectors:

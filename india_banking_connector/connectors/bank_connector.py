@@ -19,6 +19,7 @@ from jose import jwe, jws
 
 ACTIONS = [
 	"host",
+	"oauth_token",
 	"make_payment",
 	"payment_status",
 	"bank_balance",
@@ -42,13 +43,15 @@ class BankConnector(Document):
 
 	@property
 	def urls(self):
-		CONNECTOR = DocType(self.doctype)
 		EU = DocType("Endpoint URLs")
 		urls = (
-			frappe.qb.from_(CONNECTOR)
-			.join(EU)
-			.on(EU.parent == self.name)
+			frappe.qb.from_(EU)
 			.select(EU.action, EU.url)
+			.where(
+				(EU.parent == self.name)
+				& (EU.parenttype == self.doctype)
+				& (EU.parentfield == "api_endpoints")
+			)
 			.orderby(EU.idx)
 		).run()
 
