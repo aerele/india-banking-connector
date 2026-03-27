@@ -63,8 +63,13 @@ class CanaraBankConnector(BankConnector):
 		return b64encode(auth_string.encode()).decode()
 
 	def update_aes_key(self):
-		if self.aes_key:
-			self.AES_KEY = bytes.fromhex(self.get_password("aes_key"))
+		aes_key_hex = self.get_password("aes_key") if self.aes_key else None
+		if not aes_key_hex:
+			frappe.throw(_("AES key is not configured."))
+		try:
+			self.AES_KEY = bytes.fromhex(aes_key_hex)
+		except ValueError:
+			frappe.throw(_("AES key must be a valid hex string."))
 
 	def get_cert(self):
 		return None
@@ -533,7 +538,7 @@ class CanaraBankConnector(BankConnector):
 
 		for txn in decrypted_data.get("transactions", []):
 			amount = abs(flt(txn.get("transactionAmount")))
-			if txn.get("creditDebitFlag").lower() == "d":
+			if cstr(txn.get("creditDebitFlag")).lower() == "d":
 				amount = -1 * amount
 			transaction = {
 				"transaction_date": txn.get("transactionDate", ""),
