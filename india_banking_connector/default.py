@@ -36,6 +36,7 @@ BANKS_CONNECTOR_MAP = {
 	"Union Bank of India": "Union Bank Connector",
 	"Bank of Baroda": "Bank of Baroda Connector",
 	"IDFC First Bank": "IDFC Connector",
+	"IDFC Bank": "IDFC Connector",
 	"Axis Bank": "Axis Bank Connector",
 	"Canara Bank": "Canara Bank Connector",
 }
