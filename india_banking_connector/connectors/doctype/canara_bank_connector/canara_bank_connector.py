@@ -521,7 +521,7 @@ class CanaraBankConnector(BankConnector):
 				"status": self.get_status(transaction.get("TxnStatus", "")),
 				"utr_number": transaction.get("utr_RRN_Number", ""),
 				"message": message,
-				"approved_date": transaction.get("Approved_Date"),
+				"processed_date": transaction.get("Approved_Date"),
 			}
 
 		res_dict.summary_details = summary_details
