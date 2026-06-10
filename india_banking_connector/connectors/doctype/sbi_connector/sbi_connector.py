@@ -214,7 +214,6 @@ class SBIConnector(BankConnector):
 			return response_json
 
 		decrypted_json = self.aes_gcm_decrypt(encrypted_response, self._last_aes_key)
-
 		if digi_sign:
 			self.verify_digital_sign(
 				decrypted_json,
