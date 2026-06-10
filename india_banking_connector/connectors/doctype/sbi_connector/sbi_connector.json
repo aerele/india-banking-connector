@@ -1,0 +1,176 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2026-06-10 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "basic_configuration_tab",
+  "active",
+  "column_break_active",
+  "testing",
+  "payment_section",
+  "account_number",
+  "source_id",
+  "corporate_code",
+  "corporate_product_code",
+  "column_break_payment",
+  "client_private_key",
+  "client_private_key_password",
+  "eis_encryption_cert",
+  "ssl_verify_cert",
+  "api_endpoints_tab",
+  "base_url",
+  "api_endpoints",
+  "reset_endpoints",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "basic_configuration_tab",
+   "fieldtype": "Tab Break",
+   "label": "Basic Configuration"
+  },
+  {
+   "default": "0",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_active",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "depends_on": "active",
+   "fieldname": "payment_section",
+   "fieldtype": "Section Break",
+   "label": "Payment"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Debit Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "SBI allocated source ID. The request reference number format depends on whether this is 2 or 5 characters.",
+   "fieldname": "source_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "corporate_code",
+   "fieldtype": "Data",
+   "label": "Corporate Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "corporate_product_code",
+   "fieldtype": "Data",
+   "label": "Corporate Product Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_payment",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_private_key",
+   "fieldtype": "Attach",
+   "label": "Client Private Key",
+   "reqd": 1
+  },
+  {
+   "description": "Required only when the uploaded client private key is encrypted.",
+   "fieldname": "client_private_key_password",
+   "fieldtype": "Password",
+   "label": "Client Private Key Password"
+  },
+  {
+   "description": "EIS public certificate used to encrypt the per-request AES key and verify response signatures.",
+   "fieldname": "eis_encryption_cert",
+   "fieldtype": "Attach",
+   "label": "EIS Encryption Certificate",
+   "reqd": 1
+  },
+  {
+   "description": "Optional CA bundle/certificate file for TLS verification. Leave empty to use the system trust store.",
+   "fieldname": "ssl_verify_cert",
+   "fieldtype": "Attach",
+   "label": "SSL Verify Certificate"
+  },
+  {
+   "fieldname": "api_endpoints_tab",
+   "fieldtype": "Tab Break",
+   "label": "API Endpoints"
+  },
+  {
+   "description": "<p><strong>Base URL:</strong> https://eissiwebuat.sbi.bank.in</p>",
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL",
+   "reqd": 1
+  },
+  {
+   "description": "<div class=\"api-url-format\">\n    <p><strong>URL Format:</strong> &lt;Base-URL&gt;/&lt;API-Path&gt;</p>\n\n    <p><strong>Examples:</strong></p>\n\n    <ul>\n        <li><strong>make_payment</strong> -> https://eissiwebuat.sbi.bank.in/gen6/gateway/thirdParty/wrapper/services</li>\n        <li><strong>payment_status</strong> -> https://eissiwebuat.sbi.bank.in/gen6/gateway/thirdParty/wrapper/services</li>\n    </ul>\n</div>",
+   "fieldname": "api_endpoints",
+   "fieldtype": "Table",
+   "options": "Endpoint URLs"
+  },
+  {
+   "fieldname": "reset_endpoints",
+   "fieldtype": "Button",
+   "label": "Reset Endpoints"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "SBI Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "SBI Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
