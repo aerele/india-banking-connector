@@ -32,6 +32,11 @@ class ICICIConnector(BankConnector):
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
 
+	def autoname(self):
+		self.name = self.account_number
+		if self.get("bulk_payment"):
+			self.name = f"{self.account_number}^B"
+
 	@property
 	def urls(self):
 		return super().urls

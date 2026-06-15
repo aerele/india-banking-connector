@@ -12,9 +12,11 @@ from Crypto.Util.Padding import pad, unpad
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+from frappe import _
 from frappe.model.document import Document
 from frappe.query_builder import DocType
 from frappe.utils import cstr
+from frappe import _
 from jose import jwe, jws
 
 ACTIONS = [
@@ -33,6 +35,13 @@ class BankConnector(Document):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.validate_user_permission()
+
+	def get_response(self, method):
+		self.is_active()
+		if method and hasattr(self, method):
+			return getattr(self, method)()
+		else:
+			frappe.throw(_("Invalid Method"))
 
 	def is_active(self):
 		if not self.active:
