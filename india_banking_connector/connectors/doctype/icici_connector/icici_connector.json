@@ -1,13 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:account_number",
+ "autoname": "format:{account_number}",
  "creation": "2024-09-04 17:53:05.968095",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "active",
-  "registration_status",
+  "bulk_payment",
   "column_break_twws",
   "testing",
   "section_break_fhpe",
@@ -48,8 +48,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Account Number",
-   "reqd": 1,
-   "unique": 1
+   "reqd": 1
   },
   {
    "fieldname": "client_key",
@@ -223,6 +222,13 @@
    "fieldname": "reset_endpoints",
    "fieldtype": "Button",
    "label": "Reset Endpoints"
+   },
+   {
+   "fieldname": "bulk_payment",
+   "fieldtype": "Check",
+   "label": "Bulk Payment",
+   "set_only_once": 1,
+   "default": "0"
   }
  ],
  "is_submittable": 1,
@@ -231,7 +237,7 @@
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "ICICI Connector",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
