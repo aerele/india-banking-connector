@@ -32,4 +32,4 @@ indent-style = "tab"
 docstring-code-format = true
 
 [tool.bench.frappe-dependencies]
-frappe = ">=14,<16"
+frappe = ">=14,=<16"
