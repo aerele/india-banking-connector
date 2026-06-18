@@ -9,6 +9,7 @@ STD_BANK_LIST = [
 	"IDFC First Bank",
 	"Canara Bank",
 	"CITI Bank",
+	"IndusInd Bank",
 ]
 
 DEFAULT_CONNECTOR = [
@@ -21,6 +22,7 @@ DEFAULT_CONNECTOR = [
 	"IDFC Connector",
 	"Axis Bank Connector",
 	"Canara Bank Connector",
+	"IndusInd Bank Connector",
 ]
 
 DEFAULT_HOSTS = [
@@ -39,6 +41,7 @@ BANKS_CONNECTOR_MAP = {
 	"IDFC Bank": "IDFC Connector",
 	"Axis Bank": "Axis Bank Connector",
 	"Canara Bank": "Canara Bank Connector",
+	"IndusInd Bank": "IndusInd Bank Connector",
 }
 
 BANKS_H2H_MAP = {
