@@ -5,20 +5,23 @@ import hashlib
 import hmac
 import json
 from base64 import b64decode, b64encode
+from unittest.mock import patch
 
 import frappe
+import requests
 from Crypto.Cipher import AES
 from frappe.tests.utils import FrappeTestCase
 
 AES_KEY_HEX = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 AES_IV_HEX = "000102030405060708090a0b0c0d0e0f"
+TEST_ACCOUNT_NUMBER = "TESTACC001"
 
 
 def get_test_connector(**fields):
 	return frappe.get_doc(
 		{
 			"doctype": "IndusInd Bank Connector",
-			"account_number": "TESTACC001",
+			"account_number": TEST_ACCOUNT_NUMBER,
 			"customer_id": "CUST001",
 			"maker_id": "SMAKER",
 			"checker_id": "SCHECKER",
@@ -32,7 +35,29 @@ def get_test_connector(**fields):
 	)
 
 
-class TestIndusIndBankConnector(FrappeTestCase):
+def fake_response(body: dict, status_code: int = 200) -> requests.Response:
+	"""A real requests.Response (create_api_log requires isinstance(res, Response))."""
+	resp = requests.Response()
+	resp.status_code = status_code
+	resp._content = json.dumps(body).encode()
+	req = requests.PreparedRequest()
+	req.prepare(method="POST", url="https://uat.indusind.example/batch", headers={}, data="{}")
+	resp.request = req
+	return resp
+
+
+def payment_order(name, summary_rows):
+	return frappe._dict(
+		{
+			"doctype": "Payment Order",
+			"name": name,
+			"total": sum(row["amount"] for row in summary_rows),
+			"summary": [frappe._dict(row) for row in summary_rows],
+		}
+	)
+
+
+class TestIndusIndBankConnectorCrypto(FrappeTestCase):
 	def setUp(self):
 		self.connector = get_test_connector()
 
@@ -81,3 +106,144 @@ class TestIndusIndBankConnector(FrappeTestCase):
 		plain = json.dumps(body, separators=(",", ":"))
 		envelope = self.connector._envelope(body, lower=True)
 		self.assertEqual(envelope["requestHash"], self.connector._hash(plain))
+
+
+class TestIndusIndBankConnectorPayloadBuilders(FrappeTestCase):
+	def setUp(self):
+		self.connector = get_test_connector()
+		self.connector.account_number = TEST_ACCOUNT_NUMBER
+
+	def test_neft_row_uses_ifsc_and_account_number(self):
+		row = self.connector._payment_row(
+			{"name": "POS-1", "amount": 100, "mode_of_transfer": "NEFT", "branch_code": "INDB0000123", "bank_account_no": "111", "party_name": "Vendor A"}
+		)
+		self.assertEqual(row["tranType"], "NEFT")
+		self.assertEqual(row["benIFSC"], "INDB0000123")
+		self.assertEqual(row["benAcctNo"], "111")
+		self.assertNotIn("IblAcctNo", row)
+
+	def test_a2a_row_uses_iblacctno_not_ifsc(self):
+		row = self.connector._payment_row(
+			{"name": "POS-2", "amount": 200, "mode_of_transfer": "A2A/FT/Internal", "branch_code": "IGNORED", "bank_account_no": "222", "party_name": "Vendor B"}
+		)
+		self.assertEqual(row["tranType"], "IFTO")
+		self.assertEqual(row["IblAcctNo"], "222")
+		self.assertNotIn("benIFSC", row)
+		self.assertNotIn("benAcctNo", row)
+
+	def test_unknown_mode_defaults_to_neft(self):
+		self.assertEqual(self.connector._tran_type("Cheque"), "NEFT")
+
+	def test_format_payment_response_accepted(self):
+		self.connector.doc = payment_order("PO-1", [{"name": "POS-1", "amount": 1}])
+		res = frappe._dict()
+		self.connector._format_payment_response(
+			{"StatusCode": "R000", "StatusDesc": "Batch Received"}, res
+		)
+		self.assertEqual(res.payment_status, "ACCEPTED")
+		self.assertEqual(res.summary_details, {"POS-1": {"payment_status": "Accepted"}})
+
+	def test_format_payment_response_rejected(self):
+		self.connector.doc = payment_order("PO-2", [{"name": "POS-2", "amount": 1}])
+		res = frappe._dict()
+		self.connector._format_payment_response(
+			{"StatusCode": "R001", "StatusDesc": "Invalid Batch"}, res
+		)
+		self.assertEqual(res.payment_status, "FAILED")
+		self.assertEqual(res.summary_details, {"POS-2": {"payment_status": "Failed"}})
+
+	def test_format_payment_status_response_maps_codes(self):
+		res = frappe._dict()
+		self.connector._format_payment_status_response(
+			{
+				"PayResp": {
+					"Transaction": [
+						{"CustRefNo": "POS-1", "StatusCode": "S", "StatusDesc": "Success", "UTR": "UTR1"},
+						{"CustRefNo": "POS-2", "StatusCode": "SP", "StatusDesc": "Suspect"},
+						{"CustRefNo": "POS-3", "StatusCode": "R", "StatusDesc": "Rejected by bank"},
+					]
+				}
+			},
+			res,
+		)
+		self.assertEqual(res.payment_status, "PROCESSED")
+		self.assertEqual(res.summary_details["POS-1"], {"status": "Processed", "utr_number": "UTR1", "message": "Success"})
+		self.assertEqual(res.summary_details["POS-2"]["status"], "Pending")
+		self.assertEqual(res.summary_details["POS-3"]["status"], "Rejected")
+
+
+class TestIndusIndBankConnectorOperations(FrappeTestCase):
+	def setUp(self):
+		frappe.db.delete("IndusInd Bank Connector", {"account_number": TEST_ACCOUNT_NUMBER})
+		self.connector = get_test_connector()
+		self.connector.insert(ignore_permissions=True)
+		frappe.db.commit()
+
+	def tearDown(self):
+		frappe.db.delete("Bank Request Log", {"connector_name": self.connector.name})
+		frappe.delete_doc("IndusInd Bank Connector", self.connector.name, force=True, ignore_permissions=True)
+		frappe.db.commit()
+
+	def test_initiate_payment_sends_gcm_envelope_and_maps_accepted_response(self):
+		self.connector.doc = payment_order(
+			"PO-INIT-1",
+			[{"name": "POS-INIT-1", "amount": 250, "mode_of_transfer": "NEFT", "branch_code": "INDB0000123", "bank_account_no": "111", "party_name": "Vendor A"}],
+		)
+		ack = {"BatchRefNo": "BR1", "TxnCount": "1", "StatusCode": "R000", "StatusDesc": "Batch Received"}
+
+		with patch("requests.post", return_value=fake_response(ack)) as mock_post:
+			result = self.connector.initiate_payment()
+
+		sent_payload = mock_post.call_args.kwargs["json"]
+		self.assertEqual(set(sent_payload.keys()), {"requestMsg", "requestHash"})
+		decrypted = json.loads(self.connector._decrypt(sent_payload["requestMsg"]))
+		self.assertEqual(
+			decrypted["multiPayReq"]["body"]["payment"][0]["custRefNo"], "POS-INIT-1"
+		)
+		self.assertEqual(result.payment_status, "ACCEPTED")
+		self.assertEqual(result.summary_details, {"POS-INIT-1": {"payment_status": "Accepted"}})
+
+	def test_initiate_payment_dedupes_on_retry_without_second_http_call(self):
+		self.connector.doc = payment_order(
+			"PO-INIT-2",
+			[{"name": "POS-INIT-2", "amount": 100, "mode_of_transfer": "IMPS", "branch_code": "INDB0000999", "bank_account_no": "222", "party_name": "Vendor B"}],
+		)
+		ack = {"BatchRefNo": "BR2", "TxnCount": "1", "StatusCode": "R000", "StatusDesc": "Batch Received"}
+
+		with patch("requests.post", return_value=fake_response(ack)) as mock_post:
+			self.connector.initiate_payment()
+			self.assertEqual(mock_post.call_count, 1)
+
+		retry_connector = frappe.get_doc("IndusInd Bank Connector", self.connector.name)
+		retry_connector.doc = self.connector.doc
+		with patch("requests.post", return_value=fake_response(ack)) as mock_post_retry:
+			retry_connector.initiate_payment()
+			self.assertEqual(mock_post_retry.call_count, 0)
+
+	def test_get_payment_status_round_trips_through_real_http_mock(self):
+		self.connector.doc = payment_order(
+			"PO-STATUS-1",
+			[{"name": "POS-STATUS-1", "amount": 100, "mode_of_transfer": "NEFT", "branch_code": "INDB0000123", "bank_account_no": "111", "party_name": "Vendor A"}],
+		)
+		status_body = {
+			"PayResp": {
+				"Transaction": [
+					{"CustRefNo": "POS-STATUS-1", "StatusCode": "S", "StatusDesc": "Success", "UTR": "UTR123"}
+				]
+			}
+		}
+
+		with patch("requests.post", return_value=fake_response(status_body)):
+			result = self.connector.get_payment_status()
+
+		self.assertEqual(result.payment_status, "PROCESSED")
+		self.assertEqual(
+			result.summary_details["POS-STATUS-1"],
+			{"status": "Processed", "utr_number": "UTR123", "message": "Success"},
+		)
+
+	def test_get_bank_balance_and_statement_are_unsupported(self):
+		with self.assertRaises(frappe.ValidationError):
+			self.connector.get_bank_balance()
+		with self.assertRaises(frappe.ValidationError):
+			self.connector.get_bank_statement()
