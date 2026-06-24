@@ -27,7 +27,12 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 class SBIConnector(BankConnector):
 	bank = "State Bank of India"
 
-	__all__ = ["initiate_payment", "get_payment_status"]
+	__all__ = [
+		"initiate_payment",
+		"get_payment_status",
+		"get_bank_balance",
+		"get_bank_statement",
+	]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -115,6 +120,66 @@ class SBIConnector(BankConnector):
 			response, method="payment_status", log_id=log_id
 		)
 
+	def get_bank_balance(self):
+		if not self.balance_check:
+			frappe.throw("Bank Balance Check is not enabled.")
+
+		self._last_aes_key = None
+		url = self.urls.bank_balance
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="bank_balance")
+		response = requests.post(
+			url,
+			headers=headers,
+			json=payload,
+			verify=self.get_ssl_verify(),
+			timeout=120,
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Balance",
+			account_config=self.account_config,
+			ref_doctype="Bank Balance",
+			ref_docname=self.account_number,
+			unique_id=self.account_number,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_balance", log_id=log_id
+		)
+
+	def get_bank_statement(self):
+		if not self.statement_fetch:
+			frappe.throw("Bank Statement Fetch is not enabled.")
+
+		self._last_aes_key = None
+		url = self.urls.bank_statement
+		headers = self.headers
+		payload = self.get_encrypted_payload(method="bank_statement")
+		response = requests.post(
+			url,
+			headers=headers,
+			json=payload,
+			verify=self.get_ssl_verify(),
+			timeout=120,
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Statement",
+			account_config=self.account_config,
+			ref_doctype="Bank Statement",
+			ref_docname=self.account_number,
+			unique_id=self.account_number,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_statement", log_id=log_id
+		)
+
 	def get_encrypted_payload(self, method):
 		if not self._last_aes_key:
 			self._last_aes_key = self.generate_aes_key()
@@ -129,6 +194,8 @@ class SBIConnector(BankConnector):
 		}
 
 	def get_decrypted_response(self, response, method, log_id=None):
+		# if self.decrypted_response:
+		# 	return
 		res_dict = frappe._dict({})
 		if not response.ok:
 			res_dict.status = "Request Failure"
@@ -149,6 +216,7 @@ class SBIConnector(BankConnector):
 			return response_json
 
 		decrypted_json = self.aes_gcm_decrypt(encrypted_response, self._last_aes_key)
+
 		if digi_sign:
 			self.verify_digital_sign(
 				decrypted_json,
@@ -173,12 +241,17 @@ class SBIConnector(BankConnector):
 		data = self.parse_json(data)
 
 		if data.get("RESPONSE_STATUS") and cstr(data.get("RESPONSE_STATUS")) != "0":
-			res_dict.payment_status = "FAILED"
-			res_dict.message = (
+			message = (
 				data.get("ERROR_DESCRIPTION")
 				or data.get("ERROR_CODE")
 				or "SBI request failed"
 			)
+			if method in ("bank_balance", "bank_statement"):
+				res_dict.server_status = "Failed"
+				res_dict.message = message
+			else:
+				res_dict.payment_status = "FAILED"
+				res_dict.message = message
 			return
 
 		eis_response = self.parse_json(data.get("EIS_RESPONSE")) or {}
@@ -186,6 +259,10 @@ class SBIConnector(BankConnector):
 			self.format_payment_response(eis_response, res_dict)
 		elif method == "payment_status":
 			self.format_status_response(eis_response, res_dict)
+		elif method == "bank_balance":
+			self.format_balance_response(eis_response, res_dict)
+		elif method == "bank_statement":
+			self.format_statement_response(eis_response, res_dict)
 
 	def format_payment_response(self, eis_response, res_dict):
 		response = frappe._dict(eis_response.get("TransactionCreationResponse") or {})
@@ -259,6 +336,105 @@ class SBIConnector(BankConnector):
 		res_dict.payment_status = "PROCESSED"
 		res_dict.summary_details = {summary_name: status_details}
 
+	def format_balance_response(self, eis_response, res_dict):
+		eis_response = frappe._dict(self.parse_json(eis_response) or {})
+
+		if cstr(eis_response.get("responseStatus") or "0") != "0":
+			res_dict.server_status = "Failed"
+			res_dict.message = (
+				eis_response.get("errorDescription")
+				or eis_response.get("errorCode")
+				or "Balance fetch failed"
+			)
+			return
+
+		res_dict.server_status = "Success"
+		res_dict.balance = self.parse_signed_amount(
+			eis_response.get("availableAmount")
+			or eis_response.get("availableBalance")
+		)
+		res_dict.date = eis_response.get("responseDate") or getdate()
+
+	def format_statement_response(self, eis_response, res_dict):
+		eis_response = frappe._dict(self.parse_json(eis_response) or {})
+
+		if cstr(eis_response.get("responseStatus") or "0") != "0":
+			res_dict.server_status = "Failed"
+			res_dict.message = (
+				eis_response.get("errorDescription")
+				or eis_response.get("errorCode")
+				or "Statement fetch failed"
+			)
+			return
+
+		details = eis_response.get("accountStatementDetails") or []
+		if isinstance(details, dict):
+			details = [details]
+
+		transactions = []
+		for txn in details:
+			txn = frappe._dict(txn)
+			transactions.append(
+				{
+					"transaction_date": self.parse_statement_date(
+						txn.get("VALUE_DATE") or txn.get("TODAYS_DATE")
+					),
+					"transaction_amount": self.parse_signed_amount(txn.get("AMOUNT")),
+					"reference_number": (
+						txn.get("STATEMENT")
+						or txn.get("RECORD_NUMBER")
+						or txn.get("CHEQUE_NUMBER")
+					),
+					"user_ref_number": cstr(txn.get("RECORD_NUMBER") or ""),
+					"transaction_description": (
+						txn.get("NARRATION")
+						or txn.get("TRANSFER_STATEMENT")
+						or txn.get("MISC_NARRATION")
+						or ""
+					),
+				}
+			)
+
+		res_dict.server_status = "Success"
+		res_dict.bank_statements = transactions
+
+	def parse_signed_amount(self, value):
+		"""SBI denotes sign with a leading (balance) or trailing (statement)
+		'+'/'-'. Returns a float where debits are negative."""
+		text = cstr(value).strip()
+		if not text:
+			return 0
+
+		sign = -1 if (text.startswith("-") or text.endswith("-")) else 1
+		return sign * flt(text.strip("+-").strip())
+
+	def parse_statement_date(self, value):
+		"""SBI statement dates are in DD/MM/YYYY format."""
+		text = cstr(value).strip()
+		if not text:
+			return ""
+		try:
+			return datetime.strptime(text, "%d/%m/%Y").date()
+		except ValueError:
+			return getdate(text)
+
+	def get_statement_date(self, value):
+		"""Convert the incoming date into SBI's DDMMYYYY format.
+
+		The Bank Statements dialog sends ISO (yyyy-mm-dd) dates, while the
+		india_banking default fallback sends day-first (dd-mm-yyyy) dates.
+		ISO is unambiguous, so only dd-mm-yyyy needs day-first parsing -
+		otherwise getdate would silently swap the day and month."""
+		if not isinstance(value, str):
+			return getdate(value).strftime("%d%m%Y")
+
+		text = value.strip()
+		if not text:
+			frappe.throw("Statement from/to date is required.")
+
+		iso_like = len(text.split("-", 1)[0]) == 4  # leading yyyy of yyyy-mm-dd
+		return getdate(text, parse_day_first=not iso_like).strftime("%d%m%Y")
+
 	def get_account_config(self, method):
 		request_reference_number = self.generate_request_reference_number()
 		if method == "make_payment":
@@ -300,6 +476,40 @@ class SBIConnector(BankConnector):
 				"TXN_SUB_TYPE": "ENQUIRY",
 				"EIS_PAYLOAD": {
 					"TransactionEnquiryRequest": inner_request,
+					"HASH": self.compute_hash(inner_request),
+				},
+			}
+		elif method == "bank_balance":
+			inner_request = {
+				"accountNo": self.account_number,
+				"corporateCode": self.corporate_code,
+			}
+			plain_payload = {
+				"REQUEST_REFERENCE_NUMBER": request_reference_number,
+				"SOURCE_ID": self.source_id,
+				"DESTINATION": "CMP",
+				"TXN_TYPE": "ACCOUNT",
+				"TXN_SUB_TYPE": "BALANCE",
+				"EIS_PAYLOAD": {
+					"AccountBalanceRequest": inner_request,
+					"HASH": self.compute_hash(inner_request),
+				},
+			}
+		elif method == "bank_statement":
+			inner_request = {
+				"accountNo": self.account_number,
+				"corporateCode": self.corporate_code,
+				"fromDate": self.get_statement_date(self.doc.get("from_date")),
+				"toDate": self.get_statement_date(self.doc.get("to_date")),
+			}
+			plain_payload = {
+				"REQUEST_REFERENCE_NUMBER": request_reference_number,
+				"SOURCE_ID": self.source_id,
+				"DESTINATION": "CMP",
+				"TXN_TYPE": "ACCOUNT",
+				"TXN_SUB_TYPE": "STATEMENT",
+				"EIS_PAYLOAD": {
+					"AccountStatementRequest": inner_request,
 					"HASH": self.compute_hash(inner_request),
 				},
 			}
@@ -367,11 +577,11 @@ class SBIConnector(BankConnector):
 		mode = cstr(mode_of_transfer).upper()
 		if "RTGS" in mode:
 			return "RTGS"
-		if "NEFT" in mode:
-			return "NEFT"
 		if "A2A" in mode or "INTRA" in mode or "DCR" in mode:
 			return "DCR"
-		return mode
+		
+		return "NEFT"
+	
 
 	def get_unique_request_id(self, payment_details, method=None):
 		unique_id = self.get_numeric_hash(payment_details.get("name"), length=11)
