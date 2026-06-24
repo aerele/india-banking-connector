@@ -20,6 +20,9 @@
   "client_private_key_password",
   "eis_encryption_cert",
   "ssl_verify_cert",
+  "balance_and_statement_section",
+  "balance_check",
+  "statement_fetch",
   "api_endpoints_tab",
   "base_url",
   "api_endpoints",
@@ -110,6 +113,26 @@
    "fieldname": "ssl_verify_cert",
    "fieldtype": "Attach",
    "label": "SSL Verify Certificate"
+  },
+  {
+   "depends_on": "active",
+   "fieldname": "balance_and_statement_section",
+   "fieldtype": "Section Break",
+   "label": "Balance and Statement"
+  },
+  {
+   "default": "0",
+   "description": "Enable the Account Balance (TXN_TYPE ACCOUNT / TXN_SUB_TYPE BALANCE) service for this account.",
+   "fieldname": "balance_check",
+   "fieldtype": "Check",
+   "label": "Balance Check"
+  },
+  {
+   "default": "0",
+   "description": "Enable the Account Statement (TXN_TYPE ACCOUNT / TXN_SUB_TYPE STATEMENT) service for this account.",
+   "fieldname": "statement_fetch",
+   "fieldtype": "Check",
+   "label": "Statement Fetch"
   },
   {
    "fieldname": "api_endpoints_tab",
