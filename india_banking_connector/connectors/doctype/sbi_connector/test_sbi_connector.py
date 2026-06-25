@@ -190,6 +190,7 @@ class TestSBIConnector(FrappeTestCase):
 		self.assertEqual(payload["EIS_PAYLOAD"]["HASH"], "HASH")
 		self.assertEqual(balance_request["accountNo"], "30096039283")
 		self.assertEqual(balance_request["corporateCode"], "85002456640")
+		self.assertNotIn("REQUEST_REFERENCE_NUMBER", payload)
 
 	def test_statement_payload_uses_ddmmyyyy_dates(self):
 		connector = self.get_connector()
@@ -207,6 +208,28 @@ class TestSBIConnector(FrappeTestCase):
 		self.assertEqual(statement_request["corporateCode"], "85002456640")
 		self.assertEqual(statement_request["fromDate"], "01122024")
 		self.assertEqual(statement_request["toDate"], "02122024")
+		# Plain request must NOT carry REQUEST_REFERENCE_NUMBER (outer-wrapper only).
+		self.assertNotIn("REQUEST_REFERENCE_NUMBER", payload)
+
+	def test_encrypted_payload_keeps_rrn_in_outer_wrapper_only(self):
+		connector = self.get_connector()
+		connector.digital_sign = lambda data: "SIGN"
+		captured = {}
+
+		def capture(plain, key):
+			captured["plain"] = plain
+			return "ENC"
+
+		connector.aes_gcm_encrypt = capture
+
+		wrapper = connector.get_encrypted_payload(method="bank_balance")
+
+		# Outer wrapper carries the 25-char reference number + encrypted body + signature
+		self.assertEqual(len(wrapper["REQUEST_REFERENCE_NUMBER"]), 25)
+		self.assertEqual(wrapper["REQUEST"], "ENC")
+		self.assertEqual(wrapper["DIGI_SIGN"], "SIGN")
+		# The encrypted plain request (what we sign+encrypt) must NOT contain the RRN
+		self.assertNotIn("REQUEST_REFERENCE_NUMBER", captured["plain"])
 
 	def test_statement_date_handles_iso_and_day_first(self):
 		connector = self.get_connector()

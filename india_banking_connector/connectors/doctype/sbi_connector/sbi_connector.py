@@ -186,7 +186,7 @@ class SBIConnector(BankConnector):
 		plain_payload = self.get_account_config(method)
 		plain_json = self.compact_json(plain_payload)
 
-		request_reference_number = plain_payload["REQUEST_REFERENCE_NUMBER"]
+		request_reference_number = self.request_reference_number
 		return {
 			"REQUEST_REFERENCE_NUMBER": request_reference_number,
 			"REQUEST": self.aes_gcm_encrypt(plain_json, self._last_aes_key),
@@ -438,6 +438,7 @@ class SBIConnector(BankConnector):
 
 	def get_account_config(self, method):
 		request_reference_number = self.generate_request_reference_number()
+		self.request_reference_number = request_reference_number
 		if method == "make_payment":
 			inner_request = {
 				"uniqueRequestId": self.get_unique_request_id(
@@ -486,7 +487,6 @@ class SBIConnector(BankConnector):
 				"corporateCode": self.corporate_code,
 			}
 			plain_payload = {
-				"REQUEST_REFERENCE_NUMBER": request_reference_number,
 				"SOURCE_ID": self.source_id,
 				"DESTINATION": "CMP",
 				"TXN_TYPE": "ACCOUNT",
@@ -504,7 +504,6 @@ class SBIConnector(BankConnector):
 				"toDate": self.get_statement_date(self.doc.get("to_date")),
 			}
 			plain_payload = {
-				"REQUEST_REFERENCE_NUMBER": request_reference_number,
 				"SOURCE_ID": self.source_id,
 				"DESTINATION": "CMP",
 				"TXN_TYPE": "ACCOUNT",
