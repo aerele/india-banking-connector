@@ -45,10 +45,6 @@ class BankRequestLog(Document):
 
 	@frappe.whitelist()
 	def decrypt_and_set_response(self):
-
-		# if self.decrypted_response:
-		# 	return self.decrypted_response
-
 		if self.connector and self.connector_name:
 			connector = frappe.get_doc(self.connector, self.connector_name)
 			connector.get_decrypted_response(

@@ -140,8 +140,8 @@ class SBIConnector(BankConnector):
 			response,
 			action="Bank Balance",
 			account_config=self.account_config,
-			ref_doctype="Bank Balance",
-			ref_docname=self.account_number,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
 			unique_id=self.account_number,
 			connector=self,
 		)
@@ -170,8 +170,8 @@ class SBIConnector(BankConnector):
 			response,
 			action="Bank Statement",
 			account_config=self.account_config,
-			ref_doctype="Bank Statement",
-			ref_docname=self.account_number,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
 			unique_id=self.account_number,
 			connector=self,
 		)
@@ -194,8 +194,6 @@ class SBIConnector(BankConnector):
 		}
 
 	def get_decrypted_response(self, response, method, log_id=None):
-		# if self.decrypted_response:
-		# 	return
 		res_dict = frappe._dict({})
 		if not response.ok:
 			res_dict.status = "Request Failure"
@@ -425,6 +423,9 @@ class SBIConnector(BankConnector):
 		india_banking default fallback sends day-first (dd-mm-yyyy) dates.
 		ISO is unambiguous, so only dd-mm-yyyy needs day-first parsing -
 		otherwise getdate would silently swap the day and month."""
+		if value is None:
+			frappe.throw("Statement from/to date is required.")
+
 		if not isinstance(value, str):
 			return getdate(value).strftime("%d%m%Y")
 
@@ -577,10 +578,11 @@ class SBIConnector(BankConnector):
 		mode = cstr(mode_of_transfer).upper()
 		if "RTGS" in mode:
 			return "RTGS"
+		if "NEFT" in mode:
+			return "NEFT"
 		if "A2A" in mode or "INTRA" in mode or "DCR" in mode:
 			return "DCR"
-		
-		return "NEFT"
+		return mode
 	
 
 	def get_unique_request_id(self, payment_details, method=None):
