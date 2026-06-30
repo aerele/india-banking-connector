@@ -11,6 +11,7 @@ import frappe
 import requests
 from Crypto.Cipher import AES
 from frappe import _
+from frappe.utils import flt
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -18,10 +19,16 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 )
 
 GCM_TAG_LENGTH = 16
+
+# Batch-level ack code, shared by TransactionPosting and BeneficiaryRequest
+# responses. R000=Batch Received, R001=validation error (duplicate/invalid
+# count/amount), R004=invalid request/hash, R005=internal server error - any
+# non-R000 is surfaced as a failure via StatusDesc, so they don't need their
+# own branches.
 POSTING_ACCEPTED_CODE = "R000"
 
-# Mode of Transfer -> IndusInd tranType. IFTO (Internal/A2A) addresses the
-# beneficiary by IblAcctNo instead of IFSC + account number.
+# Mode of Transfer -> IndusInd tranType. IFTO (Internal/A2A) is a within-bank
+# transfer, so benIFSC is sent empty for it; benAcctNo is always populated.
 TRAN_TYPE = {
 	"imps": "IMPS",
 	"neft": "NEFT",
@@ -29,22 +36,30 @@ TRAN_TYPE = {
 	"a2a": "IFTO",
 }
 
-# IndusInd TransactionEnquiry StatusCode -> Payment Order Summary payment_status.
-# SP/UP/N/P/PR/FA/SW are deliberately non-final (mapped to Pending): re-initiating
-# on these causes double payments. J/F vs R/RE -> Failed/Rejected is a judgment
-# call pending bank confirmation (the H2H doc groups all four as one bucket).
+# IndusInd "Status Maintained for APIs" (H2H doc) -> Payment Order Summary
+# payment_status. SP/UP/N-P/PR/FA/SW are deliberately non-final (mapped to
+# Pending): re-initiating on these causes double payments.
 STATUS = {
-	"S": "Processed",
-	"UP": "Pending",
-	"N/P": "Pending",
-	"PR": "Pending",
-	"SP": "Pending",
-	"FA": "Pending",
-	"SW": "Pending",
-	"J": "Failed",
-	"F": "Failed",
+	"S": "Processed",  # Success
+	"UP": "Pending",  # Authorized/Under Processing
+	"N/P": "Pending",  # Pending for Authorization
+	"PR": "Pending",  # Pending for Release
+	"SP": "Pending",  # Suspect Time-out
+	"FA": "Pending",  # Future dated Transaction
+	"SW": "Pending",  # Scheduled for Next Applicable Day
+	"J": "Failed",  # Expired / Front end validation failure
+	"F": "Failed",  # Failure (Finacle / IMPS Hub)
+	"RE": "Failed",  # Return (processed, then bounced back)
+	"R": "Rejected",  # Rejected
+}
+
+# IndusInd Beneficiary "Status Maintained for APIs" (H2H Beneficiary doc).
+BENEFICIARY_STATUS = {
+	"A": "Active",
+	"I": "Inactive",
 	"R": "Rejected",
-	"RE": "Rejected",
+	"J": "Failed",
+	"H": "Pending",  # account validation in process
 }
 
 
@@ -53,8 +68,10 @@ class IndusIndBankConnector(BankConnector):
 
 	# IndusInd's Batch API uses AES-256-GCM + HMAC-SHA256, which the base class
 	# doesn't provide (it only has CBC and JWE-wrapped GCM). Byte layout below
-	# (ciphertext|tag, fixed IV from the `iv` field) is per the H2H doc and is
-	# unverified against a live UAT sample — confirm before a real UAT call.
+	# (ciphertext|tag, fixed IV from the `iv` field) confirmed against a live
+	# UAT TransactionPosting round trip on 2026-06-26 (decrypted a real R005
+	# response cleanly) - this was wrong until aes_key/iv were set to the
+	# bank-issued values instead of the test-fixture placeholders.
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -66,6 +83,12 @@ class IndusIndBankConnector(BankConnector):
 
 	def _aes_iv(self) -> bytes:
 		return bytes.fromhex(self.get_password("iv"))
+
+	def _hash_key(self) -> bytes:
+		# The bank HMACs with the 64-char hex key string taken as literal ASCII
+		# bytes, not the 32 raw bytes it decodes to for AES - confirmed by
+		# matching their responseHash on a live UAT call (2026-06-27).
+		return self.get_password("aes_key").encode()
 
 	def _encrypt(self, plain: str) -> str:
 		cipher = AES.new(self._aes_key(), AES.MODE_GCM, nonce=self._aes_iv())
@@ -79,7 +102,7 @@ class IndusIndBankConnector(BankConnector):
 		return cipher.decrypt_and_verify(ciphertext, tag).decode()
 
 	def _hash(self, plain: str) -> str:
-		return hmac.new(self._aes_key(), plain.encode(), hashlib.sha256).hexdigest()
+		return b64encode(hmac.new(self._hash_key(), plain.encode(), hashlib.sha256).digest()).decode()
 
 	def _envelope(self, body: dict, lower: bool) -> dict:
 		plain = json.dumps(body, separators=(",", ":"))
@@ -101,7 +124,7 @@ class IndusIndBankConnector(BankConnector):
 		if existing := self.validate_duplicate_payments(unique_id=unique_id):
 			return existing
 
-		payload = self.get_encrypted_payload("make_payment")
+		payload = self.get_encrypted_payload("make_payment", lower=True)
 		response = requests.post(self.urls.make_payment, headers=self.headers, json=payload)
 
 		log_id = create_api_log(
@@ -116,7 +139,9 @@ class IndusIndBankConnector(BankConnector):
 		return self.get_decrypted_response(response, method="make_payment", log_id=log_id)
 
 	def get_payment_status(self):
-		payload = self.get_encrypted_payload("payment_status")
+		# Per the H2H doc, TransactionEnquiry's envelope is RequestMsg/RequestHash
+		# (uppercase) - TransactionPosting is the only lowercase one.
+		payload = self.get_encrypted_payload("payment_status", lower=False)
 		response = requests.post(self.urls.payment_status, headers=self.headers, json=payload)
 
 		log_id = create_api_log(
@@ -136,26 +161,73 @@ class IndusIndBankConnector(BankConnector):
 	def get_bank_statement(self):
 		frappe.throw(_("Not supported by IndusInd Batch API"))
 
+	@frappe.whitelist()
+	def add_beneficiaries(self, beneficiaries, batch_id=None):
+		"""beneficiaries: list of dicts with ben_code, tran_type, ben_name, ben_ifsc,
+		ben_acct_no, ibl_acct_no, ben_email, ben_mobile, req_mode (default "A")."""
+		if isinstance(beneficiaries, str):
+			beneficiaries = json.loads(beneficiaries)
+
+		self._beneficiaries = beneficiaries
+		self._beneficiary_batch_id = batch_id or frappe.generate_hash(length=10)
+
+		payload = self.get_encrypted_payload("beneficiary_request", lower=False)
+		response = requests.post(self.urls.beneficiary_request, headers=self.headers, json=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Add Beneficiaries",
+			account_config=self.account_config,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+			unique_id=self._beneficiary_batch_id,
+			connector=self,
+		)
+		return self.get_decrypted_response(response, method="beneficiary_request", log_id=log_id)
+
+	@frappe.whitelist()
+	def get_beneficiary_status(self, ref_no):
+		self._beneficiary_ref_no = ref_no
+
+		payload = self.get_encrypted_payload("beneficiary_enquiry", lower=False)
+		response = requests.post(self.urls.beneficiary_enquiry, headers=self.headers, json=payload)
+
+		log_id = create_api_log(
+			response,
+			action="Beneficiary Status",
+			account_config=self.account_config,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+			unique_id=ref_no,
+			connector=self,
+		)
+		return self.get_decrypted_response(response, method="beneficiary_enquiry", log_id=log_id)
+
 	# ---- payload builders ----
 
-	def get_encrypted_payload(self, method):
+	def get_encrypted_payload(self, method, lower):
 		self.update_account_config(method)
-		return self._envelope(self.account_config["body"], lower=True)
+		return self._envelope(self.account_config["body"], lower=lower)
 
 	def update_account_config(self, method):
 		{
 			"make_payment": self.set_payment_data,
 			"payment_status": self.set_payment_status_data,
+			"beneficiary_request": self.set_beneficiary_request_data,
+			"beneficiary_enquiry": self.set_beneficiary_enquiry_data,
 		}[method]()
 
 	def set_payment_data(self):
 		summary = self.doc.get("summary") or []
+		# batchAmount must equal the sum of the payments below - self.doc.get("total")
+		# isn't reliable (it was "0.0" against a real 1000.0 payment in UAT testing).
+		batch_amount = sum(flt(row.get("amount")) for row in summary)
 		self.account_config["body"] = {
 			"multiPayReq": {
 				"header": {
 					"batchId": self._unique_id(),
 					"batchCount": str(len(summary)),
-					"batchAmount": str(self.doc.get("total")),
+					"batchAmount": str(batch_amount),
 					"makerId": self.maker_id,
 					"checkerId": self.checker_id,
 					"payMode": self.pay_mode or "I",
@@ -170,19 +242,27 @@ class IndusIndBankConnector(BankConnector):
 		row = frappe._dict(row)
 		tran_type = self._tran_type(row.mode_of_transfer)
 
-		payment = {
+		return {
 			"tranType": tran_type,
 			"custRefNo": row.name,
 			"amount": row.amount,
 			"debitAcctNo": self.account_number,
+			"valueDate": "",
+			"benCode": "",
 			"benName": self.clean_string(row.party_name or row.party),
+			"benIFSC": "" if tran_type == "IFTO" else (row.branch_code or ""),
+			"benAcctNo": row.bank_account_no or "",
+			"benEmail": row.email or "",
+			"benMobile": self._ben_mobile(row),
+			"reserve1": "",
+			"reserve2": "",
+			"reserve3": "",
 		}
-		if tran_type == "IFTO":
-			payment["IblAcctNo"] = row.bank_account_no
-		else:
-			payment["benIFSC"] = row.branch_code
-			payment["benAcctNo"] = row.bank_account_no
-		return payment
+
+	def _ben_mobile(self, row):
+		if not (row.party_type and row.party):
+			return ""
+		return frappe.db.get_value(row.party_type, row.party, "mobile_no") or ""
 
 	def _tran_type(self, mode_of_transfer):
 		mode = (mode_of_transfer or "").lower()
@@ -195,6 +275,49 @@ class IndusIndBankConnector(BankConnector):
 		self.account_config["body"] = {
 			"Customerid": self.customer_id,
 			"RefNo": self._unique_id(),
+			"IsBatch": "Y",
+		}
+
+	def set_beneficiary_request_data(self):
+		beneficiaries = self._beneficiaries
+		self.account_config["body"] = {
+			"MultiBeneReq": {
+				"Header": {
+					"BatchId": self._beneficiary_batch_id,
+					"BatchCount": str(len(beneficiaries)),
+					"MakerId": self.maker_id,
+					"CheckerId": self.checker_id,
+					"CustId": self.customer_id,
+				},
+				"Body": {"BeneList": [self._beneficiary_row(b) for b in beneficiaries]},
+			}
+		}
+
+	def _beneficiary_row(self, beneficiary):
+		beneficiary = frappe._dict(beneficiary)
+		tran_type = beneficiary.tran_type
+		if isinstance(tran_type, list):
+			tran_type = ",".join(tran_type)
+
+		return {
+			"ReqMode": beneficiary.req_mode or "A",
+			"TranType": tran_type or "",
+			"BenCode": beneficiary.ben_code or "",
+			"BenName": self.clean_string(beneficiary.ben_name),
+			"BenIFSC": beneficiary.ben_ifsc or "",
+			"BenAcctNo": beneficiary.ben_acct_no or "",
+			"IblAcctNo": beneficiary.ibl_acct_no or "",
+			"BenEmail": beneficiary.ben_email or "",
+			"BenMobile": beneficiary.ben_mobile or "",
+			"Reserve1": "",
+			"Reserve2": "",
+			"Reserve3": "",
+		}
+
+	def set_beneficiary_enquiry_data(self):
+		self.account_config["body"] = {
+			"Customerid": self.customer_id,
+			"RefNo": self._beneficiary_ref_no,
 			"IsBatch": "Y",
 		}
 
@@ -211,6 +334,22 @@ class IndusIndBankConnector(BankConnector):
 			return res
 
 		data = response.json()
+		enc_key = "responseMsg" if "responseMsg" in data else "ResponseMsg" if "ResponseMsg" in data else None
+		if enc_key:
+			# Confirmed against live UAT (2026-06-20): IndusInd encrypts responses
+			# too, contradicting the H2H doc's plaintext response samples. Byte
+			# layout/key for decryption confirmed 2026-06-26 - same AES-256-GCM
+			# layout as the request, same key/iv. The earlier "unconfirmed"
+			# failures were caused by aes_key/iv still holding test-fixture
+			# values instead of the bank-issued UAT key.
+			try:
+				data = json.loads(self._decrypt(data[enc_key]))
+			except Exception:
+				res.status = "Request Failure"
+				res.message = "Response Decryption Failed - confirm responseMsg byte layout with IndusInd."
+				self.set_decrypted_response(log_id, json.dumps(data))
+				return res
+
 		self.set_decrypted_response(log_id, json.dumps(data))
 		self.get_formated_response(data, res, method)
 		return res
@@ -219,10 +358,12 @@ class IndusIndBankConnector(BankConnector):
 		if isinstance(data, str):
 			data = json.loads(data)
 
-		if method == "make_payment":
-			self._format_payment_response(data, res)
-		elif method == "payment_status":
-			self._format_payment_status_response(data, res)
+		{
+			"make_payment": self._format_payment_response,
+			"payment_status": self._format_payment_status_response,
+			"beneficiary_request": self._format_beneficiary_request_response,
+			"beneficiary_enquiry": self._format_beneficiary_enquiry_response,
+		}[method](data, res)
 
 	def _format_payment_response(self, data, res):
 		accepted = data.get("StatusCode") == POSTING_ACCEPTED_CODE
@@ -243,4 +384,20 @@ class IndusIndBankConnector(BankConnector):
 				"message": txn.get("StatusDesc", ""),
 			}
 			for txn in transactions
+		}
+
+	def _format_beneficiary_request_response(self, data, res):
+		accepted = data.get("StatusCode") == POSTING_ACCEPTED_CODE
+		res.status = "Accepted" if accepted else "Failed"
+		res.message = data.get("StatusDesc", "")
+
+	def _format_beneficiary_enquiry_response(self, data, res):
+		beneficiaries = data.get("BeneResp", {}).get("BeneList", [])
+		res.status = "Fetched" if beneficiaries else "Request Failure"
+		res.beneficiaries = {
+			bene.get("BenCode"): {
+				"status": BENEFICIARY_STATUS.get(bene.get("StatusCode"), bene.get("StatusCode", "")),
+				"message": bene.get("StatusDesc", ""),
+			}
+			for bene in beneficiaries
 		}
