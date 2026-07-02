@@ -59,7 +59,7 @@ class TestSBIConnector(FrappeTestCase):
 				]
 			}
 		)
-		connector.compute_hash = lambda inner_request: "HASH"
+		connector.compute_hash = lambda inner_request, sanitize=False: "HASH"
 		return connector
 
 	def test_generate_request_reference_number_for_five_character_source(self):
@@ -79,6 +79,37 @@ class TestSBIConnector(FrappeTestCase):
 		decrypted = connector.aes_gcm_decrypt(encrypted, key)
 
 		self.assertEqual(decrypted, plaintext)
+
+	def test_sanitize_hash_strips_forbidden_characters(self):
+		connector = self.get_connector()
+
+		cleaned = connector.sanitize_hash("abc=+/def<>;=:=(ghi==")
+		for ch in ("<", ">", ";", "="):
+			self.assertNotIn(ch, cleaned)
+		self.assertEqual(cleaned, "abc+/def:(ghi")
+		# base64 padding removed, but "+"/"/" content preserved
+		self.assertEqual(connector.sanitize_hash("QQ+//w=="), "QQ+//w")
+
+	def test_account_hash_is_sanitized_but_payment_is_not(self):
+		connector = self.get_connector()
+		captured = {}
+		connector.compute_hash = (
+			lambda inner_request, sanitize=False: captured.update({"sanitize": sanitize})
+			or "HASH"
+		)
+
+		connector.get_account_config("bank_balance")
+		self.assertTrue(captured["sanitize"])
+
+		connector.doc = frappe._dict({"from_date": "01-12-2024", "to_date": "02-12-2024"})
+		connector.get_account_config("bank_statement")
+		self.assertTrue(captured["sanitize"])
+
+		connector.get_account_config("make_payment")
+		self.assertFalse(captured["sanitize"])
+
+		connector.get_account_config("payment_status")
+		self.assertFalse(captured["sanitize"])
 
 	def test_status_mapping_matches_india_banking_expected_values(self):
 		connector = self.get_connector()

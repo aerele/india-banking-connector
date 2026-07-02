@@ -493,7 +493,7 @@ class SBIConnector(BankConnector):
 				"TXN_SUB_TYPE": "BALANCE",
 				"EIS_PAYLOAD": {
 					"AccountBalanceRequest": inner_request,
-					"HASH": self.compute_hash(inner_request),
+					"HASH": self.compute_hash(inner_request, sanitize=True),
 				},
 			}
 		elif method == "bank_statement":
@@ -510,7 +510,7 @@ class SBIConnector(BankConnector):
 				"TXN_SUB_TYPE": "STATEMENT",
 				"EIS_PAYLOAD": {
 					"AccountStatementRequest": inner_request,
-					"HASH": self.compute_hash(inner_request),
+					"HASH": self.compute_hash(inner_request, sanitize=True),
 				},
 			}
 		else:
@@ -638,8 +638,16 @@ class SBIConnector(BankConnector):
 			return "Pending", message
 		return "Pending", message
 
-	def compute_hash(self, inner_request):
-		return self.digital_sign(self.compact_json(self.sort_json_keys(inner_request)))
+	def compute_hash(self, inner_request, sanitize=False):
+		signature = self.digital_sign(self.compact_json(self.sort_json_keys(inner_request)))
+		return self.sanitize_hash(signature) if sanitize else signature
+
+	def sanitize_hash(self, value):
+		# SBI EIS SI003 content check rejects these characters in the internal HASH;
+		# strip per SBI guidance. In practice only base64 padding "=" appears.
+		for ch in ("<", ">", ";", "="):
+			value = value.replace(ch, "")
+		return value
 
 	def digital_sign(self, data):
 		signature = self.load_client_private_key().sign(
