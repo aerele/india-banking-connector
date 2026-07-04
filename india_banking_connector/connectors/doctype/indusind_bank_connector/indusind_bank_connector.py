@@ -240,7 +240,14 @@ class IndusIndBankConnector(BankConnector):
 
 	def _payment_row(self, row):
 		row = frappe._dict(row)
-		tran_type = self._tran_type(row.mode_of_transfer)
+		# Prefer the mode the user actually chose in the "Initiate Payment"
+		# dialog (Payment Order.default_mode_of_transfer) over the per-row
+		# mode india_banking derived from its amount-slab lookup, which
+		# silently overrides an explicit NEFT/RTGS choice for small amounts
+		# that also fall inside IMPS's range.
+		tran_type = self._tran_type(
+			self.doc.get("default_mode_of_transfer") or row.mode_of_transfer
+		)
 
 		return {
 			"tranType": tran_type,
