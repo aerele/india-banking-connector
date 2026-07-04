@@ -272,9 +272,13 @@ class IndusIndBankConnector(BankConnector):
 		return "NEFT"
 
 	def set_payment_status_data(self):
+		# RefNo must be the bank-assigned BatchRefNo from the initiate-payment
+		# ack, not our own batchId - IndusInd doesn't recognise the client's
+		# reference for TransactionEnquiry. Fall back to the old (incorrect)
+		# behaviour only for batches initiated before this field existed.
 		self.account_config["body"] = {
 			"Customerid": self.customer_id,
-			"RefNo": self._unique_id(),
+			"RefNo": self.doc.get("batch_ref_no") or self._unique_id(),
 			"IsBatch": "Y",
 		}
 
@@ -369,6 +373,7 @@ class IndusIndBankConnector(BankConnector):
 		accepted = data.get("StatusCode") == POSTING_ACCEPTED_CODE
 		res.payment_status = "ACCEPTED" if accepted else "FAILED"
 		res.message = data.get("StatusDesc", "")
+		res.batch_ref_no = data.get("BatchRefNo", "")
 		res.summary_details = self.get_summary_details("Accepted" if accepted else "Failed")
 
 	def _format_payment_status_response(self, data, res):
