@@ -1,5 +1,6 @@
 import click
 import frappe
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from india_banking_connector.default import (
 	BANKS_CONNECTOR_MAP,
@@ -14,6 +15,64 @@ def after_install():
 	create_bank_doctype()
 	create_default_bank()
 	create_connector_settings()
+	create_bank_account_beneficiary_fields()
+
+
+def create_bank_account_beneficiary_fields():
+	click.echo(" -> Installing IndusInd Beneficiary Fields in Bank Account")
+	create_custom_fields(
+		{
+			"Bank Account": [
+				{
+					"label": "IndusInd Beneficiary Details",
+					"fieldname": "indusind_beneficiary_section",
+					"fieldtype": "Section Break",
+					"insert_after": "bank_account_no",
+					"collapsible": 1,
+				},
+				{
+					"label": "Beneficiary Code",
+					"fieldname": "indusind_ben_code",
+					"fieldtype": "Data",
+					"read_only": 1,
+					"no_copy": 1,
+					"insert_after": "indusind_beneficiary_section",
+				},
+				{
+					"label": "Beneficiary Status",
+					"fieldname": "indusind_beneficiary_status",
+					"fieldtype": "Select",
+					"options": "\nNot Registered\nPending\nActive\nInactive\nRejected\nFailed",
+					"read_only": 1,
+					"no_copy": 1,
+					"insert_after": "indusind_ben_code",
+				},
+				{
+					"label": "",
+					"fieldname": "indusind_beneficiary_column_break",
+					"fieldtype": "Column Break",
+					"insert_after": "indusind_beneficiary_status",
+				},
+				{
+					"label": "Beneficiary Batch ID",
+					"fieldname": "indusind_beneficiary_batch_id",
+					"fieldtype": "Data",
+					"read_only": 1,
+					"no_copy": 1,
+					"hidden": 1,
+					"insert_after": "indusind_beneficiary_column_break",
+				},
+				{
+					"label": "Beneficiary Message",
+					"fieldname": "indusind_beneficiary_message",
+					"fieldtype": "Small Text",
+					"read_only": 1,
+					"no_copy": 1,
+					"insert_after": "indusind_beneficiary_batch_id",
+				},
+			],
+		}
+	)
 
 
 def create_default_bank():

@@ -255,7 +255,7 @@ class IndusIndBankConnector(BankConnector):
 			"amount": row.amount,
 			"debitAcctNo": self.account_number,
 			"valueDate": "",
-			"benCode": "",
+			"benCode": self._ben_code(row),
 			"benName": self.clean_string(row.party_name or row.party),
 			"benIFSC": "" if tran_type == "IFTO" else (row.branch_code or ""),
 			"benAcctNo": row.bank_account_no or "",
@@ -265,6 +265,11 @@ class IndusIndBankConnector(BankConnector):
 			"reserve2": "",
 			"reserve3": "",
 		}
+
+	def _ben_code(self, row):
+		if not row.bank_account:
+			return ""
+		return frappe.db.get_value("Bank Account", row.bank_account, "indusind_ben_code") or ""
 
 	def _ben_mobile(self, row):
 		if not (row.party_type and row.party):
@@ -413,3 +418,97 @@ class IndusIndBankConnector(BankConnector):
 			}
 			for bene in beneficiaries
 		}
+
+
+# ---- Bank Account beneficiary registration ----
+# Surfaces add_beneficiaries/get_beneficiary_status - which are IndusInd-only
+# concepts (HDFC/ICICI take beneficiary details ad-hoc, per payment, with no
+# registration step) - as actions on a supplier's Bank Account, since that's
+# the natural place beneficiary details live.
+
+ALL_TRAN_TYPES = "IMPS,NEFT,RTGS"
+
+
+def get_default_indusind_connector():
+	connectors = frappe.get_all("IndusInd Bank Connector", pluck="name")
+	if not connectors:
+		frappe.throw(_("No IndusInd Bank Connector is configured."))
+	if len(connectors) > 1:
+		frappe.throw(
+			_("Multiple IndusInd Bank Connectors found - please specify which one to use.")
+		)
+	return connectors[0]
+
+
+@frappe.whitelist()
+def get_indusind_connectors():
+	return frappe.get_all("IndusInd Bank Connector", pluck="name")
+
+
+@frappe.whitelist()
+def add_beneficiary_for_bank_account(bank_account, connector=None):
+	ba = frappe.get_doc("Bank Account", bank_account)
+	conn = frappe.get_doc(
+		"IndusInd Bank Connector", connector or get_default_indusind_connector()
+	)
+
+	ben_code = ba.get("indusind_ben_code") or frappe.generate_hash(length=8).upper()
+	batch_id = frappe.generate_hash(length=10)
+
+	beneficiary = {
+		"req_mode": "A",
+		"ben_code": ben_code,
+		"ben_name": ba.account_name,
+		"ben_email": ba.email,
+		"ben_mobile": ba.mobile_number,
+	}
+	# Two mutually exclusive shapes per the bank's own sample payloads
+	# (test_beneficiary_request_matches_bank_sample_shape): a same-bank
+	# beneficiary uses "IFTO" + IblAcctNo only; everyone else uses the rail
+	# list + BenIFSC/BenAcctNo, with IblAcctNo left empty. Sending both
+	# (as this used to) gets rejected with "Invalid IFT Transaction Type".
+	if ba.bank == conn.bank:
+		beneficiary["tran_type"] = "IFTO"
+		beneficiary["ibl_acct_no"] = ba.bank_account_no
+	else:
+		beneficiary["tran_type"] = ALL_TRAN_TYPES
+		beneficiary["ben_ifsc"] = ba.branch_code
+		beneficiary["ben_acct_no"] = ba.bank_account_no
+
+	res = conn.add_beneficiaries([beneficiary], batch_id=batch_id)
+
+	frappe.db.set_value(
+		"Bank Account",
+		bank_account,
+		{
+			"indusind_ben_code": ben_code,
+			"indusind_beneficiary_batch_id": batch_id,
+			"indusind_beneficiary_status": "Pending" if res.status == "Accepted" else "Rejected",
+			"indusind_beneficiary_message": res.message or "",
+		},
+	)
+	return res
+
+
+@frappe.whitelist()
+def check_beneficiary_status_for_bank_account(bank_account, connector=None):
+	ba = frappe.get_doc("Bank Account", bank_account)
+	batch_id = ba.get("indusind_beneficiary_batch_id")
+	if not batch_id:
+		frappe.throw(_("This Bank Account has not been registered as a beneficiary yet."))
+
+	conn = frappe.get_doc(
+		"IndusInd Bank Connector", connector or get_default_indusind_connector()
+	)
+	res = conn.get_beneficiary_status(ref_no=batch_id)
+
+	details = frappe._dict((res.beneficiaries or {}).get(ba.indusind_ben_code, {}))
+	frappe.db.set_value(
+		"Bank Account",
+		bank_account,
+		{
+			"indusind_beneficiary_status": details.get("status") or "Pending",
+			"indusind_beneficiary_message": details.get("message", ""),
+		},
+	)
+	return res

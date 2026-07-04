@@ -7,6 +7,10 @@ app_license = "mit"
 
 after_install = "india_banking_connector.install.after_install"
 
+doctype_js = {
+	"Bank Account": "public/js/bank_account.js",
+}
+
 scheduler_events = {
 	"cron": {
 		"*/5 * * * *": "india_banking_connector.tasks.fetch_payment_status",

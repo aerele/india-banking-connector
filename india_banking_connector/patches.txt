@@ -7,3 +7,4 @@ india_banking_connector.patches.v1_0.update_connector_settings #130026
 india_banking_connector.patches.v1_0.update_standard_banks #sep28
 india_banking_connector.patches.v16_0.update_api_endpoints #20250313 #9
 india_banking_connector.patches.v16_0.add_indusind_bank_connector #20260618
+india_banking_connector.patches.v16_0.add_bank_account_beneficiary_fields #20260704
