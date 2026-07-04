@@ -9,6 +9,7 @@ after_install = "india_banking_connector.install.after_install"
 
 doctype_js = {
 	"Bank Account": "public/js/bank_account.js",
+	"Payment Order": "public/js/payment_order.js",
 }
 
 scheduler_events = {
