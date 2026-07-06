@@ -547,8 +547,17 @@ class SBIConnector(BankConnector):
 			)[:100],
 			"bankSortCode": "",
 			"intermediaryBankBICCode": "",
-			"executionDate": getdate().strftime("%d-%b-%Y").upper(),
 		}
+
+		# executionDate is only for future-dated (scheduled) payments.
+		# Same-day payments must omit it entirely.
+		posting_date = self.doc.get("posting_date")
+		if posting_date and getdate(posting_date) > getdate():
+			transaction["executionDate"] = getdate(posting_date).strftime(
+				"%d-%b-%Y"
+			).upper()
+
+		return transaction
 
 	def get_payment_instruction(self):
 		payment_details = self.payment_doc
