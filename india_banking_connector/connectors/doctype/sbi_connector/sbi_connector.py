@@ -521,7 +521,7 @@ class SBIConnector(BankConnector):
 
 	def get_transaction(self):
 		payment_details = self.payment_doc
-		return {
+		transaction = {
 			"bicCode": payment_details.branch_code or "",
 			"beneAddress1": "",
 			"beneAddress2": "",
