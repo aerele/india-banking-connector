@@ -385,11 +385,16 @@ class ICICIConnector(BankConnector):
 					"UNIQUEID": payment_details.name,
 					"DEBITACC": connector_doc.account_number,
 					"CREDITACC": payment_details.bank_account_no,
-					# Beneficiary IFSC (the CREDIT account's own branch) — required even for an
-					# internal ICICI (TPA) transfer. The old code sent the debit/company IFSC here,
-					# so a cross-branch same-bank transfer was rejected by ICICI with error 103354
-					# ("Invalid Bank/Branch Identifier"). The bulk-file path already uses branch_code.
-					"IFSC": payment_details.branch_code or "ICIC0000011",
+					# ICICI -> ICICI (internal) MUST use the generic ICICI IFSC "ICIC0000011" with
+					# TXNTYPE=TPA — exactly what the old production ICICI integration
+					# (bank_api_integration: IFSC="ICIC0000011", TXNTYPE="Internal Payments") sent for
+					# internal transfers. The old code here sent the debit/company branch IFSC
+					# (connector_doc.ifsc_code, e.g. ICIC0001061), so ICICI rejected a cross-branch
+					# same-bank transfer with 103354 "Invalid Bank/Branch Identifier". External
+					# beneficiaries keep their own IFSC (branch_code).
+					"IFSC": "ICIC0000011"
+					if payment_details.bank == "ICICI Bank"
+					else payment_details.branch_code,
 					"AMOUNT": cstr(payment_details.amount),
 					"CURRENCY": "INR",
 					"TXNTYPE": self.get_transaction_type(
