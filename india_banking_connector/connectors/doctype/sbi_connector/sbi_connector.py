@@ -549,12 +549,10 @@ class SBIConnector(BankConnector):
 			"intermediaryBankBICCode": "",
 		}
 
-		# executionDate (value date) must not be earlier than today; future posting_date schedules the payment.
+		# Send executionDate only for future-dated payments; omit for same-day/past.
 		posting_date = self.doc.get("posting_date")
-		execution_date = getdate(posting_date) if posting_date else getdate()
-		if execution_date < getdate():
-			execution_date = getdate()
-		transaction["executionDate"] = execution_date.strftime("%d-%b-%Y").upper()
+		if posting_date and getdate(posting_date) > getdate():
+			transaction["executionDate"] = getdate(posting_date).strftime("%d-%b-%Y").upper()
 
 		return transaction
 
