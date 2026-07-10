@@ -341,6 +341,19 @@ class ICICIConnector(BankConnector):
 
 		return "RGS"
 
+	@staticmethod
+	def is_icici_internal(payment_details):
+		"""ICICI -> ICICI (internal) leg, decided by the BENEFICIARY IFSC FIRST: an IFSC
+		starting with ICIC is ICICI Bank by definition, regardless of whether the payload
+		carries the bank name — callers often send the IFSC without the bank, and keying
+		the internal path on the bank name alone routed those as external transfers, which
+		ICICI rejects (103354 "Invalid Bank/Branch Identifier"). The bank name remains a
+		fallback signal for a payload that names the bank but lacks the IFSC."""
+		ifsc = (payment_details.get("branch_code") or "").strip().upper()
+		if ifsc.startswith("ICIC"):
+			return True
+		return (payment_details.get("bank") or "").strip() == "ICICI Bank"
+
 	def set_payment_data(self, data):
 		connector_doc = self
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -375,6 +388,16 @@ class ICICIConnector(BankConnector):
 			if not self.testing:
 				workflow_reqd = "Y"
 
+			# ICICI -> ICICI (internal) MUST use the generic ICICI IFSC "ICIC0000011" with
+			# TXNTYPE=TPA — exactly what the old production ICICI integration
+			# (bank_api_integration: IFSC="ICIC0000011", TXNTYPE="Internal Payments") sent for
+			# internal transfers; ICICI rejects an internal leg routed externally with 103354
+			# "Invalid Bank/Branch Identifier". The internal decision is IFSC-first (see
+			# is_icici_internal): a payload may carry the ICIC IFSC without the bank name.
+			# External beneficiaries keep their own IFSC (branch_code). Account numbers /
+			# IFSC are codes: sent as stripped strings (a stray tab in the IFSC has already
+			# rejected a live payment), never numerically cast.
+			internal = self.is_icici_internal(payment_details)
 			data.update(
 				{
 					"AGGRID": connector_doc.aggr_id,
@@ -383,22 +406,15 @@ class ICICIConnector(BankConnector):
 					"USERID": connector_doc.corp_usr,
 					"URN": connector_doc.urn,
 					"UNIQUEID": payment_details.name,
-					"DEBITACC": connector_doc.account_number,
-					"CREDITACC": payment_details.bank_account_no,
-					# ICICI -> ICICI (internal) MUST use the generic ICICI IFSC "ICIC0000011" with
-					# TXNTYPE=TPA — exactly what the old production ICICI integration
-					# (bank_api_integration: IFSC="ICIC0000011", TXNTYPE="Internal Payments") sent for
-					# internal transfers. The old code here sent the debit/company branch IFSC
-					# (connector_doc.ifsc_code, e.g. ICIC0001061), so ICICI rejected a cross-branch
-					# same-bank transfer with 103354 "Invalid Bank/Branch Identifier". External
-					# beneficiaries keep their own IFSC (branch_code).
+					"DEBITACC": cstr(connector_doc.account_number).strip(),
+					"CREDITACC": cstr(payment_details.bank_account_no).strip(),
 					"IFSC": "ICIC0000011"
-					if payment_details.bank == "ICICI Bank"
-					else payment_details.branch_code,
+					if internal
+					else cstr(payment_details.branch_code).strip(),
 					"AMOUNT": cstr(payment_details.amount),
 					"CURRENCY": "INR",
 					"TXNTYPE": self.get_transaction_type(
-						payment_details.bank,
+						"ICICI Bank" if internal else payment_details.bank,
 						mode_of_transfer=payment_details.mode_of_transfer,
 					),
 					"PAYEENAME": self.clean_string(payment_details.account_name),
