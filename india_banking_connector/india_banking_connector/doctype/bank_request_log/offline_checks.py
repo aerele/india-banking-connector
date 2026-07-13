@@ -211,6 +211,21 @@ def main():
     check("ReadTimeout -> outcome 'timeout' (ambiguous)", res["outcome"] == "timeout")
     check("ReadTimeout -> log 'Timeout'", log_calls["updated"][-1]["status"] == "Timeout")
 
+    # FIX B: retry-history veto — a NewConnectionError chain that ALSO carries a non-empty retry
+    # history (a POST-retrying adapter made a prior attempt) must be AMBIGUOUS, not pre-send.
+    from urllib3.exceptions import MaxRetryError
+    nce = NewConnectionError(None, "Failed to establish a new connection")
+    mre = MaxRetryError(None, "http://bank/x", reason=nce); mre.__cause__ = nce
+    # without history -> still pre-send (proves the chain WOULD classify pre-send)
+    res = run_post(raises(requests.exceptions.ConnectionError(mre)))
+    check("NewConnectionError chain (no history) -> not_submitted", res["outcome"] == "not_submitted")
+    # with a non-empty retry history -> veto -> ambiguous/OPEN
+    mre_h = MaxRetryError(None, "http://bank/x", reason=nce); mre_h.__cause__ = nce
+    mre_h.history = (object(),)  # a prior attempt was made -> bytes may have been sent
+    res = run_post(raises(requests.exceptions.ConnectionError(mre_h)))
+    check("NewConnectionError + non-empty retry history -> VETO -> outcome 'timeout' (OPEN)", res["outcome"] == "timeout")
+    check("history veto -> log 'Timeout' (kept OPEN, no auto-fail)", log_calls["updated"][-1]["status"] == "Timeout")
+
     # normal response -> response / log Success
     res = run_post(lambda *a, **k: fake_response(200))
     check("HTTP response -> outcome 'response'", res["outcome"] == "response")

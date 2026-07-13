@@ -61,6 +61,14 @@ def _is_pre_send_connection_failure(exc):
 	# A post-send drop surfaces as ProtocolError -> ambiguous, never "not submitted".
 	if any(isinstance(c, ProtocolError) for c in chain):
 		return False
+	# Retry-history veto (defensive / future-proof): a non-empty retry history anywhere in the
+	# chain means a PRIOR attempt was already made (bytes may have been sent on that earlier try),
+	# so even a final NewConnectionError is not proof of pre-send. The attribute is absent by
+	# default (requests mounts no retries) -> no veto. This guards against anyone mounting a
+	# POST-retrying adapter that turns a swallowed post-send drop into a "pre-send"
+	# NewConnectionError on a subsequent attempt.
+	if any(getattr(c, "history", None) for c in chain):
+		return False
 	# Provably never connected -> never sent.
 	return any(
 		isinstance(c, (NewConnectionError, socket.gaierror, ConnectionRefusedError)) for c in chain
