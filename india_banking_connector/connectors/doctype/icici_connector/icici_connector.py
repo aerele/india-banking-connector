@@ -13,8 +13,15 @@ from frappe.utils import cstr, flt, getdate, nowdate
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
 	create_api_log,
+	create_request_log,
+	update_request_log,
 )
 from india_banking_connector.utils import get_id
+
+# (connect, read) timeout on every outbound bank call — a no-timeout POST can hang a worker
+# indefinitely when the bank is slow/down. Read is generous: a bank payment reply can be slow,
+# and we would rather get a definitive answer than an ambiguous ReadTimeout.
+BANK_HTTP_TIMEOUT = (15, 60)
 
 
 class ICICIConnector(BankConnector):
@@ -112,6 +119,60 @@ class ICICIConnector(BankConnector):
 
 		frappe.msgprint(res.message or _("Registration Status Fetched Failed"))
 
+	def _logged_post(
+		self, action, url, headers, payload, ref_doctype=None, ref_docname=None, unique_id=None
+	):
+		"""LOG-FIRST-then-UPDATE outbound POST, so EVERY attempt is recorded in the Bank Request
+		Log — even when the bank is unreachable and no HTTP response ever comes back.
+
+		Returns a structured result the caller can act on unambiguously::
+
+			{"outcome": "response",       "response": <Response>, "log_id": <name>}   # got a reply
+			{"outcome": "not_submitted",  "response": None,       "log_id": <name>, "message": ...} # bank NOT reached (connection refused / DNS / connect timeout) -> request was NEVER submitted -> caller may safely fail
+			{"outcome": "timeout",        "response": None,       "log_id": <name>, "message": ...} # request SENT, no reply (read timeout) -> AMBIGUOUS, may have been received -> caller must keep OPEN
+
+		Distinguishing "not submitted" from "ambiguous timeout" is money-critical: failing +
+		re-paying an ambiguous timeout could double-pay; failing a genuine connection-refused is safe.
+		"""
+		log_id = create_request_log(
+			action=action,
+			url=url,
+			payload=payload,
+			method="POST",
+			account_config=self.get_account_config(self.action_map.get(action)),
+			ref_doctype=ref_doctype,
+			ref_docname=ref_docname,
+			unique_id=unique_id,
+			connector=self,
+			status="Requested",
+		)
+		try:
+			response = requests.post(
+				url, headers=headers, data=payload, timeout=BANK_HTTP_TIMEOUT
+			)
+		except requests.exceptions.ReadTimeout as e:
+			# Connected + request sent, but no reply -> the bank MAY have received it. AMBIGUOUS.
+			update_request_log(log_id, status="Timeout", message=str(e))
+			return {"outcome": "timeout", "response": None, "log_id": log_id, "message": str(e)}
+		except (requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError) as e:
+			# TCP connection never established -> the request was NEVER sent. Definitively NOT submitted.
+			update_request_log(log_id, status="Failed", message=str(e))
+			return {"outcome": "not_submitted", "response": None, "log_id": log_id, "message": str(e)}
+		except Exception as e:
+			# Any other transport-layer error before a response -> treat as AMBIGUOUS (do not assume
+			# it was not submitted); the caller keeps it OPEN rather than risk a double-pay.
+			update_request_log(log_id, status="Timeout", message=str(e))
+			return {"outcome": "timeout", "response": None, "log_id": log_id, "message": str(e)}
+		else:
+			update_request_log(log_id, status="Success", response=response)
+			return {"outcome": "response", "response": response, "log_id": log_id}
+
+	# Maps the human "action" label to the get_account_config method key.
+	action_map = {
+		"Initiate Payment": "make_payment",
+		"Payment Status": "payment_status",
+	}
+
 	def initiate_payment(self):
 		self.update_client_details("make_payment")
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -128,20 +189,46 @@ class ICICIConnector(BankConnector):
 		headers = self.headers(payment_details.mode_of_transfer)
 		payload = self.get_encrypted_payload(method="make_payment")
 
-		response = requests.post(url, headers=headers, data=payload)
-
-		log_id = create_api_log(
-			response,
+		result = self._logged_post(
 			action="Initiate Payment",
-			account_config=self.get_account_config("make_payment"),
+			url=url,
+			headers=headers,
+			payload=payload,
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
-			connector=self,
 		)
 
-		return self.get_decrypted_response(
-			response, method="make_payment", log_id=log_id
+		if result["outcome"] == "response":
+			res = self.get_decrypted_response(
+				result["response"], method="make_payment", log_id=result["log_id"]
+			)
+			# Explicit: a real reply was received. Consumers key on payment_status as before.
+			res["submitted"] = True
+			return res
+
+		if result["outcome"] == "not_submitted":
+			# DEFINITIVE: the bank was never reached, so the payment was NOT submitted. A distinct,
+			# non-ambiguous signal so the consumer can safely mark the row Failed (no double-pay).
+			return frappe._dict(
+				{
+					"payment_status": "Not Submitted",
+					"submitted": False,
+					"message": result.get("message")
+					or "Bank not reachable — payment was not submitted.",
+				}
+			)
+
+		# outcome == "timeout": AMBIGUOUS. Keep the legacy "Request Failure" payment_status for
+		# backward-compat (existing consumers already treat it as still-open), but add submitted
+		# = "unknown" so a consumer that understands it keeps the row OPEN rather than failing it.
+		return frappe._dict(
+			{
+				"payment_status": "Request Failure",
+				"submitted": "unknown",
+				"message": result.get("message")
+				or "No response from the bank (timeout) — payment status unknown.",
+			}
 		)
 
 	def get_payment_status(self):
@@ -157,7 +244,7 @@ class ICICIConnector(BankConnector):
 		headers = self.headers(mode_of_transfer)
 		payload = self.get_encrypted_payload(method="payment_status")
 
-		response = requests.post(url, headers=headers, data=payload)
+		response = requests.post(url, headers=headers, data=payload, timeout=BANK_HTTP_TIMEOUT)
 
 		log_id = create_api_log(
 			response,

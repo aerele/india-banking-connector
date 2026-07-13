@@ -133,6 +133,8 @@ def create_api_log(
 			)
 		log_doc = frappe.new_doc("Bank Request Log")
 		log_doc.action = action
+		# An HTTP response was received (transport succeeded, whatever the bank's own status code).
+		log_doc.status = "Success"
 		log_doc.url = res.request.url
 		log_doc.payload = encrypt_log(cstr(res.request.body), _encrypt)
 		log_doc.method = res.request.method
@@ -157,3 +159,86 @@ def create_api_log(
 	else:
 		frappe.db.commit()
 		return log_doc.name
+
+
+def create_request_log(
+	action=None,
+	url=None,
+	payload=None,
+	method="POST",
+	account_config=None,
+	ref_doctype=None,
+	ref_docname=None,
+	unique_id=None,
+	connector=None,
+	status="Requested",
+):
+	"""Create a Bank Request Log row BEFORE the outbound HTTP call.
+
+	This records that an attempt was made even when the bank is unreachable and NO ``Response``
+	ever comes back (the classic ``create_api_log`` bails in that case, because it needs a real
+	``requests.Response``). Commit immediately so the "Requested" row survives even if the worker
+	dies mid-call. Pair with :func:`update_request_log` to stamp the outcome. Returns the log name.
+	"""
+	try:
+		_encrypt = False
+		if connector:
+			_encrypt = frappe.db.exists(
+				"Connector Map",
+				{"connector": connector.doctype, "encrypt_log": 1},
+			)
+		log_doc = frappe.new_doc("Bank Request Log")
+		log_doc.action = action
+		log_doc.status = status
+		log_doc.url = url
+		log_doc.method = method
+		log_doc.payload = encrypt_log(cstr(payload), _encrypt)
+		log_doc.config_details = encrypt_log(format_with_indent(account_config), _encrypt)
+		log_doc.reference_doctype = ref_doctype
+		log_doc.reference_docname = ref_docname
+		log_doc.unique_id = unique_id
+		log_doc.connector = (connector or {}).get("doctype")
+		log_doc.connector_name = (connector or {}).get("name")
+		log_doc.encrypted = 1 if _encrypt else 0
+		log_doc.insert(ignore_permissions=True)
+	except Exception:
+		frappe.log_error(
+			title="Error in creating Bank Request Log (pre-call)",
+			message=frappe.get_traceback(with_context=True),
+		)
+	else:
+		frappe.db.commit()
+		return log_doc.name
+
+
+def update_request_log(log_id, status=None, response=None, message=None):
+	"""Stamp the outcome onto a Bank Request Log row created by :func:`create_request_log`.
+
+	``response`` (a real ``requests.Response``) records url/method/header/response/status_code, as
+	``create_api_log`` does; ``message`` records a transport error string when there is no response
+	(connection refused / timeout). Safe no-op if the log row does not exist.
+	"""
+	if not log_id or not frappe.db.exists("Bank Request Log", log_id):
+		return
+	try:
+		_encrypt = frappe.db.get_value("Bank Request Log", log_id, "encrypted")
+		updates = {}
+		if status:
+			updates["status"] = status
+		if isinstance(response, Response):
+			updates["url"] = response.request.url
+			updates["method"] = response.request.method
+			updates["header"] = encrypt_log(
+				format_with_indent(response.request.headers), _encrypt
+			)
+			updates["response"] = encrypt_log(format_with_indent(response.text), _encrypt)
+			updates["status_code"] = response.status_code
+		elif message is not None:
+			updates["response"] = encrypt_log(cstr(message), _encrypt)
+		frappe.db.set_value("Bank Request Log", log_id, updates)
+		frappe.db.commit()
+	except Exception:
+		frappe.log_error(
+			title="Error in updating Bank Request Log",
+			message=frappe.get_traceback(with_context=True),
+		)
