@@ -172,21 +172,42 @@ def main():
         return inst._logged_post("Initiate Payment", "https://bank/x", {"apikey": "x"}, "encbody",
                                  ref_doctype="SD Bulk Payout", ref_docname="SD-BP-1", unique_id="U1")
 
-    # connection refused -> not_submitted / log Failed
-    res = run_post(lambda *a, **k: (_ for _ in ()).throw(requests.exceptions.ConnectionError("refused")))
+    import socket
+    from urllib3.exceptions import NewConnectionError, ProtocolError
+    from http.client import RemoteDisconnected
+
+    def raises(exc):
+        return lambda *a, **k: (_ for _ in ()).throw(exc)
+
+    # PRE-SEND connection refused (NewConnectionError -> ConnectionRefusedError) -> not_submitted
+    pre_refused = requests.exceptions.ConnectionError(
+        NewConnectionError(None, "Failed to establish a new connection: [Errno 61] Connection refused"))
+    pre_refused.__cause__ = ConnectionRefusedError(61, "Connection refused")
+    res = run_post(raises(pre_refused))
     check("log created BEFORE the call with status 'Requested'",
           log_calls["created"] and log_calls["created"][0].get("status") == "Requested")
-    check("ConnectionError -> outcome 'not_submitted'", res["outcome"] == "not_submitted")
-    check("ConnectionError -> log updated to 'Failed'",
-          log_calls["updated"] and log_calls["updated"][-1]["status"] == "Failed")
+    check("PRE-SEND refused (NewConnectionError) -> outcome 'not_submitted'", res["outcome"] == "not_submitted")
+    check("PRE-SEND refused -> log updated to 'Failed'", log_calls["updated"][-1]["status"] == "Failed")
+
+    # PRE-SEND DNS failure (socket.gaierror) -> not_submitted
+    res = run_post(raises(requests.exceptions.ConnectionError(socket.gaierror(8, "nodename nor servname provided"))))
+    check("PRE-SEND DNS (gaierror) -> outcome 'not_submitted'", res["outcome"] == "not_submitted")
+    check("PRE-SEND DNS -> log 'Failed'", log_calls["updated"][-1]["status"] == "Failed")
+
+    # BLOCKER FIX: POST-SEND drop (ProtocolError / RemoteDisconnected) -> AMBIGUOUS -> OPEN, NOT failed
+    post_drop = requests.exceptions.ConnectionError(
+        ProtocolError("Connection aborted.", RemoteDisconnected("Remote end closed connection without response")))
+    res = run_post(raises(post_drop))
+    check("POST-SEND drop (RemoteDisconnected) -> outcome 'timeout' (NOT not_submitted)", res["outcome"] == "timeout")
+    check("POST-SEND drop -> log 'Timeout' (kept OPEN, no double-pay)", log_calls["updated"][-1]["status"] == "Timeout")
 
     # connect timeout -> not_submitted
-    res = run_post(lambda *a, **k: (_ for _ in ()).throw(requests.exceptions.ConnectTimeout("ct")))
+    res = run_post(raises(requests.exceptions.ConnectTimeout("ct")))
     check("ConnectTimeout -> outcome 'not_submitted'", res["outcome"] == "not_submitted")
     check("ConnectTimeout -> log 'Failed'", log_calls["updated"][-1]["status"] == "Failed")
 
     # read timeout -> timeout (ambiguous)
-    res = run_post(lambda *a, **k: (_ for _ in ()).throw(requests.exceptions.ReadTimeout("rt")))
+    res = run_post(raises(requests.exceptions.ReadTimeout("rt")))
     check("ReadTimeout -> outcome 'timeout' (ambiguous)", res["outcome"] == "timeout")
     check("ReadTimeout -> log 'Timeout'", log_calls["updated"][-1]["status"] == "Timeout")
 
