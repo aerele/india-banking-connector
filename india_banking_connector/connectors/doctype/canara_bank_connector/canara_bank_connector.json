@@ -1,0 +1,178 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2024-09-21 11:51:18.447004",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "active",
+  "column_break_01",
+  "testing",
+  "section_break_account",
+  "account_number",
+  "branch_code",
+  "column_break_02",
+  "customer_id",
+  "section_break_api",
+  "client_id",
+  "client_certificate",
+  "column_break_03",
+  "client_secret",
+  "section_break_auth",
+  "ib_username",
+  "txn_password",
+  "column_break_04",
+  "ib_encrypted_password",
+  "section_break_security",
+  "symmetric_key",
+  "column_break_05",
+  "private_key"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_01",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "fieldname": "section_break_account",
+   "fieldtype": "Section Break",
+   "label": "Account Details"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "label": "Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "branch_code",
+   "fieldtype": "Data",
+   "label": "Branch Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_02",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer_id",
+   "fieldtype": "Data",
+   "label": "Customer ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_api",
+   "fieldtype": "Section Break",
+   "label": "API Credentials"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Password",
+   "label": "Client ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "client_certificate",
+   "fieldtype": "Attach",
+   "label": "Client Certificate",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_03",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_auth",
+   "fieldtype": "Section Break",
+   "label": "Internet Banking Auth"
+  },
+  {
+   "fieldname": "ib_username",
+   "fieldtype": "Password",
+   "label": "IB Username",
+   "reqd": 1
+  },
+  {
+   "fieldname": "txn_password",
+   "fieldtype": "Password",
+   "label": "Transaction Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_04",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ib_encrypted_password",
+   "fieldtype": "Password",
+   "label": "IB Encrypted Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_security",
+   "fieldtype": "Section Break",
+   "label": "Security Keys"
+  },
+  {
+   "fieldname": "symmetric_key",
+   "fieldtype": "Password",
+   "label": "AES Symmetric Key",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_05",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "RSA Private Key",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Connectors",
+ "name": "Canara Bank Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -154,7 +154,9 @@ class BankConnector(Document):
 			return file.read()
 
 	def get_file_relative_path(self, file_url):
-		return frappe.get_doc("File", {"file_url": file_url}).get_full_path()
+		import os
+		# Map the URL directly to the physical file path, bypassing the File database record
+		return os.path.join(frappe.utils.get_site_path(), file_url.lstrip('/'))
 
 	# Kotak Encryption and Decryption
 
