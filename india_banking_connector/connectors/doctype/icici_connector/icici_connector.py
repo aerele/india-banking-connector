@@ -13,8 +13,66 @@ from frappe.utils import cstr, flt, getdate, nowdate
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
 	create_api_log,
+	create_request_log,
+	update_request_log,
 )
 from india_banking_connector.utils import get_id
+
+# (connect, read) timeout on every outbound bank call — a no-timeout POST can hang a worker
+# indefinitely when the bank is slow/down. Read is generous: a bank payment reply can be slow,
+# and we would rather get a definitive answer than an ambiguous ReadTimeout.
+BANK_HTTP_TIMEOUT = (15, 60)
+
+
+def _is_pre_send_connection_failure(exc):
+	"""True ONLY when a ``requests.ConnectionError`` proves the TCP connection was never
+	established — so the request was provably never sent and it is safe to treat as
+	"not submitted". Verified against requests 2.33.1 / urllib3 in this runtime:
+
+	  * connection refused -> ConnectionError -> MaxRetryError -> NewConnectionError -> ConnectionRefusedError
+	  * DNS failure        -> ConnectionError -> MaxRetryError -> NameResolutionError -> socket.gaierror
+	  * POST-SEND drop     -> ConnectionError -> ProtocolError  -> RemoteDisconnected   (AMBIGUOUS)
+
+	A ``urllib3.ProtocolError`` anywhere in the cause chain means the connection had already been
+	established and bytes may have reached the bank (RemoteDisconnected / "Connection aborted" /
+	ECONNRESET) -> return False (ambiguous). Only NewConnectionError / socket.gaierror /
+	connect-time ConnectionRefusedError prove a pre-connection failure. Unknown/unclassifiable
+	chains return False (money-safe default: never assume "not sent")."""
+	import socket
+
+	try:
+		from urllib3.exceptions import NewConnectionError, ProtocolError
+	except Exception:
+		return False
+
+	seen, chain, stack = set(), [], [exc]
+	while stack:
+		cur = stack.pop()
+		if cur is None or id(cur) in seen:
+			continue
+		seen.add(id(cur))
+		chain.append(cur)
+		for arg in getattr(cur, "args", ()):
+			if isinstance(arg, BaseException):
+				stack.append(arg)
+		stack.append(getattr(cur, "__cause__", None))
+		stack.append(getattr(cur, "__context__", None))
+
+	# A post-send drop surfaces as ProtocolError -> ambiguous, never "not submitted".
+	if any(isinstance(c, ProtocolError) for c in chain):
+		return False
+	# Retry-history veto (defensive / future-proof): a non-empty retry history anywhere in the
+	# chain means a PRIOR attempt was already made (bytes may have been sent on that earlier try),
+	# so even a final NewConnectionError is not proof of pre-send. The attribute is absent by
+	# default (requests mounts no retries) -> no veto. This guards against anyone mounting a
+	# POST-retrying adapter that turns a swallowed post-send drop into a "pre-send"
+	# NewConnectionError on a subsequent attempt.
+	if any(getattr(c, "history", None) for c in chain):
+		return False
+	# Provably never connected -> never sent.
+	return any(
+		isinstance(c, (NewConnectionError, socket.gaierror, ConnectionRefusedError)) for c in chain
+	)
 
 
 class ICICIConnector(BankConnector):
@@ -112,6 +170,74 @@ class ICICIConnector(BankConnector):
 
 		frappe.msgprint(res.message or _("Registration Status Fetched Failed"))
 
+	def _logged_post(
+		self, action, url, headers, payload, ref_doctype=None, ref_docname=None, unique_id=None
+	):
+		"""LOG-FIRST-then-UPDATE outbound POST, so EVERY attempt is recorded in the Bank Request
+		Log — even when the bank is unreachable and no HTTP response ever comes back.
+
+		Returns a structured result the caller can act on unambiguously::
+
+			{"outcome": "response",       "response": <Response>, "log_id": <name>}   # got a reply
+			{"outcome": "not_submitted",  "response": None,       "log_id": <name>, "message": ...} # provably PRE-send (connect never established: ConnectTimeout, or a ConnectionError whose cause is NewConnectionError / DNS gaierror / connect-time ConnectionRefusedError) -> request was NEVER sent -> caller may safely fail
+			{"outcome": "timeout",        "response": None,       "log_id": <name>, "message": ...} # AMBIGUOUS: read timeout, OR a POST-send connection drop (RemoteDisconnected / ProtocolError / ECONNRESET), OR any unclassifiable error -> the bank may already hold it -> caller MUST keep OPEN
+
+		Distinguishing "not submitted" from "ambiguous" is money-critical: failing + re-paying an
+		ambiguous outcome could double-pay. A bare ``ConnectionError`` is NOT proof the request was
+		not sent — it also fires on a post-send drop after the bytes reached the bank — so only a
+		provably pre-connection failure is treated as "not submitted".
+		"""
+		log_id = create_request_log(
+			action=action,
+			url=url,
+			payload=payload,
+			method="POST",
+			account_config=self.get_account_config(self.action_map.get(action)),
+			ref_doctype=ref_doctype,
+			ref_docname=ref_docname,
+			unique_id=unique_id,
+			connector=self,
+			status="Requested",
+		)
+		try:
+			response = requests.post(
+				url, headers=headers, data=payload, timeout=BANK_HTTP_TIMEOUT
+			)
+		except requests.exceptions.ReadTimeout as e:
+			# Connected + request sent, but no reply -> the bank MAY have received it. AMBIGUOUS.
+			update_request_log(log_id, status="Timeout", message=str(e))
+			return {"outcome": "timeout", "response": None, "log_id": log_id, "message": str(e)}
+		except requests.exceptions.ConnectTimeout as e:
+			# The TCP connect did not complete within the connect timeout -> connection never
+			# established -> the request was provably NEVER sent. Definitively NOT submitted.
+			update_request_log(log_id, status="Failed", message=str(e))
+			return {"outcome": "not_submitted", "response": None, "log_id": log_id, "message": str(e)}
+		except requests.exceptions.ConnectionError as e:
+			# A ConnectionError does NOT prove the request wasn't sent — it ALSO fires on a post-send
+			# drop (RemoteDisconnected / ProtocolError / ECONNRESET) AFTER the bytes reached the bank.
+			# Only treat it as NOT submitted when the cause chain proves the connection was never
+			# established (NewConnectionError / DNS gaierror / connect-time ConnectionRefusedError);
+			# otherwise it is AMBIGUOUS and the row must stay OPEN for the status poll to reconcile.
+			if _is_pre_send_connection_failure(e):
+				update_request_log(log_id, status="Failed", message=str(e))
+				return {"outcome": "not_submitted", "response": None, "log_id": log_id, "message": str(e)}
+			update_request_log(log_id, status="Timeout", message=str(e))
+			return {"outcome": "timeout", "response": None, "log_id": log_id, "message": str(e)}
+		except Exception as e:
+			# Any other transport-layer error before a response -> treat as AMBIGUOUS (do not assume
+			# it was not submitted); the caller keeps it OPEN rather than risk a double-pay.
+			update_request_log(log_id, status="Timeout", message=str(e))
+			return {"outcome": "timeout", "response": None, "log_id": log_id, "message": str(e)}
+		else:
+			update_request_log(log_id, status="Success", response=response)
+			return {"outcome": "response", "response": response, "log_id": log_id}
+
+	# Maps the human "action" label to the get_account_config method key.
+	action_map = {
+		"Initiate Payment": "make_payment",
+		"Payment Status": "payment_status",
+	}
+
 	def initiate_payment(self):
 		self.update_client_details("make_payment")
 		payment_details = self.payment_doc if not self.bulk_transaction else self.doc
@@ -128,20 +254,46 @@ class ICICIConnector(BankConnector):
 		headers = self.headers(payment_details.mode_of_transfer)
 		payload = self.get_encrypted_payload(method="make_payment")
 
-		response = requests.post(url, headers=headers, data=payload)
-
-		log_id = create_api_log(
-			response,
+		result = self._logged_post(
 			action="Initiate Payment",
-			account_config=self.get_account_config("make_payment"),
+			url=url,
+			headers=headers,
+			payload=payload,
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
-			connector=self,
 		)
 
-		return self.get_decrypted_response(
-			response, method="make_payment", log_id=log_id
+		if result["outcome"] == "response":
+			res = self.get_decrypted_response(
+				result["response"], method="make_payment", log_id=result["log_id"]
+			)
+			# Explicit: a real reply was received. Consumers key on payment_status as before.
+			res["submitted"] = True
+			return res
+
+		if result["outcome"] == "not_submitted":
+			# DEFINITIVE: the bank was never reached, so the payment was NOT submitted. A distinct,
+			# non-ambiguous signal so the consumer can safely mark the row Failed (no double-pay).
+			return frappe._dict(
+				{
+					"payment_status": "Not Submitted",
+					"submitted": False,
+					"message": result.get("message")
+					or "Bank not reachable — payment was not submitted.",
+				}
+			)
+
+		# outcome == "timeout": AMBIGUOUS. Keep the legacy "Request Failure" payment_status for
+		# backward-compat (existing consumers already treat it as still-open), but add submitted
+		# = "unknown" so a consumer that understands it keeps the row OPEN rather than failing it.
+		return frappe._dict(
+			{
+				"payment_status": "Request Failure",
+				"submitted": "unknown",
+				"message": result.get("message")
+				or "No response from the bank (timeout) — payment status unknown.",
+			}
 		)
 
 	def get_payment_status(self):
@@ -157,7 +309,7 @@ class ICICIConnector(BankConnector):
 		headers = self.headers(mode_of_transfer)
 		payload = self.get_encrypted_payload(method="payment_status")
 
-		response = requests.post(url, headers=headers, data=payload)
+		response = requests.post(url, headers=headers, data=payload, timeout=BANK_HTTP_TIMEOUT)
 
 		log_id = create_api_log(
 			response,
