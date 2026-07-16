@@ -1,19 +1,17 @@
+# Copyright (c) 2026, Aerele Technologies Private Limited and contributors
+# For license information, please see license.txt
 
+import copy
 import json
-import base64
-import uuid
-import datetime
-import traceback
 import re
-
-from frappe.utils import flt, getdate
+import uuid
+from base64 import b64encode
 
 import frappe
 import requests
-from jose import jwe
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.backends import default_backend
+from frappe import _
+from frappe.utils import cstr, flt, get_datetime, getdate
+from jose.constants import ALGORITHMS
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -24,653 +22,137 @@ from india_banking_connector.india_banking_connector.doctype.bank_request_log.ba
 class CanaraBankConnector(BankConnector):
 	bank = "Canara Bank"
 
-	__all__ = ["initiate_payment", "get_payment_status", "get_bank_balance"]
-
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
+
 		self.bulk_transaction = kwargs.get("bulk_transaction")
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
+
+		self.account_config = {}
 
 	def is_mock_mode(self):
 		"""
 		Check if the connector should run in mock simulation mode.
 		Returns True if testing is enabled and credentials or certificates are dummy placeholders.
 		"""
-		if not self.testing:
+		if not getattr(self, "testing", False):
 			return False
 
 		client_id = self.get_password("client_id")
 		return (
 			not self.private_key
 			or "dummy" in (self.private_key or "").lower()
-			or not self.client_certificate
-			or "dummy" in (self.client_certificate or "").lower()
+			or not self.cert
+			or "dummy" in (self.cert or "").lower()
 			or client_id in ["DUMMY_CLIENT_ID", "123", "dummy", ""]
 		)
 
 	@property
+	def urls(self):
+		self.update_aes_key()
+		return super().urls
+
+	@property
 	def headers(self):
-		headers_dict = {
+		cert = self.get_file_content(self.cert)
+		cert_key = (
+			cert.removeprefix("-----BEGIN CERTIFICATE-----")
+			.removesuffix("-----END CERTIFICATE-----")
+			.replace("\n", "")
+			.strip()
+		)  # normalise
+
+		return {
 			"x-client-id": self.get_password("client_id"),
-			"x-Client-Secret": self.get_password("client_secret"),
-			"x-api-interaction-id": str(uuid.uuid4()),
-			"x-timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+			"x-client-secret": self.get_password("client_secret"),
+			"x-client-certificate": cert_key,
+			"x-api-interaction-id": "1",
+			"x-timestamp": cstr(int(get_datetime().timestamp() * 1000)),
+			"x-signature": "",
 			"Content-Type": "application/json",
-			"Cookie": "API",
-			"x-forwarded-for": getattr(frappe.local, "request_ip", "127.0.0.1")
 		}
-		
-		if self.client_certificate:
-			headers_dict["x-client-Certificate"] = self.get_client_certificate_content()
-			
-		return headers_dict
 
-	def get_client_certificate_content(self):
-		file_path = self.get_file_relative_path(self.client_certificate)
-		with open(file_path, 'r') as f:
-			cert_data = f.read().replace('-----BEGIN CERTIFICATE-----', '').replace('-----END CERTIFICATE-----', '').replace('\n', '').strip()
-		return cert_data
+	def get_auth(self):
+		login_password = self.get_password("login_password")
+		if self.enable_password_encryption:
+			login_password = self.get_password("encrypted_login_password")
 
-	def sign_payload(self, plaintext_json):
-		if not self.private_key:
-			frappe.throw("RSA Private Key is missing in Canara Bank Connector")
-		
-		file_path = self.get_file_relative_path(self.private_key)
-		with open(file_path, "rb") as key_file:
-			private_key = serialization.load_pem_private_key(
-				key_file.read(),
-				password=None,
-				backend=default_backend()
-			)
-			
-		signature = private_key.sign(
-			plaintext_json.encode('utf-8'),
-			padding.PKCS1v15(),
-			hashes.SHA256()
-		)
-		return base64.b64encode(signature).decode('utf-8')
+		auth_string = self.login_id + ":" + login_password
+		return b64encode(auth_string.encode()).decode()
 
-	def encrypt_payload(self, encrypt_data_dict):
-		symmetric_key_str = self.get_password("symmetric_key").strip()
-		if not symmetric_key_str:
-			frappe.throw("Symmetric Key is missing in Canara Bank Connector")
-			
+	def update_aes_key(self):
+		aes_key_hex = self.get_password("aes_key") if self.aes_key else None
+		if not aes_key_hex:
+			frappe.throw(_("AES key is not configured."))
 		try:
-			key_bytes = bytes.fromhex(symmetric_key_str)
-		except Exception:
-			key_bytes = symmetric_key_str.encode('utf-8')
-			
-		key_bytes = key_bytes[:32].ljust(32, b'\0')
+			self.AES_KEY = bytes.fromhex(aes_key_hex)
+		except ValueError:
+			frappe.throw(_("AES key must be a valid hex string."))
 
-		protected_header = {
-			"alg": "A256KW",
-			"enc": "A128CBC-HS256"
-		}
-		
-		plaintext = json.dumps(encrypt_data_dict, separators=(',', ':'))
-		encrypted_jwe = jwe.encrypt(
-			plaintext,
-			key_bytes,
-			algorithm=protected_header["alg"],
-			encryption=protected_header["enc"]
-		)
-		return encrypted_jwe.decode('utf-8') if isinstance(encrypted_jwe, bytes) else encrypted_jwe
-
-	def get_ib_auth(self):
-		ib_user = self.get_password("ib_username")
-		ib_pwd = self.get_password("ib_encrypted_password")
-		auth_str = f"{ib_user}:{ib_pwd}"
-		return "Basic " + base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
+	def get_cert(self):
+		return None
 
 	def initiate_payment(self):
-		if self.bulk_transaction:
-			return self.initiate_batch_payment()
-
-		payment_details = self.payment_doc
-		unique_id = re.sub(r'[^A-Za-z0-9]', '', payment_details.name)[:20]
-
 		if self.is_mock_mode():
-			utr = f"CNRB{uuid.uuid4().hex[:10].upper()}"
-			return frappe._dict({
-				"payment_status": "ACCEPTED",
-				"message": "Payment Accepted (Mocked)",
-				"summary_details": {
-					payment_details.name: {
-						"payment_status": "Accepted",
-						"message": "Success (Mocked)",
-						"utr_number": utr
-					}
-				}
-			})
-
-		if existing_payment_response := self.validate_duplicate_payments(unique_id=unique_id):
-			return existing_payment_response
-
-		url = self.urls.make_payment
-		
-		mode_of_transfer = payment_details.mode_of_transfer
-		if "A2A" in mode_of_transfer or "Internal" in mode_of_transfer:
-			mode_of_transfer = "IFT"
-			
-		encrypt_data = {
-			"Authorization": self.get_ib_auth(),
-			"key": "",
-			"customerID": self.customer_id,
-			"srcAcctNumber": self.account_number,
-			"txnPassword": self.get_password("txn_password"),
-			"branchCode": self.branch_code,
-			"destAcctNumber": payment_details.bank_account_no,
-			"ifscCode": payment_details.branch_code,
-			"txnAmount": str(payment_details.amount),
-			"benefName": payment_details.party_name or payment_details.party,
-			"userRefNo": unique_id,
-			"narration": (payment_details.get("narration") or "Payment")[:35],
-			"valueDate": frappe.utils.getdate().strftime("%d-%m-%Y"),
-			"TrnType": mode_of_transfer
-		}
-		
-		plaintext_json_request = json.dumps({
-			"Request": {
-				"body": {
-					"encryptData": encrypt_data
-				}
-			}
-		}, separators=(',', ':'))
-		
-		req_headers = self.headers
-		req_headers["x-signature"] = self.sign_payload(plaintext_json_request)
-		
-		final_payload = {
-			"Request": {
-				"body": {
-					"encryptData": self.encrypt_payload(encrypt_data)
-				}
-			}
-		}
-
-		try:
-			response = requests.post(url, headers=req_headers, json=final_payload, verify=False)
-		except Exception as e:
-			frappe.log_error("Canara Bank Connection Error", frappe.get_traceback())
-			return {"status": "Request Failure", "message": str(e)}
-
-		log_id = create_api_log(
-			response,
-			action="Initiate Payment",
-			account_config=plaintext_json_request,
-			ref_doctype=payment_details.parenttype or payment_details.doctype,
-			ref_docname=payment_details.parent or payment_details.name,
-			unique_id=unique_id,
-		)
-
-		return self.get_verified_response(response, method="make_payment", log_id=log_id)
-
-	def get_verified_response(self, response, method, log_id=None):
-		res_dict = frappe._dict({})
-		
-		has_encrypt_data = False
-		response_json = {}
-		try:
-			response_json = response.json()
-			encrypt_data_str = response_json.get("Response", {}).get("body", {}).get("encryptData", "")
-			if not encrypt_data_str:
-				encrypt_data_str = response_json.get("Response", {}).get("encryptData", "")
-			if encrypt_data_str:
-				has_encrypt_data = True
-		except Exception:
-			pass
-
-		if not response.ok and not has_encrypt_data:
-			res_dict.update({"status": "Request Failure", "error": response.text})
-			return res_dict
-
-		try:
-			if not response_json:
-				response_json = response.json()
-			
-			encrypt_data_str = response_json.get("Response", {}).get("body", {}).get("encryptData", "")
-			if not encrypt_data_str:
-				encrypt_data_str = response_json.get("Response", {}).get("encryptData", "")
-				
-			if not encrypt_data_str:
-				res_dict.update({"status": "Request Failure", "error": "No encryptData in response"})
-				return res_dict
-				
-			decrypted_json = self.decrypt_payload(encrypt_data_str)
-			
-			if log_id and frappe.db.exists("Bank Request Log", log_id):
-				frappe.db.set_value("Bank Request Log", log_id, "decrypted_response", json.dumps(decrypted_json))
-				
-			self.format_response_dict(decrypted_json, res_dict, method)
-		except Exception as e:
-			frappe.log_error("Canara Bank Decryption Error", frappe.get_traceback())
-			res_dict.update({"status": "Request Failure", "error": str(e)})
-			
-		return res_dict
-
-	def format_response_dict(self, data, res_dict, method):
-		data = frappe._dict(data)
-		
-		if method == "make_payment":
-			metadata = data.get("metadata", {}).get("status", {})
-			code = metadata.get("code")
-			
-			if code == "200" or data.get("txnMessages"):
-				utr = data.get("utr", "")
-				res_dict.payment_status = "ACCEPTED"
-				res_dict.message = "Payment Accepted"
-				res_dict.summary_details = {
-					self.payment_doc.name: {
-						"payment_status": "Accepted",
-						"message": metadata.get("desc", "Success"),
-						"utr_number": utr
-					}
-				}
-			else:
-				err_msg = data.get("ErrorResponse", {}).get("ErrorMessage", "Payment Failed")
-				res_dict.payment_status = "FAILED"
-				res_dict.summary_details = {
-					self.payment_doc.name: {
-						"payment_status": "Failed",
-						"message": err_msg
-					}
-				}
-
-		elif method == "payment_status":
-			res_dict.payment_status = "PROCESSED"
-			status_code = ""
-			utr = ""
-			
-			if "TXNSTATUS" in data:
-				status_code = data.get("TXNSTATUS", {}).get("TxnStatus", "")
-				utr = data.get("TXNSTATUS", {}).get("UTR", "")
-			else:
-				status_code = data.get("status", "")
-				utr = data.get("paymentId", "")
-				
-			sts = "Pending"
-			if "00" in status_code or "Successful" in status_code:
-				sts = "Processed"
-			elif "20" in status_code or "In Progress" in status_code:
-				sts = "Pending"
-			elif "40" in status_code or "Failed" in status_code or "42" in status_code:
-				sts = "Failed"
-				
-			res_dict.summary_details = {
-				self.payment_doc.name: {
-					"status": sts,
-					"message": status_code,
-					"utr_number": utr,
-				}
-			}
-
-		elif method == "bank_balance":
-			balance = data.get("balAvailable", data.get("currentBalance", "0.00"))
-			res_dict.update({
-				"balance": balance,
-				"current_balance": data.get("currentBalance", ""),
-				"available_balance": data.get("balAvailable", ""),
-				"hold_amount": data.get("holdAmount", ""),
-				"net_balance": data.get("netBalance", ""),
-				"customer_name": data.get("customerName", ""),
-			})
-
-		elif method == "batch_payment":
-			if "response" in data and (data.response.get("TRANSACTION_REF_NO") or data.response.get("batchReferenceNo")):
-				txn_ref_no = data.response.get("TRANSACTION_REF_NO") or data.response.get("batchReferenceNo")
-				res_dict.payment_status = "ACCEPTED"
-				res_dict.message = data.response.get("result", {}).get("rdesc", "Batch Accepted — Awaiting Checker Approval")
-				res_dict.file_sequence_number = txn_ref_no
-				summary_details = {}
-				for summary in self.doc.get("summary", []):
-					summary_details[summary.get("name")] = {
-						"payment_status": "Accepted",
-						"message": "Batch accepted, pending checker approval",
-						"utr_number": ""
-					}
-				res_dict.summary_details = summary_details
-			else:
-				err_desc = data.get("Desc", data.get("ErrorDesc", "Batch Initiation Failed"))
-				res_dict.payment_status = "FAILED"
-				res_dict.message = err_desc
-				summary_details = {}
-				for summary in self.doc.get("summary", []):
-					summary_details[summary.get("name")] = {
-						"payment_status": "Failed",
-						"message": err_desc,
-					}
-				res_dict.summary_details = summary_details
-
-		elif method == "batch_status":
-			summary_details = {}
-			bulk_response = data.get("bulkResponse", {})
-			txn_list = bulk_response.get("bulkRefDet", []) if bulk_response else []
-			if not txn_list:
-				err_desc = data.get("ErrorDesc", data.get("Desc", "No Status Found"))
-				res_dict.payment_status = "FAILED"
-				res_dict.message = err_desc
-				return
-			for txn in txn_list:
-				txn = frappe._dict(txn)
-				txn_ref = txn.get("txnRefNo", "")
-				status = txn.get("status", "")
-				trn_status = txn.get("trnStatus", "")
-				utr = txn.get("externalReferenceId", "")
-				reason = txn.get("reason", "")
-				sts = "Pending"
-				if status == "VERIFIED":
-					sts = "Pending"
-				elif status == "COMPLETED":
-					if "00" in trn_status or "Successful" in trn_status:
-						sts = "Processed"
-					elif "20" in trn_status or "In Progress" in trn_status:
-						sts = "Pending"
-					elif "40" in trn_status or "Failed" in trn_status or "42" in trn_status:
-						sts = "Failed"
-				elif status in ["Rejected", "Expired", "Error"]:
-					sts = "Failed"
-				summary_details[txn_ref] = {
-					"status": sts,
-					"message": trn_status or status,
-					"utr_number": utr,
-					"reason": reason
-				}
-			res_dict.payment_status = "PROCESSED"
-			res_dict.summary_details = summary_details
-
-	def decrypt_payload(self, encrypted_jwe_str):
-		symmetric_key_str = self.get_password("symmetric_key").strip()
-		try:
-			key_bytes = bytes.fromhex(symmetric_key_str)
-		except Exception:
-			key_bytes = symmetric_key_str.encode('utf-8')
-			
-		key_bytes = key_bytes[:32].ljust(32, b'\0')
-
-		decrypted = jwe.decrypt(encrypted_jwe_str, key_bytes)
-		return json.loads(decrypted)
-
-	def get_payment_status(self):
-		if self.bulk_transaction:
-			return self.get_batch_status()
-
-		payment_details = self.payment_doc
-		unique_id = re.sub(r'[^A-Za-z0-9]', '', payment_details.name)[:20]
-
-		if self.is_mock_mode():
-			utr = payment_details.get("reference_number") or f"CNRB{uuid.uuid4().hex[:10].upper()}"
-			return frappe._dict({
-				"payment_status": "PROCESSED",
-				"summary_details": {
-					payment_details.name: {
-						"status": "Processed",
-						"message": "Successful (Mocked)",
-						"utr_number": utr
-					}
-				}
-			})
-
-		mode_of_transfer = payment_details.mode_of_transfer
-		if "A2A" in mode_of_transfer or "Internal" in mode_of_transfer:
-			mode_of_transfer = "IFT"
-
-		if mode_of_transfer in ["NEFT", "RTGS"]:
-			url = self.urls.payment_status
-			encrypt_data = {
-				"Authorization": self.get_ib_auth(),
-				"key": "",
-				"userRefNo": unique_id,
-				"TrnType": mode_of_transfer,
-				"customerID": self.customer_id,
-				"UTR": payment_details.get("reference_number", "")
-			}
-			plaintext_json_request = json.dumps({"Request": {"body": {"encryptData": encrypt_data}}}, separators=(',', ':'))
-			final_payload = {"Request": {"body": {"encryptData": self.encrypt_payload(encrypt_data)}}}
-		else:
-			url = getattr(self.urls, "payment_status_imps", "")
-			encrypt_data = {
-				"Authorization": self.get_ib_auth(),
-				"key": "",
-				"customerID": self.customer_id
-			}
-			plaintext_json_request = json.dumps({"Request": {"body": {"userRefNumber": unique_id, "encryptData": encrypt_data}}}, separators=(',', ':'))
-			final_payload = {"Request": {"body": {"userRefNumber": unique_id, "encryptData": self.encrypt_payload(encrypt_data)}}}
-
-		req_headers = self.headers
-		req_headers["x-signature"] = self.sign_payload(plaintext_json_request)
-		
-		try:
-			response = requests.post(url, headers=req_headers, json=final_payload, verify=False)
-		except Exception as e:
-			frappe.log_error("Canara Bank Status Error", frappe.get_traceback())
-			return {"status": "Request Failure", "message": str(e)}
-
-		create_api_log(
-			response,
-			action="Payment Status",
-			account_config=plaintext_json_request,
-			ref_doctype=payment_details.parenttype or payment_details.doctype,
-			ref_docname=payment_details.parent or payment_details.name,
-			unique_id=unique_id,
-		)
-
-		return self.get_verified_response(response, method="payment_status")
-
-	def get_bank_balance(self):
-		if self.is_mock_mode():
-			return frappe._dict({
-				"balance": "5000000.00",
-				"current_balance": "5000000.00",
-				"available_balance": "5000000.00",
-				"hold_amount": "0.00",
-				"net_balance": "5000000.00",
-				"customer_name": "AALADIPATTIYAN PRIVATE LIMITED"
-			})
-
-		url = getattr(self.urls, "bank_balance", "")
-		encrypt_data = {
-			"Authorization": self.get_ib_auth(),
-			"acctNumber": self.account_number,
-			"customerID": self.customer_id
-		}
-		plaintext_json_request = json.dumps({
-			"Request": {
-				"body": {
-					"branchCode": self.branch_code,
-					"encryptData": encrypt_data
-				}
-			}
-		}, separators=(',', ':'))
-		
-		final_payload = {
-			"Request": {
-				"body": {
-					"branchCode": self.branch_code,
-					"encryptData": self.encrypt_payload(encrypt_data)
-				}
-			}
-		}
-
-		req_headers = self.headers
-		req_headers["x-signature"] = self.sign_payload(plaintext_json_request)
-		
-		try:
-			response = requests.post(url, headers=req_headers, json=final_payload, verify=False)
-		except Exception as e:
-			return {"status": "Request Failure", "message": str(e)}
-
-		create_api_log(
-			response,
-			action="Bank Balance",
-			account_config=plaintext_json_request,
-			ref_doctype="Bank Account",
-			ref_docname=self.account_number,
-		)
-
-		return self.get_verified_response(response, method="bank_balance")
-
-	def initiate_batch_payment(self):
-		"""Canara Bank Batch push-maker + batch-initiation flow."""
-		doc = self.doc
-		batch_id = re.sub(r'[^A-Za-z0-9]', '', doc.name)[:50]
-
-		if self.is_mock_mode():
+			payment_details = self.doc
 			batch_ref_no = f"CANBATCH{uuid.uuid4().hex[:10].upper()}"
+			
+			summary_details = {}
+			for summary in payment_details.get("summary", []):
+				utr = f"CNRBM{uuid.uuid4().hex[:10].upper()}"
+				summary_details[summary.get("name")] = {
+					"payment_status": "Accepted",
+					"message": "Batch accepted, pending checker approval (Mocked)",
+					"utr_number": utr
+				}
+				
 			return frappe._dict({
 				"payment_status": "ACCEPTED",
 				"message": "Batch Accepted (Mocked) — Awaiting Checker Approval",
 				"file_sequence_number": batch_ref_no,
-				"summary_details": {
-					summary.get("name"): {
-						"payment_status": "Accepted",
-						"message": "Batch accepted, pending checker approval (Mocked)",
-						"utr_number": ""
-					} for summary in doc.get("summary", [])
-				}
+				"summary_details": summary_details
 			})
 
-		ext_ref = re.sub(r'[^A-Za-z0-9]', '', str(uuid.uuid4().hex))[:30]
+		payment_details = self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
 
-		transactions = []
-		total_amount = 0
+		if existing_payment_response := self.validate_duplicate_payments(
+			unique_id=unique_id,
+		):
+			return existing_payment_response
 
-		for summary in doc.get("summary", []):
-			summary = frappe._dict(summary)
-			if summary.get("payment_initiated") or summary.get("payment_status") != "Pending":
-				continue
+		url = self.urls.make_payment
+		headers = self.headers
 
-			mode = summary.get("mode_of_transfer", "NEFT")
-			if "A2A" in mode or "Internal" in mode or mode == "IFT":
-				mode_code = "INT"
-			elif mode == "IMPS":
-				mode_code = "IFS"
-			elif mode == "RTGS":
-				mode_code = "R41"
-			else:
-				mode_code = "N06"
+		signature, payload = self.get_encrypted_payload(method="make_payment")
+		headers["x-signature"] = signature
 
-			txn_ref = re.sub(r'[^A-Za-z0-9]', '', summary.name)[:25]
-			txn_amount = flt(summary.amount, 2)
-			total_amount += txn_amount
-
-			transactions.append({
-				"TxnRefNo": txn_ref,
-				"DrAcct": self.account_number,
-				"SndrNm": re.sub(r'[^A-Za-z0-9 ]', '', doc.get("company_bank_account_name", "SENDER"))[:35],
-				"TxnAmt": f"{txn_amount:.2f}",
-				"TxnType": mode_code,
-				"BenefIFSC": summary.get("branch_code", "") or "",
-				"BenefAcNo": summary.get("bank_account_no", ""),
-				"BenefAcNm": re.sub(r'[^A-Za-z0-9 ]', '', summary.get("party_name", "") or summary.get("party", ""))[:35],
-				"Nrtv": re.sub(r'[^A-Za-z0-9 ]', '', summary.get("narration", "") or "Payment")[:35]
-			})
-
-		if not transactions:
-			return {"payment_status": "FAILED", "message": "No pending transactions found"}
-
-		push_encrypt_data = {
-			"Authorization": self.get_ib_auth(),
-			"ExternalReferenceNo": ext_ref,
-			"TotAmt": f"{total_amount:.2f}",
-			"TxnCnt": str(len(transactions)),
-			"DatTxn": getdate().strftime("%Y%m%d"),
-			"BatchRequestID": batch_id,
-			"TxnDtls": {
-				"Txn": transactions
-			}
-		}
-
-		push_url = self.urls.get("batch_push_maker", "")
-		if not push_url:
-			return {"payment_status": "FAILED", "message": "Batch Push-Maker URL not configured"}
-
-		plaintext_push = json.dumps({"Request": {"body": {"encryptData": push_encrypt_data}}}, separators=(',', ':'))
-		final_push_payload = {"Request": {"body": {"encryptData": self.encrypt_payload(push_encrypt_data)}}}
-
-		req_headers = self.headers
-		req_headers["x-signature"] = self.sign_payload(plaintext_push)
-
-		try:
-			push_response = requests.post(push_url, headers=req_headers, json=final_push_payload, verify=False)
-		except Exception as e:
-			frappe.log_error("Canara Bank Push-Maker Error", frappe.get_traceback())
-			return {"payment_status": "FAILED", "message": f"Push-Maker failed: {str(e)}"}
-
-		create_api_log(
-			push_response,
-			action="Batch Push Maker",
-			account_config=plaintext_push,
-			ref_doctype="Payment Order",
-			ref_docname=doc.name,
-			unique_id=batch_id,
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
 		)
-
-		if not push_response.ok:
-			return {"payment_status": "FAILED", "message": f"Push-Maker HTTP Error: {push_response.text}"}
-
-		try:
-			push_res_json = push_response.json()
-			push_encrypt_str = push_res_json.get("Response", {}).get("body", {}).get("encryptData", "")
-			if not push_encrypt_str:
-				push_encrypt_str = push_res_json.get("Response", {}).get("encryptData", "")
-			if not push_encrypt_str:
-				return {"payment_status": "FAILED", "message": "Push-Maker response missing encryptData"}
-
-			push_decrypted = self.decrypt_payload(push_encrypt_str)
-		except Exception as e:
-			return {"payment_status": "FAILED", "message": f"Push-Maker Decryption Error: {str(e)}"}
-
-		if "ErrorCode" in push_decrypted and push_decrypted.get("ErrorCode") != "0":
-			return {
-				"payment_status": "FAILED",
-				"message": push_decrypted.get("ErrorDesc", "Push-Maker failed validation at Bank")
-			}
-
-		init_encrypt_data = {
-			"Authorization": self.get_ib_auth(),
-			"TFAPassword": self.get_password("txn_password"),
-			"customerID": self.customer_id,
-			"BatchRequestID": batch_id
-		}
-
-		init_url = self.urls.get("batch_initiation", "")
-		if not init_url:
-			return {"payment_status": "FAILED", "message": "Batch Initiation URL not configured"}
-
-		plaintext_init = json.dumps({"Request": {"body": {"encryptData": init_encrypt_data}}}, separators=(',', ':'))
-		final_init_payload = {"Request": {"body": {"encryptData": self.encrypt_payload(init_encrypt_data)}}}
-
-		req_headers = self.headers
-		req_headers["x-signature"] = self.sign_payload(plaintext_init)
-
-		try:
-			init_response = requests.post(init_url, headers=req_headers, json=final_init_payload, verify=False)
-		except Exception as e:
-			frappe.log_error("Canara Bank Batch Initiation Error", frappe.get_traceback())
-			return {"payment_status": "FAILED", "message": f"Batch Initiation failed: {str(e)}"}
 
 		log_id = create_api_log(
-			init_response,
-			action="Batch Payment",
-			account_config=plaintext_init,
-			ref_doctype="Payment Order",
-			ref_docname=doc.name,
-			unique_id=batch_id,
+			response,
+			action="Initiate Payment",
+			account_config=self.account_config,
+			ref_doctype=payment_details.doctype,
+			ref_docname=payment_details.name,
+			unique_id=unique_id,
+			connector=self,
 		)
 
-		return self.get_verified_response(init_response, method="batch_payment", log_id=log_id)
+		return self.get_decrypted_response(
+			response, method="make_payment", log_id=log_id
+		)
 
-	def get_batch_status(self):
-		"""Canara Bank Batch Status Check API."""
-		doc = self.doc
-		batch_id = re.sub(r'[^A-Za-z0-9]', '', doc.name)[:50]
-
+	def get_payment_status(self):
 		if self.is_mock_mode():
+			payment_details = self.doc
 			summary_details = {}
-			for summary in doc.get("summary", []):
+			for summary in payment_details.get("summary", []):
 				utr = f"CNRBM{uuid.uuid4().hex[:10].upper()}"
-				summary_details[re.sub(r'[^A-Za-z0-9]', '', summary.get("name"))[:25]] = {
+				summary_details[summary.get("name")] = {
 					"status": "Processed",
 					"message": "Successful",
 					"utr_number": utr,
@@ -682,35 +164,454 @@ class CanaraBankConnector(BankConnector):
 				"summary_details": summary_details
 			})
 
-		encrypt_data = {
-			"Authorization": self.get_ib_auth(),
-			"TFAPassword": self.get_password("txn_password"),
-			"customerID": self.customer_id,
-			"transactionRefNo": doc.get("file_sequence_number", "")
-		}
+		payment_details = self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
 
-		url = self.urls.get("batch_status", "")
-		if not url:
-			return {"payment_status": "FAILED", "message": "Batch Status URL not configured"}
+		url = self.urls.payment_status
+		headers = self.headers
 
-		plaintext_json_request = json.dumps({"Request": {"body": {"encryptData": encrypt_data}}}, separators=(',', ':'))
-		final_payload = {"Request": {"body": {"encryptData": self.encrypt_payload(encrypt_data)}}}
+		signature, payload = self.get_encrypted_payload(method="payment_status")
+		headers["x-signature"] = signature
 
-		req_headers = self.headers
-		req_headers["x-signature"] = self.sign_payload(plaintext_json_request)
-
-		try:
-			response = requests.post(url, headers=req_headers, json=final_payload, verify=False)
-		except Exception as e:
-			return {"payment_status": "FAILED", "message": str(e)}
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
+		)
 
 		log_id = create_api_log(
 			response,
-			action="Batch Status",
-			account_config=plaintext_json_request,
-			ref_doctype="Payment Order",
-			ref_docname=doc.name,
-			unique_id=batch_id,
+			action="Payment Status",
+			account_config=self.account_config,
+			ref_doctype=payment_details.doctype,
+			ref_docname=payment_details.name,
+			unique_id=unique_id,
+			connector=self,
 		)
 
-		return self.get_verified_response(response, method="batch_status", log_id=log_id)
+		return self.get_decrypted_response(
+			response, method="payment_status", log_id=log_id
+		)
+
+	def get_bank_balance(self):
+		if self.is_mock_mode():
+			return frappe._dict({
+				"server_status": "Success",
+				"balance": "5000000.00",
+				"date": getdate(),
+				"current_balance": "5000000.00"
+			})
+
+		if not self.balance_check:
+			frappe.throw(_("Bank Balance is disabled."))
+
+		url = self.urls.bank_balance
+		headers = self.headers
+
+		signature, payload = self.get_encrypted_payload(method="bank_balance")
+		headers["x-signature"] = signature
+
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Balance",
+			account_config=self.account_config,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+			unique_id=self.name,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_balance", log_id=log_id
+		)
+
+	def get_bank_statement(self):
+		if not self.statement_fetch:
+			frappe.throw(_("Statement fetch is disabled."))
+
+		url = self.urls.bank_statement
+		headers = self.headers
+
+		signature, payload = self.get_encrypted_payload(method="bank_statement")
+		headers["x-signature"] = signature
+
+		response = requests.post(
+			url, headers=headers, json=payload, cert=self.get_cert()
+		)
+
+		log_id = create_api_log(
+			response,
+			action="Bank Statement",
+			account_config=self.account_config,
+			ref_doctype=self.doctype,
+			ref_docname=self.name,
+			unique_id=self.name,
+			connector=self,
+		)
+
+		return self.get_decrypted_response(
+			response, method="bank_statement", log_id=log_id
+		)
+
+	def get_encrypted_payload(self, method):
+		self.update_account_config(method)
+		encrypted = self.jwe_encrypt(
+			json.dumps(
+				self.account_config["Request"]["body"]["encryptData"],
+				separators=(",", ":"),
+			),
+			self.AES_KEY,
+			media_type=None,
+			encryption=ALGORITHMS.A128CBC_HS256,
+			algorithm=ALGORITHMS.A256KW,
+		)
+
+		payload = copy.deepcopy(self.account_config)
+		payload["Request"]["body"]["encryptData"] = encrypted.decode("utf-8")
+
+		return (
+			self.generate_signature(
+				json.dumps(self.account_config, separators=(",", ":")),
+				self.get_file_content(self.private_key),
+			),
+			payload,
+		)
+
+	def get_decrypted_response(self, response, method: str, log_id: str):
+		self.update_aes_key()
+		res_dict = frappe._dict({})
+		if response.ok or "encryptData" in response.text:
+			decrypted_data = frappe._dict({})
+			try:
+				response = json.loads(response.text)
+				encrypted_data = (
+					response.get("Response", {}).get("body", {}).get("encryptData", "")
+				)
+				if not encrypted_data:
+					res_dict.status = "FAILED"
+					res_dict.message = "Data Not Found!"
+
+				decrypted_data = self.jwe_decrypt(
+					encrypted_data,
+					self.AES_KEY,
+				).decode("utf-8")
+				self.set_decrypted_response(log_id, decrypted_data)
+			except Exception:
+				frappe.log_error(
+					"Decryption Failed", frappe.get_traceback(with_context=1)
+				)
+				res_dict.status = "FAILED"
+				res_dict.message = "Response Decryption Failed!"
+				return res_dict
+
+			self.get_formated_response(decrypted_data, res_dict, method)
+		else:
+			res_dict.status = "Request Failure"
+			res_dict.message = response.text or response.status_code
+
+		return res_dict
+
+	def update_account_config(self, method):
+		method_map = {
+			"make_payment": self.set_payment_data,
+			"payment_status": self.set_payment_status_data,
+			"bank_balance": self.set_balance_data,
+			"bank_statement": self.set_statement_data,
+		}
+
+		if method in method_map:
+			method_map[method]()
+
+	def set_payment_data(self):
+		payment_details = self.doc
+		transaction_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		tfa_password = self.get_password("tfa_password")
+		key = ""
+		if self.enable_password_encryption:
+			tfa_password = self.get_password("encrypted_tfa_password")
+			key = self.get_password("encryption_key")
+
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"TFAPassword": tfa_password,
+							"Key": key,
+							"CustomerID": self.customer_id,
+							"TotAmt": cstr(flt(payment_details.total, 2)),
+							"TxnCnt": cstr(len(payment_details.get("summary"))),
+							"DatTxn": getdate().strftime("%Y%m%d"),
+							"BatchRequestID": transaction_id,
+							"TxnDtls": {
+								"Txn": self.get_transactions(),
+							},
+						}
+					}
+				}
+			}
+		)
+
+	def get_transactions(self):
+		def _get_party_name(summary):
+			return self.clean_string(summary.get("party_name") or summary.get("party"))
+
+		return [
+			{
+				"TxnRefNo": summary.get("name"),
+				"DrAcct": self.account_number,
+				"SndrNm": self.clean_string(self.account_name),
+				"TxnAmt": cstr(flt(summary.get("amount"), 2)),
+				"TxnType": self.get_payment_mode(summary.get("mode_of_transfer")),
+				"BenefIFSC": summary.get("branch_code"),
+				"BenefAcNo": summary.get("bank_account_no"),
+				"BenefAcNm": _get_party_name(summary),
+				"Nrtv": f'Payment from {summary.get("parent", "")} for {_get_party_name(summary)}',
+			}
+			for summary in self.doc.get("summary")
+		]
+
+	def get_payment_mode(self, mode_of_transfer: str) -> str:
+		mode_of_transfer = mode_of_transfer.lower()
+		payment_mode = None
+		if "a2a" in mode_of_transfer:
+			payment_mode = "INTRA"
+		elif "imps" in mode_of_transfer:
+			payment_mode = "IMPS"
+		elif "neft" in mode_of_transfer:
+			payment_mode = "NEFT"
+		elif "rtgs" in mode_of_transfer:
+			payment_mode = "RTGS"
+
+		return payment_mode
+
+	def set_payment_status_data(self):
+		payment_details = self.doc
+		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
+
+		key = ""
+		tfa_password = self.get_password("tfa_password")
+		if self.enable_password_encryption:
+			key = self.get_password("encryption_key")
+			tfa_password = self.get_password("encrypted_tfa_password")
+
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"TFAPassword": tfa_password,
+							"Key": key,
+							"CustomerID": self.customer_id,
+							"BatchRequestID": unique_id,
+							"TxnRefNo": "",
+						}
+					}
+				}
+			}
+		)
+
+	def set_balance_data(self):
+		key = ""
+		if self.enable_password_encryption:
+			key = self.get_password("encryption_key")
+
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"branchCode": self.branch_code,
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"acctNumber": self.account_number,
+							"customerID": self.customer_id,
+							"key": key,
+						},
+					}
+				}
+			}
+		)
+
+	def set_statement_data(self):
+		payload_details = self.doc
+
+		from_date = getdate(payload_details.get("from_date", "")).strftime("%d-%m-%Y")
+		to_date = getdate(payload_details.get("to_date", "")).strftime("%d-%m-%Y")
+
+		key = ""
+		if self.enable_password_encryption:
+			key = self.get_password("encryption_key")
+
+		self.account_config.update(
+			{
+				"Request": {
+					"body": {
+						"encryptData": {
+							"Authorization": "Basic " + self.get_auth(),
+							"acctNumber": self.account_number,
+							"customerID": self.customer_id,
+							"NUMBEROFTXN": "",
+							"FROMDATE": from_date,
+							"TODATE": to_date,
+							"searchBy": "3",
+							"branchCode": self.branch_code,
+							"key": key,
+						}
+					}
+				}
+			}
+		)
+
+	def get_formated_response(self, decrypted_data, res_dict, method):
+		decrypted_data = json.loads(decrypted_data)
+		if "ErrorResponse" in decrypted_data:
+			message = (
+				decrypted_data.get("ErrorResponse", {})
+				.get("metadata", {})
+				.get("status", {})
+				.get("desc", "")
+			)
+			error_code = (
+				decrypted_data.get("ErrorResponse", {})
+				.get("metadata", {})
+				.get("status", {})
+				.get("code", "")
+			)
+			res_dict.status = "FAILED"
+			res_dict.message = f"{message} - {error_code}"
+			return
+
+		method_map = {
+			"make_payment": self.format_payment_response,
+			"payment_status": self.format_payment_status_response,
+			"bank_balance": self.format_bank_balance_response,
+			"bank_statement": self.format_statement_response,
+		}
+
+		if method in method_map:
+			method_map[method](decrypted_data, res_dict)
+
+	def format_payment_response(self, decrypted_data, res_dict):
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "Failure"
+					res_dict.message = "Failed to parse payment response."
+					return
+
+		status = decrypted_data.get("status", {})
+		if status.get("result", "").lower() == "accepted":
+			res_dict.payment_status = "ACCEPTED"
+			res_dict.message = status.get("message", {}).get(
+				"code", "Payments Initiated"
+			)
+			res_dict.summary_details = self.get_summary_details("Accepted")
+		elif status.get("result", "").lower() == "accepted":
+			res_dict.payment_status = "ACCEPTED"
+			res_dict.message = status.get("message", {}).get(
+				"code", "Payments Initiated"
+			)
+			res_dict.summary_details = self.get_summary_details("Accepted")
+		else:
+			summary = (
+				decrypted_data.get("Response", {}).get("Body", {}).get("txnSummary", {})
+			)
+			error_code = summary.get("ErrorCode")
+			error_desc = summary.get("ErrorDec")
+			res_dict.status = "Request Failure"
+			res_dict.message = error_desc or "Unexpected response format."
+			res_dict.error_code = error_code
+
+	def get_status(self, status_code):
+		status = "Pending"
+		if status_code == "Initiated":
+			status = "Initiated"
+		elif status_code == "Successful":
+			status = "Processed"
+		elif status_code == "Rejected":
+			status = "Rejected"
+		elif status_code in ["Failed", "Error"]:
+			status = "Failed"
+
+		return status
+
+	def format_payment_status_response(self, decrypted_data, res_dict):
+		if isinstance(decrypted_data, str):
+			try:
+				decrypted_data = json.loads(decrypted_data)
+			except json.JSONDecodeError:
+				try:
+					decrypted_data = decrypted_data.replace("'", '"')
+					decrypted_data = json.loads(decrypted_data)
+				except json.JSONDecodeError:
+					res_dict.status = "Failure"
+					res_dict.message = "Failed to parse payment response."
+					return
+
+		transactions = decrypted_data.get("TxnDtls", {}).get("Txn")
+
+		if transactions:
+			res_dict.payment_status = "PROCESSED"
+			res_dict.message = "Payment status fetched successfully."
+		else:
+			res_dict.payment_status = "Request Failure"
+			res_dict.message = "Invalid response format."
+
+		summary_details = {}
+		for transaction in transactions:
+			transaction = frappe._dict(transaction)
+			message = transaction.get("TxnStatus", "")
+			if transaction.get("TxnStatus", "") == "Error":
+				message = (
+					transaction.get("Error_Msg", "")
+					+ ":"
+					+ transaction.get("Error_Code", "")
+				)
+
+			summary_details[transaction.get("TxnRefNo", "")] = {
+				"unique_id": transaction.get("TxnRefNo", ""),
+				"status_code": transaction.get("TxnStatus", ""),
+				"status": self.get_status(transaction.get("TxnStatus", "")),
+				"utr_number": transaction.get("utr_RRN_Number", ""),
+				"message": message,
+				"processed_date": transaction.get("Approved_Date"),
+			}
+
+		res_dict.summary_details = summary_details
+
+		return res_dict
+
+	def format_bank_balance_response(self, decrypted_data, res_dict):
+		res_dict.server_status = "Success"
+		res_dict.balance = decrypted_data.get("balAvailable", 0)
+		res_dict.date = getdate()
+		res_dict.current_balance = decrypted_data.get("currentBalance", 0)
+
+	def format_statement_response(self, decrypted_data, res_dict):
+		transactions = []
+
+		for txn in decrypted_data.get("transactions", []):
+			amount = abs(flt(txn.get("transactionAmount")))
+			if cstr(txn.get("creditDebitFlag")).lower() == "d":
+				amount = -1 * amount
+			transaction = {
+				"transaction_date": txn.get("transactionDate", ""),
+				"transaction_amount": amount,
+				"reference_number": txn.get("txnRefNumber"),
+				"user_ref_number": txn.get("userRefNumber", ""),
+				"transaction_description": txn.get("description", ""),
+			}
+			transactions.append(transaction)
+
+		res_dict.server_status = "Success"
+		res_dict.bank_statements = transactions

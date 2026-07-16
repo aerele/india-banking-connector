@@ -23,8 +23,9 @@
   "statement_fetch",
   "tab_2_tab",
   "api_endpoints_section",
+  "base_url",
   "api_endpoints",
-  "get_api_endpoints",
+  "reset_endpoints",
   "amended_from"
  ],
  "fields": [
@@ -97,15 +98,10 @@
    "fieldtype": "Section Break"
   },
   {
+   "description": "<div class=\"api-url-format\">\n    <p><strong>URL Format:</strong> &lt;Base-URL&gt;/&lt;API-Path&gt;</p>\n\n    <p><strong>Examples:</strong></p>\n\n    <ul>\n<li><strong>host</strong> \u2192 api.bank.in</li>\n        <li><strong>make_payment</strong> \u2192 https://api.bank.in/v1/Transaction</li>\n        <li><strong>payment_status</strong> \u2192 https://api.bank.in/v1/StatusInquiry</li>\n        <li><strong>bank_balance</strong> \u2192 https://api.bank.in/v1/balanceInquiry</li>\n        <li><strong>bank_statement</strong> \u2192 https://api.bank.in/v1/AccStatement</li>\n        <li><strong>registration</strong> \u2192 https://api.bank.in/v1/Register</li>\n        <li><strong>registration_status</strong> \u2192 https://api.bank.in/v1/Registration-status</li>\n    </ul>\n</div>",
    "fieldname": "api_endpoints",
    "fieldtype": "Table",
    "options": "Endpoint URLs"
-  },
-  {
-   "fieldname": "get_api_endpoints",
-   "fieldtype": "Button",
-   "label": "Get API endpoints",
-   "options": "get_api_endpoints"
   },
   {
    "fieldname": "amended_from",
@@ -155,12 +151,22 @@
    "fieldtype": "Data",
    "label": "Client Code(Encrypted)",
    "mandatory_depends_on": "encrypted"
+  },
+  {
+   "description": "<p><strong>Base URL:</strong> https://api.bank.in</p>",
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL"
+  },
+  {
+   "fieldname": "reset_endpoints",
+   "fieldtype": "Button",
+   "label": "Reset Endpoints"
   }
  ],
- "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-23 13:20:40.862184",
+ "modified": "2026-03-13 05:44:57.883098",
  "modified_by": "Administrator",
  "module": "Connectors",
  "name": "Bank of Baroda Connector",

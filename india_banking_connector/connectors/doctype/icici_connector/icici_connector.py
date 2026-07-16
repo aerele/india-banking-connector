@@ -32,6 +32,11 @@ class ICICIConnector(BankConnector):
 		self.doc = frappe._dict(kwargs.get("doc", {}))
 		self.payment_doc = frappe._dict(kwargs.get("payment_doc", {}))
 
+	def autoname(self):
+		self.name = self.account_number
+		if self.get("bulk_payment"):
+			self.name = f"{self.account_number}^B"
+
 	@property
 	def urls(self):
 		return super().urls
@@ -72,6 +77,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("register"),
 			ref_doctype=self.doc.doctype,
 			ref_docname=self.doc.name,
+			connector=self,
 		)
 
 		res = self.get_decrypted_response(response, method="register", log_id=log_id)
@@ -95,6 +101,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("registration_status"),
 			ref_doctype=self.doc.doctype,
 			ref_docname=self.doc.name,
+			connector=self,
 		)
 
 		res = self.get_decrypted_response(
@@ -130,6 +137,7 @@ class ICICIConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -158,6 +166,7 @@ class ICICIConnector(BankConnector):
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
 			unique_id=unique_id,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -180,6 +189,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("generate_otp"),
 			ref_doctype=payment_details.parenttype or payment_details.doctype,
 			ref_docname=payment_details.parent or payment_details.name,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -196,7 +206,7 @@ class ICICIConnector(BankConnector):
 
 		data = self.get_account_config(method)
 
-		if self.bulk_transaction:
+		if self.bulk_transaction and (method not in ["bank_balance", "bank_statement"]):
 			encrypted_key = self.rsa_encrypt_key(
 				self.AES_KEY, self.get_file_relative_path(connector_doc.public_key)
 			)
@@ -359,10 +369,6 @@ class ICICIConnector(BankConnector):
 			)
 			return
 		else:
-
-			def _clean_string(s):
-				return re.sub(r"\s+", " ", re.sub(r"[^A-Za-z0-9]", " ", s)).strip()
-
 			workflow_reqd = "Y"
 			if payment_details.mode_of_transfer.lower() not in ["neft", "imps"]:
 				workflow_reqd = "N"
@@ -388,8 +394,8 @@ class ICICIConnector(BankConnector):
 						payment_details.bank,
 						mode_of_transfer=payment_details.mode_of_transfer,
 					),
-					"PAYEENAME": _clean_string(payment_details.account_name),
-					"REMARKS": f"{payment_details.party_type} {_clean_string(payment_details.party)}",
+					"PAYEENAME": self.clean_string(payment_details.account_name),
+					"REMARKS": f"{payment_details.party_type} {self.clean_string(payment_details.party)}",
 					"WORKFLOW_REQD": workflow_reqd,
 					"BENLEI": payment_details.lei or "",
 				}
@@ -431,7 +437,10 @@ class ICICIConnector(BankConnector):
 		if response.ok:
 			response = response.text
 
-			if self.bulk_transaction:
+			if self.bulk_transaction and method not in [
+				"bank_balance",
+				"bank_statement",
+			]:
 				response = json.loads(response)
 				decrypted_key = self.rsa_decrypt_key(
 					response.get("encryptedKey"),
@@ -558,14 +567,6 @@ class ICICIConnector(BankConnector):
 					}
 				}
 
-	def get_summary_details(self, status):
-		summary_details = {}
-
-		for summary in self.doc.summary:
-			summary_details.update({summary.get("name"): {"payment_status": status}})
-
-		return summary_details
-
 	def handle_bulk_transaction_response(self, data, res_dict, method):
 		if method == "generate_otp" and data:
 			if data.get("RESPONSE") == "Success":
@@ -650,6 +651,8 @@ class ICICIConnector(BankConnector):
 			transactions = []
 
 			if data.get("RESPONSE") == "SUCCESS":
+				if isinstance(records, dict):
+					records = [records]
 				for txn in records:
 					transaction = {
 						"transaction_date": txn.get("TXNDATE", ""),
@@ -672,10 +675,7 @@ class ICICIConnector(BankConnector):
 
 		response_data = json.dumps(response_data, indent=4)
 
-		if frappe.db.exists("Bank Request Log", log_id):
-			frappe.db.set_value(
-				"Bank Request Log", log_id, "decrypted_response", response_data
-			)
+		super().set_decrypted_response(log_id, response_data)
 
 	def get_cert(self):
 		return (
@@ -711,6 +711,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("bank_balance"),
 			ref_doctype="Bank Balance",
 			ref_docname=self.account_number,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(
@@ -734,6 +735,7 @@ class ICICIConnector(BankConnector):
 			account_config=self.get_account_config("bank_statement"),
 			ref_doctype="Bank Statement",
 			ref_docname=self.account_number,
+			connector=self,
 		)
 
 		return self.get_decrypted_response(

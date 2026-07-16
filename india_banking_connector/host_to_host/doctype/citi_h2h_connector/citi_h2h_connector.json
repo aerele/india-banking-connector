@@ -1,0 +1,257 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:account_number",
+ "creation": "2026-01-21 12:28:59.066282",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_egib",
+  "active",
+  "testing",
+  "upload_payment_file",
+  "column_break_mwck",
+  "encrypt_payment_file",
+  "auto_fetch",
+  "force_fetch_status",
+  "section_break_jujv",
+  "account_number",
+  "username",
+  "password",
+  "hostname",
+  "port",
+  "ifsc_code",
+  "column_break_qwyl",
+  "private_key",
+  "sftp_key",
+  "public_key",
+  "encryption__decryption_key_section",
+  "pgp_public_key",
+  "pgp_private_key",
+  "client_fingerprint",
+  "pgp_private_key_password",
+  "column_break_ypdk",
+  "citi_pgp_public_key",
+  "citi_fingerprint",
+  "locations_section",
+  "payment_folder",
+  "enable_imps_payment",
+  "column_break_enfp",
+  "reversefeed_folder",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_egib",
+   "fieldtype": "Section Break",
+   "label": "Settings"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_mwck",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_jujv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Account Number",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_qwyl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hostname",
+   "fieldtype": "Data",
+   "label": "Hostname"
+  },
+  {
+   "fieldname": "port",
+   "fieldtype": "Data",
+   "label": "Port"
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "Username"
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password"
+  },
+  {
+   "fieldname": "private_key",
+   "fieldtype": "Attach",
+   "label": "Private Key(PPK)"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "locations_section",
+   "fieldtype": "Section Break",
+   "label": "Payment & Reversefeed Locations"
+  },
+  {
+   "fieldname": "payment_folder",
+   "fieldtype": "Data",
+   "label": "Payment Folder"
+  },
+  {
+   "fieldname": "column_break_enfp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reversefeed_folder",
+   "fieldtype": "Data",
+   "label": "Reversefeed Folder"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "CITI H2H Connector",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "public_key",
+   "fieldtype": "Attach",
+   "label": "Public Key"
+  },
+  {
+   "fieldname": "sftp_key",
+   "fieldtype": "Attach",
+   "label": "SFTP Key"
+  },
+  {
+   "fieldname": "ifsc_code",
+   "fieldtype": "Data",
+   "label": "IFSC Code"
+  },
+  {
+   "default": "1",
+   "fieldname": "encrypt_payment_file",
+   "fieldtype": "Check",
+   "label": "Encrypt Payment File"
+  },
+  {
+   "default": "1",
+   "fieldname": "upload_payment_file",
+   "fieldtype": "Check",
+   "label": "Upload Payment File"
+  },
+  {
+   "default": "0",
+   "fieldname": "testing",
+   "fieldtype": "Check",
+   "label": "Testing"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_fetch",
+   "fieldtype": "Check",
+   "label": "Auto Fetch"
+  },
+  {
+   "fieldname": "force_fetch_status",
+   "fieldtype": "Button",
+   "label": "Force Fetch Status",
+   "options": "force_fetch_status"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_imps_payment",
+   "fieldtype": "Check",
+   "label": "Enable IMPS Payment"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "encryption__decryption_key_section",
+   "fieldtype": "Section Break",
+   "label": "Encryption & Decryption Key"
+  },
+  {
+   "fieldname": "pgp_private_key",
+   "fieldtype": "Attach",
+   "label": "PGP Private Key"
+  },
+  {
+   "fieldname": "column_break_ypdk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pgp_public_key",
+   "fieldtype": "Attach",
+   "label": "PGP Public Key"
+  },
+  {
+   "fieldname": "citi_pgp_public_key",
+   "fieldtype": "Attach",
+   "label": "CITI PGP Public Key"
+  },
+  {
+   "depends_on": "eval: !!doc.citi_pgp_public_key",
+   "fieldname": "citi_fingerprint",
+   "fieldtype": "Data",
+   "label": "CITI Fingerprint"
+  },
+  {
+   "depends_on": "eval: !!doc.pgp_private_key",
+   "fieldname": "client_fingerprint",
+   "fieldtype": "Data",
+   "label": "Client Fingerprint"
+  },
+  {
+   "depends_on": "eval: !!doc.pgp_private_key",
+   "fieldname": "pgp_private_key_password",
+   "fieldtype": "Password",
+   "label": "PGP Private Key Password"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-02-17 09:17:27.474635",
+ "modified_by": "Administrator",
+ "module": "Host to Host",
+ "name": "CITI H2H Connector",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

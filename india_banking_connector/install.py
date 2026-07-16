@@ -1,21 +1,19 @@
-import json
-
 import click
 import frappe
 
 from india_banking_connector.default import (
 	BANKS_CONNECTOR_MAP,
+	BANKS_H2H_MAP,
 	BULK_TRANSACTION_ENABLED_BANK,
-	ENCRYPTED_END_POINTS,
 	STD_BANK_LIST,
 )
-from india_banking_connector.utils import decrypt
 
 
 def after_install():
 	click.secho("* Updating India Banking Connector Customisations")
 	create_bank_doctype()
 	create_default_bank()
+	create_connector_settings()
 
 
 def create_default_bank():
@@ -28,28 +26,50 @@ def create_default_bank():
 			bank_doc.save()
 
 
-def create_connector_settings():
+def create_connector_settings(update=False):
 	click.echo(" -> Updating Connector Settings")
 	settings_doc = frappe.get_doc("Connector Settings")
-	connector_map = [
-		{
-			"bank": bank,
-			"connector": connector,
-			"bulk_transaction": 1 if bank in BULK_TRANSACTION_ENABLED_BANK else 0,
-		}
-		for bank, connector in BANKS_CONNECTOR_MAP.items()
-		if not frappe.db.exists(
+
+	for bank, connector in BANKS_CONNECTOR_MAP.items():
+		if frappe.db.exists(
 			"Connector Map",
 			{
 				"bank": bank,
 				"connector": connector,
 				"bulk_transaction": 1 if bank in BULK_TRANSACTION_ENABLED_BANK else 0,
 			},
+		):
+			continue
+
+		settings_doc.append(
+			"connectors",
+			{
+				"bank": bank,
+				"connector": connector,
+				"bulk_transaction": 1 if bank in BULK_TRANSACTION_ENABLED_BANK else 0,
+			},
 		)
-	]
-	if connector_map:
-		settings_doc.extend("connectors", connector_map)
-		settings_doc.insert(ignore_links=True)
+	for bank, host in BANKS_H2H_MAP.items():
+		if not frappe.db.exists(
+			"H2H Connector Map",
+			{
+				"bank": bank,
+				"host": host,
+			},
+		):
+			settings_doc.append(
+				"hosts",
+				{
+					"bank": bank,
+					"host": host,
+				},
+			)
+	if update:
+		settings_doc.flags.ignore_links = True
+		settings_doc.save()
+		return
+
+	settings_doc.insert(ignore_links=True)
 
 
 def create_bank_doctype():
@@ -93,35 +113,3 @@ def create_bank_doctype():
 			],
 		}
 		frappe.call("frappe.client.insert", doc=doc)
-
-
-@frappe.whitelist()
-def create_bank_api_endpoint():
-	def _create_endpoint_list(urls, **kwargs):
-		doc = frappe.new_doc("Bank API Endpoint")
-		doc.update(kwargs)
-		doc.extend(
-			"end_points",
-			[{"action": action, "url": url} for action, url in urls.items()],
-		)
-		doc.insert(ignore_links=True, ignore_permissions=True)
-
-	decrypted_endpoints = decrypt(ENCRYPTED_END_POINTS)
-
-	if isinstance(decrypted_endpoints, str):
-		decrypted_endpoints = json.loads(decrypted_endpoints)
-
-	for bank, api_detais in decrypted_endpoints.items():
-		bank = bank.replace("_", " ")
-		api_detais = frappe._dict(api_detais)
-		for env in ["production", "testing"]:
-			if api_details := frappe._dict(api_detais.get(env, {})):
-				for transaction_type in ["composite", "bulk"]:
-					if endpoints := frappe._dict(api_details.get(transaction_type, {})):
-						filters = {
-							"bank": bank,
-							"environment": env.capitalize(),
-							"bulk_transaction": 1 if transaction_type == "bulk" else 0,
-						}
-						if not frappe.db.exists("Bank API Endpoint", filters):
-							_create_endpoint_list(endpoints, **filters)

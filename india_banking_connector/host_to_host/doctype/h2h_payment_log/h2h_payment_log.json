@@ -1,0 +1,205 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:payment_log_id",
+ "creation": "2026-01-22 11:31:43.963379",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_egmw",
+  "payment_log_id",
+  "host",
+  "host_name",
+  "column_break_iphq",
+  "status",
+  "payment_files_section",
+  "a2a_payment_file",
+  "neft_payment_file",
+  "rtgs_payment_file",
+  "imps_payment_file",
+  "column_break_bsuh",
+  "a2a_encrypted_payment_file",
+  "neft_encrypted_payment_file",
+  "rtgs_encrypted_payment_file",
+  "imps_encrypted_payment_file",
+  "column_break_ztjd",
+  "uploaded_a2a",
+  "uploaded_neft",
+  "uploaded_rtgs",
+  "uploaded_imps",
+  "section_break_lkyi",
+  "payment_summary",
+  "section_break_request",
+  "pretty_format_json",
+  "request"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_egmw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "payment_log_id",
+   "fieldtype": "Data",
+   "label": "Payment log ID",
+   "unique": 1
+  },
+  {
+   "fieldname": "host",
+   "fieldtype": "Link",
+   "label": "Host",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "host_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Host Name",
+   "options": "host"
+  },
+  {
+   "fieldname": "column_break_iphq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending Upload\nUploaded"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "payment_files_section",
+   "fieldtype": "Section Break",
+   "label": "Payment files"
+  },
+  {
+   "fieldname": "a2a_payment_file",
+   "fieldtype": "Attach",
+   "label": "Payment File(A2A)"
+  },
+  {
+   "fieldname": "neft_payment_file",
+   "fieldtype": "Attach",
+   "label": "Payment File(NEFT)"
+  },
+  {
+   "fieldname": "rtgs_payment_file",
+   "fieldtype": "Attach",
+   "label": "Payment File(RTGS)"
+  },
+  {
+   "fieldname": "imps_payment_file",
+   "fieldtype": "Attach",
+   "label": "Payment File(IMPS)"
+  },
+  {
+   "fieldname": "column_break_bsuh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "a2a_encrypted_payment_file",
+   "fieldtype": "Attach",
+   "label": "Encrypted Payment File(A2A)"
+  },
+  {
+   "fieldname": "neft_encrypted_payment_file",
+   "fieldtype": "Attach",
+   "label": "Encrypted Payment File(NEFT)"
+  },
+  {
+   "fieldname": "rtgs_encrypted_payment_file",
+   "fieldtype": "Attach",
+   "label": "Encrypted Payment File(RTGS)"
+  },
+  {
+   "fieldname": "imps_encrypted_payment_file",
+   "fieldtype": "Attach",
+   "label": "Encrypted Payment File(IMPS)"
+  },
+  {
+   "fieldname": "column_break_ztjd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "uploaded_a2a",
+   "fieldtype": "Check",
+   "label": "Uploaded (A2A)"
+  },
+  {
+   "default": "0",
+   "fieldname": "uploaded_neft",
+   "fieldtype": "Check",
+   "label": "Uploaded (NEFT)"
+  },
+  {
+   "default": "0",
+   "fieldname": "uploaded_rtgs",
+   "fieldtype": "Check",
+   "label": "Uploaded (RTGS)"
+  },
+  {
+   "default": "0",
+   "fieldname": "uploaded_imps",
+   "fieldtype": "Check",
+   "label": "Uploaded (IMPS)"
+  },
+  {
+   "fieldname": "section_break_lkyi",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "payment_summary",
+   "fieldtype": "Table",
+   "label": "Payment Summary",
+   "options": "H2H Payment Log Summary"
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "!!request",
+   "fieldname": "section_break_request",
+   "fieldtype": "Section Break",
+   "label": "Request"
+  },
+  {
+   "fieldname": "pretty_format_json",
+   "fieldtype": "Button",
+   "label": "Pretty Format JSON"
+  },
+  {
+   "fieldname": "request",
+   "fieldtype": "Code",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-02-05 12:41:57.472722",
+ "modified_by": "Administrator",
+ "module": "Host to Host",
+ "name": "H2H Payment Log",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
