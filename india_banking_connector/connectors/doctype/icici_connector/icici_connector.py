@@ -75,23 +75,6 @@ def _is_pre_send_connection_failure(exc):
 	)
 
 
-def is_no_record_message(message):
-	"""True when a payment-status MESSAGE proves the bank has NO record of the unique_id — ICICI's
-	"Invalid Inquiry Req ID or Unique ID. Please enter a valid input ...". Verified against 2,259
-	production Bank Request Log rows: this answer appears ONLY for payments that were never
-	submitted (429 / 400 / failed initiate) and in ZERO cases following a successful initiate, so
-	it is a definitive "never submitted" signal — not an in-flight or ambiguous one.
-
-	Matched on 'invalid' + 'unique id' together (covers the live phrase) so it can NEVER
-	false-match a real settled / pending payment's message. This is a belt-and-suspenders for a
-	response whose STATUS field is blank/missing but whose MESSAGE is the invalid-unique-id text;
-	STATUS == "UNKNOWN" is the primary signal."""
-	m = (message or "").strip().lower()
-	if not m:
-		return False
-	return "invalid" in m and "unique id" in m
-
-
 class ICICIConnector(BankConnector):
 	bank = "ICICI Bank"
 
@@ -282,28 +265,8 @@ class ICICIConnector(BankConnector):
 		)
 
 		if result["outcome"] == "response":
-			response = result["response"]
-			# HTTP-level gateway rejection (verified against 2,259 real ICICI request-log rows): an
-			# initiate that returns 429 "Too many request" or 400 "Improper schema validation" was
-			# REJECTED at the gateway BEFORE it entered payment processing — the bank never accepted
-			# it, so the payment was provably NOT submitted (the gateway returns HTTP 200 for anything
-			# that actually enters processing, even a business FAILURE). Emit the SAME distinct,
-			# non-ambiguous "Not Submitted" signal as a pre-send connection failure, so the consumer
-			# can safely fail+release the row (no double-pay — nothing was submitted) and the
-			# stuck-forever poller is killed. ONLY these documented gateway-rejection codes are treated
-			# as not-submitted; every other non-2xx stays ambiguous (get_decrypted_response ->
-			# "Request Failure", submitted=True) so a possibly-submitted payment is never failed.
-			if response.status_code in (429, 400):
-				return frappe._dict(
-					{
-						"payment_status": "Not Submitted",
-						"submitted": False,
-						"message": self._http_error_reason(response)
-						or f"Payment rejected at the gateway (HTTP {response.status_code}) — not submitted.",
-					}
-				)
 			res = self.get_decrypted_response(
-				response, method="make_payment", log_id=result["log_id"]
+				result["response"], method="make_payment", log_id=result["log_id"]
 			)
 			# Explicit: a real reply was received. Consumers key on payment_status as before.
 			res["submitted"] = True
@@ -332,28 +295,6 @@ class ICICIConnector(BankConnector):
 				or "No response from the bank (timeout) — payment status unknown.",
 			}
 		)
-
-	def _http_error_reason(self, response):
-		"""Best-effort human reason from a non-2xx gateway response (429 / 400). The gateway
-		rejection body is a plain (unencrypted) error payload — pull ERRORMESSAGE / errormessage /
-		message from the JSON, else fall back to the raw text (trimmed). Never raises."""
-		try:
-			body = response.json()
-			if isinstance(body, dict):
-				reason = (
-					body.get("ERRORMESSAGE")
-					or body.get("errormessage")
-					or body.get("ERROR")
-					or body.get("MESSAGE")
-					or body.get("message")
-					or ""
-				)
-				if isinstance(reason, str) and reason.strip():
-					return reason.strip()
-		except Exception:
-			pass
-		text = (getattr(response, "text", "") or "").strip()
-		return text[:200] or None
 
 	def get_payment_status(self):
 		self.update_client_details("payment_status")
@@ -741,11 +682,6 @@ class ICICIConnector(BankConnector):
 				"PENDING",
 				"PENDING FOR PROCESSING",
 				"PENDING FOR APPROVAL",
-				# In-flight at the bank at INITIATE time is NOT a failure — accept it and let the
-				# status poll resolve it. Without this, a "PROCESSING" initiate fell to the else
-				# branch below (-> FAILED "Invalid Status"), which made the app fail+release a
-				# possibly-live payment (a double-pay risk on a regenerated payout).
-				"PROCESSING",
 			]:
 				res_dict.payment_status = "ACCEPTED"
 				res_dict.message = f"Payment {data.get('STATUS', '').title()}"
@@ -772,71 +708,37 @@ class ICICIConnector(BankConnector):
 				res_dict.message = f"Invalid Status : {data.STATUS}"
 
 		elif method == "payment_status" and data:
-			# Real ICICI status-inquiry vocabulary (verified against 2,259 production Bank Request
-			# Log rows): SUCCESS / FAILURE / PENDING / PENDING FOR PROCESSING / PENDING FOR APPROVAL /
-			# PROCESSING / UNKNOWN. Normalize each into a DISTINCT per-row `status` signal the apps
-			# act on — Processed / Pending / Failed / No Record — instead of flattening the
-			# PENDING-variants and UNKNOWN both into the one generic "Request Failure". The reason
-			# travels in `message` (ERRORMESSAGE as a fallback). Top-level payment_status stays
-			# "PROCESSED" for EVERY answered inquiry (unchanged) — HRMS / india_banking's
-			# verify_status_response gates on that, then branches on the per-row `status` token.
-			status = (data.get("STATUS") or "").strip().upper()
-			reason = data.get("MESSAGE") or data.get("ERRORMESSAGE") or ""
-			res_dict.payment_status = "PROCESSED"
-			if status == "SUCCESS":
+			if data.STATUS == "SUCCESS":
+				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
 						"status": "Processed",
 						"utr_number": data.UTRNUMBER,
-						"message": reason or "Payment Completed",
+						"message": data.MESSAGE or "Payment Completed",
 					}
 				}
-			elif status in [
-				"PENDING",
-				"PENDING FOR APPROVAL",
-				"PENDING FOR PROCESSING",
-				"PROCESSING",
-			]:
-				# In-flight at the bank — NOT a failure. The bank KNOWS this payment and is still
-				# processing it; the consumer stays OPEN and keeps polling. (PENDING FOR PROCESSING /
-				# PROCESSING previously fell into the generic "Request Failure" catch-all.)
+			elif data.STATUS in ["PENDING", "PENDING FOR APPROVAL"]:
+				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
 						"status": "Pending",
-						"message": reason or "Payment Pending",
+						"message": data.MESSAGE or "Payment Pending",
 					}
 				}
-			elif status == "FAILURE":
-				# The bank EXPLICITLY failed the payment — money did not move.
+			elif data.STATUS == "FAILURE":
+				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
 						"status": "Failed",
-						"message": reason or "Payment Failed",
-					}
-				}
-			elif status == "UNKNOWN" or is_no_record_message(reason):
-				# The bank has NO record of this unique_id ("Invalid Inquiry Req ID or Unique ID.
-				# Please enter a valid input ..."). Verified across all ~900 payments in the
-				# 2,259-row log to occur ONLY for payments that were never submitted (429 / 400 /
-				# failed initiate) and in ZERO cases following a successful initiate — so it is a
-				# DISTINCT, non-ambiguous "never submitted" signal the consumer can safely act on
-				# (it can never double-pay a live payment; a successful payment always answers
-				# SUCCESS). Emitted as a NEW `status` value ("No Record") — additive, so a consumer
-				# that does not understand it (HRMS) simply ignores it, exactly its current
-				# behaviour for the generic "Request Failure", and never mis-acts on it.
-				res_dict.summary_details = {
-					self.payment_doc.name: {
-						"status": "No Record",
-						"message": reason
-						or "Bank has no record of this payment (invalid unique id).",
+						"message": data.MESSAGE or "Payment Failed",
 					}
 				}
 			else:
-				# Genuinely unmapped inquiry answer — inconclusive catch-all, stays OPEN (unchanged).
+				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
 						"status": "Request Failure",
-						"message": reason or "Payment Request Failure",
+						"message": data.MESSAGE or "Payment Request Failure",
 					}
 				}
 
