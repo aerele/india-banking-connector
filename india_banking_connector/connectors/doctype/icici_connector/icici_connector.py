@@ -717,7 +717,12 @@ class ICICIConnector(BankConnector):
 						"message": data.MESSAGE or "Payment Completed",
 					}
 				}
-			elif data.STATUS in ["PENDING", "PENDING FOR APPROVAL"]:
+			elif data.STATUS in [
+				"PENDING",
+				"PENDING FOR PROCESSING",
+				"PROCESSING",
+				"PENDING FOR APPROVAL",
+			]:
 				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
