@@ -253,7 +253,7 @@ class ICICIConnector(BankConnector):
 				"CORPID": connector_doc.corp_id,
 				"USERID": connector_doc.corp_usr,
 				"URN": connector_doc.urn,
-				"ALIASID": "",
+				"ALIASID": connector_doc.alias_id or "",
 			}
 		)
 
