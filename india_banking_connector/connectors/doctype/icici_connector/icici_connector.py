@@ -649,9 +649,12 @@ class ICICIConnector(BankConnector):
 				if isinstance(records, dict):
 					records = [records]
 				for txn in records:
+					amount = abs(flt(txn.get("AMOUNT")))
+					if cstr(txn.get("TYPE")).lower() == "dr":
+						amount = -1 * amount
 					transaction = {
 						"transaction_date": txn.get("TXNDATE", ""),
-						"transaction_amount": txn.get("AMOUNT"),
+						"transaction_amount": amount,
 						"reference_number": txn.get("TRANSACTIONID")
 						or txn.get("CHEQUENO"),
 						"transaction_description": txn.get("REMARKS", ""),
