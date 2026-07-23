@@ -134,7 +134,7 @@ class ICICIConnector(BankConnector):
 			unique_id=unique_id,
 			connector=self,
 		)
-		
+
 		return self.get_decrypted_response(
 			response, method="make_payment", log_id=log_id
 		)
@@ -545,11 +545,11 @@ class ICICIConnector(BankConnector):
 						"message": data.MESSAGE or "Payment Pending",
 					}
 				}
-			elif data.STATUS == "FAILURE":
+			elif data.STATUS in ["FAILURE", "REJECTED"]:
 				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
-						"status": "Failed",
+						"status": "Failed" if data.STATUS == "FAILURE" else "Rejected",
 						"message": data.MESSAGE or "Payment Failed",
 					}
 				}
@@ -649,9 +649,12 @@ class ICICIConnector(BankConnector):
 				if isinstance(records, dict):
 					records = [records]
 				for txn in records:
+					amount = abs(flt(txn.get("AMOUNT")))
+					if cstr(txn.get("TYPE")).lower() == "dr":
+						amount = -1 * amount
 					transaction = {
 						"transaction_date": txn.get("TXNDATE", ""),
-						"transaction_amount": txn.get("AMOUNT"),
+						"transaction_amount": amount,
 						"reference_number": txn.get("TRANSACTIONID")
 						or txn.get("CHEQUENO"),
 						"transaction_description": txn.get("REMARKS", ""),
