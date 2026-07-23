@@ -134,7 +134,7 @@ class ICICIConnector(BankConnector):
 			unique_id=unique_id,
 			connector=self,
 		)
-		
+
 		return self.get_decrypted_response(
 			response, method="make_payment", log_id=log_id
 		)
@@ -545,11 +545,11 @@ class ICICIConnector(BankConnector):
 						"message": data.MESSAGE or "Payment Pending",
 					}
 				}
-			elif data.STATUS == "FAILURE":
+			elif data.STATUS in ["FAILURE", "REJECTED"]:
 				res_dict.payment_status = "PROCESSED"
 				res_dict.summary_details = {
 					self.payment_doc.name: {
-						"status": "Failed",
+						"status": "Failed" if data.STATUS == "FAILURE" else "Rejected",
 						"message": data.MESSAGE or "Payment Failed",
 					}
 				}
