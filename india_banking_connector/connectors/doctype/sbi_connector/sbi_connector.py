@@ -544,7 +544,6 @@ class SBIConnector(BankConnector):
 			"beneName": (
 				payment_details.party_name or payment_details.party or ""
 			)[:100],
-			"beneLEI": payment_details.lei or "",
 			"bankSortCode": "",
 			"intermediaryBankBICCode": "",
 		}
