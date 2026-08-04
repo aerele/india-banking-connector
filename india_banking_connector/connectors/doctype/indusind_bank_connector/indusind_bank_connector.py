@@ -274,7 +274,11 @@ class IndusIndBankConnector(BankConnector):
 	def _ben_mobile(self, row):
 		if not (row.party_type and row.party):
 			return ""
-		return frappe.db.get_value(row.party_type, row.party, "mobile_no") or ""
+		meta = frappe.get_meta(row.party_type)
+		for fieldname in ("mobile_no", "cell_number"):
+			if meta.has_field(fieldname):
+				return frappe.db.get_value(row.party_type, row.party, fieldname) or ""
+		return ""
 
 	def _tran_type(self, mode_of_transfer):
 		mode = (mode_of_transfer or "").lower()
