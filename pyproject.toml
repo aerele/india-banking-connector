@@ -10,11 +10,11 @@ dynamic = ["version"]
 dependencies = [
     "pycryptodome",
     "python-jose~=3.5.0",
-    "cryptography~=42.0.5",
+    "cryptography>=42.0.5,<47",
     "urllib3",
     "xmltodict",
     "defusedxml",
-    "paramiko~=4.0.0",
+    "paramiko>=3.5.1,<5",
     "python-gnupg"
 ]
 
@@ -32,4 +32,5 @@ indent-style = "tab"
 docstring-code-format = true
 
 [tool.bench.frappe-dependencies]
-frappe = ">=14,<=16"
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
