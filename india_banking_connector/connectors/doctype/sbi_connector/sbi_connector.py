@@ -557,7 +557,11 @@ class SBIConnector(BankConnector):
 		return transaction
 
 	def get_beneficiary_address(self):
-		"""Return the address supplied by India Banking for the beneficiary bank account."""
+		"""Return the dedicated beneficiary address, falling back to the linked Address."""
+		beneficiary_address = cstr(self.payment_doc.get("beneficiary_address")).strip()
+		if beneficiary_address:
+			return beneficiary_address
+
 		try:
 			address = self.payment_doc.get("address") or {}
 			if isinstance(address, str):
