@@ -164,6 +164,32 @@ class TestSBIConnector(FrappeTestCase):
 			"PURORD202600011",
 		)
 
+	def test_payment_payload_uses_beneficiary_address(self):
+		connector = self.get_connector()
+		connector.payment_doc.address = json.dumps(
+			{"AddressLine": ["12 Industrial Estate", "Phase 2", "Chennai"]}
+		)
+
+		transaction = connector.get_account_config("make_payment")["EIS_PAYLOAD"][
+			"TransactionCreationRequest"
+		]["transactionDetails"][0]
+
+		self.assertEqual(
+			transaction["beneAddress1"], "12 Industrial Estate, Phase 2, Chennai"
+		)
+		self.assertEqual(transaction["beneAddress2"], "")
+		self.assertEqual(transaction["beneAddress3"], "")
+
+	def test_payment_payload_keeps_beneficiary_address_blank_when_invalid(self):
+		connector = self.get_connector()
+		connector.payment_doc.address = "not-json"
+
+		transaction = connector.get_account_config("make_payment")["EIS_PAYLOAD"][
+			"TransactionCreationRequest"
+		]["transactionDetails"][0]
+
+		self.assertEqual(transaction["beneAddress1"], "")
+
 	def test_enquiry_payload_uses_original_posting_request_id(self):
 		connector = self.get_connector()
 

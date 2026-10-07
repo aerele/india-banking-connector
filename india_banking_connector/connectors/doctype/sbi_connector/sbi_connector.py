@@ -214,7 +214,6 @@ class SBIConnector(BankConnector):
 			return response_json
 
 		decrypted_json = self.aes_gcm_decrypt(encrypted_response, self._last_aes_key)
-
 		if digi_sign:
 			self.verify_digital_sign(
 				decrypted_json,
@@ -521,9 +520,10 @@ class SBIConnector(BankConnector):
 
 	def get_transaction(self):
 		payment_details = self.payment_doc
+		bene_address1 = self.get_beneficiary_address()
 		transaction = {
 			"bicCode": payment_details.branch_code or "",
-			"beneAddress1": "",
+			"beneAddress1": bene_address1,
 			"beneAddress2": "",
 			"beneAddress3": "",
 			"remittanceCode": "",
@@ -545,7 +545,6 @@ class SBIConnector(BankConnector):
 			"beneName": (
 				payment_details.party_name or payment_details.party or ""
 			)[:100],
-			"beneLEI": payment_details.lei or "",
 			"bankSortCode": "",
 			"intermediaryBankBICCode": "",
 		}
@@ -556,6 +555,26 @@ class SBIConnector(BankConnector):
 			transaction["executionDate"] = getdate(posting_date).strftime("%d-%b-%Y").upper()
 
 		return transaction
+
+	def get_beneficiary_address(self):
+		"""Return the address supplied by India Banking for the beneficiary bank account."""
+		try:
+			address = self.payment_doc.get("address") or {}
+			if isinstance(address, str):
+				address = json.loads(address)
+
+			if not isinstance(address, dict):
+				return ""
+
+			address_lines = address.get("AddressLine") or []
+			if not isinstance(address_lines, list):
+				address_lines = [address_lines]
+
+			return ", ".join(
+				cstr(line).strip() for line in address_lines if cstr(line).strip()
+			)
+		except (TypeError, ValueError):
+			return ""
 
 	def get_payment_instruction(self):
 		payment_details = self.payment_doc
