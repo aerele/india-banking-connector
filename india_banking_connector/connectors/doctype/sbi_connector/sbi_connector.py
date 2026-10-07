@@ -223,9 +223,7 @@ class SBIConnector(BankConnector):
 
 		decrypted = json.loads(decrypted_json)
 		result = {
-			"REQUEST_REFERENCE_NUMBER": response_json.get(
-				"REQUEST_REFERENCE_NUMBER"
-			),
+			"REQUEST_REFERENCE_NUMBER": response_json.get("REQUEST_REFERENCE_NUMBER"),
 			"RESPONSE_DATE": response_json.get("RESPONSE_DATE"),
 			"RESPONSE_STATUS": decrypted.get("RESPONSE_STATUS"),
 			"ERROR_CODE": decrypted.get("ERROR_CODE"),
@@ -347,8 +345,7 @@ class SBIConnector(BankConnector):
 
 		res_dict.server_status = "Success"
 		res_dict.balance = self.parse_signed_amount(
-			eis_response.get("availableAmount")
-			or eis_response.get("availableBalance")
+			eis_response.get("availableAmount") or eis_response.get("availableBalance")
 		)
 		res_dict.date = eis_response.get("responseDate") or getdate()
 
@@ -440,9 +437,7 @@ class SBIConnector(BankConnector):
 		self.request_reference_number = request_reference_number
 		if method == "make_payment":
 			inner_request = {
-				"uniqueRequestId": self.get_unique_request_id(
-					self.payment_doc, method
-				),
+				"uniqueRequestId": self.get_unique_request_id(self.payment_doc, method),
 				"corporateCode": self.corporate_code,
 				"corporateProductCode": self.corporate_product_code,
 				"transactionDetails": [self.get_transaction()],
@@ -460,9 +455,7 @@ class SBIConnector(BankConnector):
 			}
 		elif method == "payment_status":
 			inner_request = {
-				"uniqueRequestId": self.get_unique_request_id(
-					self.payment_doc, method
-				),
+				"uniqueRequestId": self.get_unique_request_id(self.payment_doc, method),
 				"corporateCode": self.corporate_code,
 				"transactionRequestId": self.get_unique_request_id(
 					self.payment_doc, "make_payment"
@@ -542,9 +535,9 @@ class SBIConnector(BankConnector):
 			"payableCurrency": "INR",
 			"beneAccNo": self.clean_string(payment_details.bank_account_no),
 			"beneCode": "",
-			"beneName": (
-				payment_details.party_name or payment_details.party or ""
-			)[:100],
+			"beneName": (payment_details.party_name or payment_details.party or "")[
+				:100
+			],
 			"bankSortCode": "",
 			"intermediaryBankBICCode": "",
 		}
@@ -552,12 +545,18 @@ class SBIConnector(BankConnector):
 		# Send executionDate only for future-dated payments; omit for same-day/past.
 		posting_date = self.doc.get("posting_date")
 		if posting_date and getdate(posting_date) > getdate():
-			transaction["executionDate"] = getdate(posting_date).strftime("%d-%b-%Y").upper()
+			transaction["executionDate"] = (
+				getdate(posting_date).strftime("%d-%b-%Y").upper()
+			)
 
 		return transaction
 
 	def get_beneficiary_address(self):
-		"""Return the address supplied by India Banking for the beneficiary bank account."""
+		"""Return the dedicated beneficiary address, falling back to the linked Address."""
+		beneficiary_address = cstr(self.payment_doc.get("beneficiary_address")).strip()
+		if beneficiary_address:
+			return beneficiary_address
+
 		try:
 			address = self.payment_doc.get("address") or {}
 			if isinstance(address, str):
@@ -598,7 +597,6 @@ class SBIConnector(BankConnector):
 		text = " ".join(text.split())
 		return text[:max_length] if max_length else text
 
-
 	def get_payment_method(self, mode_of_transfer):
 		mode = cstr(mode_of_transfer).upper()
 		if "RTGS" in mode:
@@ -608,7 +606,6 @@ class SBIConnector(BankConnector):
 		if "A2A" in mode or "INTRA" in mode or "DCR" in mode:
 			return "DCR"
 		return mode
-	
 
 	def get_unique_request_id(self, payment_details, method=None):
 		unique_id = self.get_numeric_hash(payment_details.get("name"), length=11)
@@ -665,7 +662,9 @@ class SBIConnector(BankConnector):
 		return "Pending", message
 
 	def compute_hash(self, inner_request, sanitize=False):
-		signature = self.digital_sign(self.compact_json(self.sort_json_keys(inner_request)))
+		signature = self.digital_sign(
+			self.compact_json(self.sort_json_keys(inner_request))
+		)
 		return self.sanitize_hash(signature) if sanitize else signature
 
 	def sanitize_hash(self, value):
