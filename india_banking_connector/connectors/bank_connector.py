@@ -319,8 +319,20 @@ class BankConnector(Document):
 
 	def rsa_decrypt_key(self, key, key_path):
 		with open(key_path, "rb") as file:
-			private_key = rsa.PrivateKey.load_pkcs1(file.read())
-			return rsa.decrypt(b64decode(key), private_key).decode("utf-8")
+			# ``rsa.PrivateKey.load_pkcs1`` accepts only a PKCS#1 PEM headed
+			# ``BEGIN RSA PRIVATE KEY``. ICICI certificates are also commonly
+			# supplied as PKCS#8 (``BEGIN PRIVATE KEY``), which made the Bank
+			# Request Log's "Decrypt Response" action fail even though the same
+			# key is valid. PyCryptodome imports both encodings and uses the same
+			# PKCS#1 v1.5 padding required by ICICI's encrypted AES key.
+			private_key = RSA.import_key(file.read())
+
+		cipher = Cipher_PKCS1_v1_5.new(private_key)
+		failure_sentinel = b"__ICICI_RSA_DECRYPTION_FAILED__"
+		decrypted_key = cipher.decrypt(b64decode(key), failure_sentinel)
+		if decrypted_key == failure_sentinel:
+			raise ValueError("Unable to decrypt the ICICI response key")
+		return decrypted_key.decode("utf-8")
 
 	def aes_encrypt_data(self, data, key, prepend_iv=False):
 		if isinstance(data, dict):
