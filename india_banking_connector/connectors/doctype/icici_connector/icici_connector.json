@@ -15,6 +15,7 @@
   "corp_id",
   "aggr_id",
   "aggr_name",
+  "alias_id",
   "urn",
   "ifsc_code",
   "ip_address",
@@ -104,6 +105,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "alias_id",
+   "fieldtype": "Data",
+   "label": "Alias ID"
+  },
+  {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
@@ -135,6 +141,7 @@
    "label": "Testing"
   },
   {
+   "description": "ICICI branch IFSC code used for intra-bank (ICICI to ICICI) transfers. Defaults to ICIC0000011 if not set.",
    "fieldname": "ifsc_code",
    "fieldtype": "Data",
    "label": "IFSC Code"

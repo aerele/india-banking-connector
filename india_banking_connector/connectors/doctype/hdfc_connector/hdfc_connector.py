@@ -195,13 +195,13 @@ class HDFCConnector(BankConnector):
 
 			if record:
 				if "TXN_STATUS" in record and record["TXN_STATUS"]:
-					utr = record.get("UTR_NO", None)
+					utr = record.get("UTR_NO", None) or record.get("TXN_REFERENCE_NO")
 					if (
 						not utr
 						and record["TXN_STATUS"] == "Processed"
 						and record["TRANSFER_TYPE"] == "Intra Bank Transfer"
 					):
-						utr = record.get("TXN_REFERENCE_NO") or record.get(
+						utr = record.get(
 							"PAYMENTREFNO"
 						)
 

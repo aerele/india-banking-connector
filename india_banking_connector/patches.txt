@@ -6,3 +6,4 @@ india_banking_connector.patches.v1_0.create_bank_doctype # apr29
 india_banking_connector.patches.v1_0.update_connector_settings #130026
 india_banking_connector.patches.v1_0.update_standard_banks #sep28
 india_banking_connector.patches.v16_0.update_api_endpoints #20250313 #9
+india_banking_connector.patches.v16_0.add_sbi_connector_settings #20260610
