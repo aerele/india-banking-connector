@@ -677,7 +677,18 @@ class ICICIConnector(BankConnector):
 				res_dict.message = data.get("errormessage") or data.get("Message")
 
 		elif method == "make_payment" and data:
-			if data.STATUS in [
+			if data.RESPONSE == "FAILURE" and data.STATUS in ["PENDING", "PENDING FOR PROCESSING"]:
+				# The bank's reason (e.g. "failed ... due to Invalid Beneficiary", 103068 "submitted,
+				# do not re-initiate") travels with the row; the status inquiry gives the outcome.
+				res_dict.payment_status = "ACCEPTED"
+				res_dict.message = data.MESSAGE or "Payment Pending"
+				res_dict.summary_details = {
+					self.payment_doc.name: {
+						"payment_status": "Accepted",
+						"message": res_dict.message,
+					}
+				}
+			elif data.STATUS in [
 				"SUCCESS",
 				"PENDING",
 				"PENDING FOR PROCESSING",
