@@ -55,6 +55,86 @@ class BankRequestLog(Document):
 				log_id=self.name,
 			)
 
+	@frappe.whitelist()
+	def request_payment_status(self):
+		"""Request a BoB status inquiry using this log's CMS reference."""
+		self.reload()
+		self.check_permission("write")
+
+		if self.action != "Initiate Payment" or cint(self.status_code) != 200:
+			frappe.throw(
+				frappe._(
+					"Payment status can only be requested from a successful initiation log."
+				)
+			)
+		if self.connector != "Bank of Baroda Connector":
+			frappe.throw(
+				frappe._(
+					"This action is currently available only for Bank of Baroda initiation logs."
+				)
+			)
+		if (
+			not self.unique_id
+			or self.reference_doctype != "Payment Order"
+			or not self.reference_docname
+			or not self.connector_name
+		):
+			frappe.throw(
+				frappe._("The initiation log is missing its Payment Order reference.")
+			)
+
+		if not frappe.has_permission("Payment Order", "read", self.reference_docname):
+			frappe.throw(
+				frappe._("Not permitted to read this Payment Order."),
+				frappe.PermissionError,
+			)
+
+		try:
+			response_data = self.decrypt_data(self.decrypted_response)
+			if isinstance(response_data, str):
+				response_data = json.loads(response_data)
+		except (TypeError, ValueError):
+			frappe.throw(frappe._("Could not read the decrypted initiation response."))
+
+		if not isinstance(response_data, dict):
+			frappe.throw(frappe._("Could not read the decrypted initiation response."))
+
+		payment_response = (response_data or {}).get("paymentTxnResp") or {}
+		if not isinstance(payment_response, dict):
+			frappe.throw(
+				frappe._("The initiation response has an invalid payment response format.")
+			)
+		cms_ref = payment_response.get("cmsRef")
+		if not cms_ref:
+			frappe.throw(
+				frappe._(
+					"The initiation response does not contain a CMS reference; "
+					"no status request was sent."
+				)
+			)
+
+		connector = frappe.get_doc(self.connector, self.connector_name)
+		connector.is_active()
+		connector.payment_doc = frappe._dict(
+			{
+				"name": self.unique_id,
+				"parenttype": self.reference_doctype,
+				"parent": self.reference_docname,
+			}
+		)
+		result = connector.get_payment_status(cms_ref=cms_ref)
+
+		if not getattr(connector, "last_payment_status_log_id", None):
+			frappe.throw(
+				frappe._("The bank status request did not create a Bank Request Log.")
+			)
+
+		return {
+			"log_id": connector.last_payment_status_log_id,
+			"cms_ref": cms_ref,
+			"result": result,
+		}
+
 	@staticmethod
 	def clear_old_logs(days=30):
 		from frappe.query_builder import Interval
