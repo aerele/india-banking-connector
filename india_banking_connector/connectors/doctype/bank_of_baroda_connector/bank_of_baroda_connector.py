@@ -97,7 +97,7 @@ class BankofBarodaConnector(BankConnector):
 	def get_payment_status(self, cms_ref=None):
 		payment_details = self.payment_doc
 		unique_id = payment_details.name
-		self.payment_status_cms_ref = cms_ref or ""
+		self.payment_status_cms_ref = cms_ref or payment_details.get("cms_ref") or ""
 
 		url = self.urls.payment_status
 		headers = self.headers()
@@ -369,7 +369,10 @@ class BankofBarodaConnector(BankConnector):
 				res_dict.payment_status = "ACCEPTED"
 				if data.errorCode in ["TXN000"]:
 					res_dict.summary_details = {
-						self.payment_doc.name: {"payment_status": "Accepted"}
+						self.payment_doc.name: {
+							"payment_status": "Accepted",
+							"cms_ref": data.get("cmsRef"),
+						}
 					}
 				elif data.errorCode in [
 					"TXN001",
