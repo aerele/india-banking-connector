@@ -94,9 +94,10 @@ class BankofBarodaConnector(BankConnector):
 			response, method="make_payment", log_id=log_id
 		)
 
-	def get_payment_status(self):
+	def get_payment_status(self, cms_ref=None):
 		payment_details = self.payment_doc
 		unique_id = payment_details.name
+		self.payment_status_cms_ref = cms_ref or payment_details.get("cms_ref") or ""
 
 		url = self.urls.payment_status
 		headers = self.headers()
@@ -121,6 +122,7 @@ class BankofBarodaConnector(BankConnector):
 			unique_id=unique_id,
 			connector=self,
 		)
+		self.last_payment_status_log_id = log_id
 
 		return self.get_decrypted_response(
 			response, method="payment_status", log_id=log_id
@@ -317,7 +319,7 @@ class BankofBarodaConnector(BankConnector):
 			{
 				"custRef": self.payment_doc.name,
 				"bankRef": "",
-				"cmsRef": "",
+				"cmsRef": getattr(self, "payment_status_cms_ref", ""),
 				"clientCode": self.client_code,
 				"debitAcNo": self.account_number,
 				"ddNo": "",
@@ -367,7 +369,10 @@ class BankofBarodaConnector(BankConnector):
 				res_dict.payment_status = "ACCEPTED"
 				if data.errorCode in ["TXN000"]:
 					res_dict.summary_details = {
-						self.payment_doc.name: {"payment_status": "Accepted"}
+						self.payment_doc.name: {
+							"payment_status": "Accepted",
+							"cms_ref": data.get("cmsRef"),
+						}
 					}
 				elif data.errorCode in [
 					"TXN001",

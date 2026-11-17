@@ -6,6 +6,32 @@ frappe.ui.form.on("Bank Request Log", {
 		if (!frappe.user_roles.includes("System Manager")) {
 			return;
 		}
+
+		if (
+			frm.doc.action === "Initiate Payment" &&
+			String(frm.doc.status_code) === "200" &&
+			frm.doc.connector === "Bank of Baroda Connector"
+		) {
+			frm.add_custom_button(
+				__("Get Payment Status"),
+				() => {
+					frm.call({
+						method: "request_payment_status",
+						doc: frm.doc,
+						freeze: true,
+						freeze_message: __(
+							"Requesting payment status from Bank of Baroda..."
+						),
+					}).then((r) => {
+						if (!r.exc && r.message?.log_id) {
+							frappe.set_route("Form", "Bank Request Log", r.message.log_id);
+						}
+					});
+				},
+				__("Actions")
+			);
+		}
+
 		// Add button to decrypt the log details
 		frm.add_custom_button(
 			__("Decrypt Log"),
