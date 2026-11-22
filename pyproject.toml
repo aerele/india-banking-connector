@@ -10,7 +10,8 @@ dynamic = ["version"]
 dependencies = [
     "pycryptodome",
     "python-jose~=3.5.0",
-    "cryptography>=42.0.5,<47",
+    "cryptography~=50.0.0",
+    "pyOpenSSL~=26.4.0",
     "urllib3",
     "xmltodict",
     "defusedxml",

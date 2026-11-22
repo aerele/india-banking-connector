@@ -11,12 +11,18 @@ from datetime import datetime
 
 import frappe
 import requests
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.hashes import SHA1, SHA256
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.serialization import (
+	load_pem_private_key,
+	load_pem_public_key,
+)
 from cryptography.x509 import load_pem_x509_certificate
 from frappe.utils import cstr, flt, getdate
+from OpenSSL import crypto
 
 from india_banking_connector.connectors.bank_connector import BankConnector
 from india_banking_connector.india_banking_connector.doctype.bank_request_log.bank_request_log import (
@@ -769,8 +775,34 @@ class SBIConnector(BankConnector):
 
 	def load_public_key_from_cert(self, file_url):
 		with open(self.get_file_relative_path(file_url), "rb") as file:
-			cert = load_pem_x509_certificate(file.read())
-		return cert.public_key()
+			certificate_data = file.read()
+
+		try:
+			public_key = load_pem_x509_certificate(certificate_data).public_key()
+		except ValueError as parse_error:
+			if "AttributeValue::PrintableString" not in str(parse_error):
+				raise
+
+			# Some SBI certificates contain a legacy PrintableString encoding that
+			# OpenSSL accepts but cryptography's strict X.509 parser rejects. Keep
+			# the original signed certificate intact and extract only its public key.
+			try:
+				certificate = crypto.load_certificate(
+					crypto.FILETYPE_PEM, certificate_data
+				)
+				public_key_pem = crypto.dump_publickey(
+					crypto.FILETYPE_PEM, certificate.get_pubkey()
+				)
+				public_key = load_pem_public_key(public_key_pem)
+			except (crypto.Error, ValueError, UnsupportedAlgorithm) as fallback_error:
+				raise parse_error from fallback_error
+
+		if not isinstance(public_key, RSAPublicKey):
+			frappe.throw(
+				"SBI EIS encryption certificate must contain an RSA public key."
+			)
+
+		return public_key
 
 	def get_ssl_verify(self):
 		if self.ssl_verify_cert:
