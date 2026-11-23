@@ -4,6 +4,7 @@
 import hashlib
 import json
 import re
+import time
 
 import frappe
 import requests
@@ -31,18 +32,21 @@ class AxisBankConnector(BankConnector):
 	def urls(self):
 		return super().urls
 
-	@property
-	def headers(self):
+	def get_headers(self, service_id="OpenApi"):
 		return {
 			"x-fapi-epoch-millis": cstr(get_current_time_in_milliseconds()),
 			"x-fapi-channel-id": self.channel_id,
 			"x-fapi-uuid": get_id(15),
-			"x-fapi-serviceId": "OpenApi",
+			"x-fapi-serviceId": service_id,
 			"x-fapi-serviceVersion": "1.0",
 			"X-IBM-Client-Id": self.client_id,
 			"X-IBM-Client-Secret": self.get_password("client_secret"),
 			"content-type": "text/plain",
 		}
+
+	@property
+	def headers(self):
+		return self.get_headers("OpenApi")
 
 	def initiate_payment(self):
 		payment_details = self.doc
@@ -327,12 +331,17 @@ class AxisBankConnector(BankConnector):
 		unique_id = "".join(re.findall(r"[0-9a-zA-Z]", payment_details.name))
 
 		url = self.urls.payment_status
-		headers = self.headers
+		headers = self.get_headers(service_id="ReconApi")
 		payload = self.get_encrypted_payload(method="payment_status")
 
-		response = requests.post(
-			url, headers=headers, data=payload, cert=self.get_cert()
-		)
+		response = None
+		for attempt in range(3):
+			response = requests.post(
+				url, headers=headers, data=payload, cert=self.get_cert(), timeout=25
+			)
+			if response.status_code == 200:
+				break
+			time.sleep(1)
 
 		log_id = create_api_log(
 			response,
