@@ -3,9 +3,8 @@
 
 import json
 
-from frappe.tests.utils import FrappeTestCase
-
 import frappe
+from frappe.tests.utils import FrappeTestCase
 
 
 class _FakeResponse:
@@ -18,10 +17,6 @@ class _FakeResponse:
 
 	def json(self):
 		return self._payload
-
-from india_banking_connector.connectors.doctype.sbi_connector.sbi_connector import (
-	SBIConnector,
-)
 
 
 class TestSBIConnector(FrappeTestCase):
@@ -94,14 +89,18 @@ class TestSBIConnector(FrappeTestCase):
 		connector = self.get_connector()
 		captured = {}
 		connector.compute_hash = (
-			lambda inner_request, sanitize=False: captured.update({"sanitize": sanitize})
+			lambda inner_request, sanitize=False: captured.update(
+				{"sanitize": sanitize}
+			)
 			or "HASH"
 		)
 
 		connector.get_account_config("bank_balance")
 		self.assertTrue(captured["sanitize"])
 
-		connector.doc = frappe._dict({"from_date": "01-12-2024", "to_date": "02-12-2024"})
+		connector.doc = frappe._dict(
+			{"from_date": "01-12-2024", "to_date": "02-12-2024"}
+		)
 		connector.get_account_config("bank_statement")
 		self.assertTrue(captured["sanitize"])
 
@@ -125,9 +124,9 @@ class TestSBIConnector(FrappeTestCase):
 			connector.get_payment_status_from_sbi("PROCESSING")[0], "Pending"
 		)
 		self.assertEqual(
-			connector.get_payment_status_from_sbi(
-				"NO SUCH TRANSACTION DETAIL FOUND"
-			)[0],
+			connector.get_payment_status_from_sbi("NO SUCH TRANSACTION DETAIL FOUND")[
+				0
+			],
 			"Failed",
 		)
 		self.assertEqual(
@@ -163,6 +162,42 @@ class TestSBIConnector(FrappeTestCase):
 			creation_request["transactionDetails"][0]["paymentInstruction1"],
 			"PURORD202600011",
 		)
+
+	def test_payment_payload_normalizes_beneficiary_name(self):
+		connector = self.get_connector()
+		connector.payment_doc.party_name = "M/s. Sharma & Sons Pvt. Ltd."
+
+		transaction = connector.get_account_config("make_payment")["EIS_PAYLOAD"][
+			"TransactionCreationRequest"
+		]["transactionDetails"][0]
+
+		self.assertEqual(transaction["beneName"], "M s Sharma Sons Pvt Ltd")
+
+	def test_payment_payload_uses_beneficiary_address(self):
+		connector = self.get_connector()
+		connector.payment_doc.address = json.dumps(
+			{"AddressLine": ["12 Industrial Estate", "Phase 2", "Chennai"]}
+		)
+
+		transaction = connector.get_account_config("make_payment")["EIS_PAYLOAD"][
+			"TransactionCreationRequest"
+		]["transactionDetails"][0]
+
+		self.assertEqual(
+			transaction["beneAddress1"], "12 Industrial Estate, Phase 2, Chennai"
+		)
+		self.assertEqual(transaction["beneAddress2"], "")
+		self.assertEqual(transaction["beneAddress3"], "")
+
+	def test_payment_payload_keeps_beneficiary_address_blank_when_invalid(self):
+		connector = self.get_connector()
+		connector.payment_doc.address = "not-json"
+
+		transaction = connector.get_account_config("make_payment")["EIS_PAYLOAD"][
+			"TransactionCreationRequest"
+		]["transactionDetails"][0]
+
+		self.assertEqual(transaction["beneAddress1"], "")
 
 	def test_enquiry_payload_uses_original_posting_request_id(self):
 		connector = self.get_connector()
