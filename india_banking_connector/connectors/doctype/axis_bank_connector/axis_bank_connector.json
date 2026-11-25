@@ -23,6 +23,10 @@
   "balance_check",
   "column_break_lziw",
   "statement_fetch",
+  "proxy_section",
+  "http_proxy",
+  "column_break_proxy",
+  "https_proxy",
   "tab_2_tab",
   "api_endpoints_section",
   "base_url",
@@ -98,6 +102,27 @@
    "fieldname": "statement_fetch",
    "fieldtype": "Check",
    "label": "Statement Fetch"
+  },
+  {
+   "fieldname": "proxy_section",
+   "fieldtype": "Section Break",
+   "label": "Proxy Configuration"
+  },
+  {
+   "description": "Optional HTTP Proxy (e.g. http://65.2.213.140:8443 or socks5h://127.0.0.1:1080)",
+   "fieldname": "http_proxy",
+   "fieldtype": "Data",
+   "label": "HTTP Proxy"
+  },
+  {
+   "fieldname": "column_break_proxy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional HTTPS Proxy (e.g. http://65.2.213.140:8443 or socks5h://127.0.0.1:1080)",
+   "fieldname": "https_proxy",
+   "fieldtype": "Data",
+   "label": "HTTPS Proxy"
   },
   {
    "fieldname": "tab_2_tab",

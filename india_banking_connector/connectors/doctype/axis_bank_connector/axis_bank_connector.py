@@ -62,7 +62,12 @@ class AxisBankConnector(BankConnector):
 		payload = self.get_encrypted_payload(method="make_payment")
 
 		response = requests.post(
-			url, headers=headers, data=payload, cert=self.get_cert()
+			url,
+			headers=headers,
+			data=payload,
+			cert=self.get_cert(),
+			proxies=self.get_proxies(),
+			timeout=30,
 		)
 
 		log_id = create_api_log(
@@ -337,7 +342,12 @@ class AxisBankConnector(BankConnector):
 		response = None
 		for attempt in range(3):
 			response = requests.post(
-				url, headers=headers, data=payload, cert=self.get_cert(), timeout=25
+				url,
+				headers=headers,
+				data=payload,
+				cert=self.get_cert(),
+				proxies=self.get_proxies(),
+				timeout=25,
 			)
 			if response.status_code == 200:
 				break
@@ -382,3 +392,19 @@ class AxisBankConnector(BankConnector):
 		frappe.throw(
 			"Bank statement API is not currently supported by the Axis Bank Connector."
 		)
+
+	def get_proxies(self):
+		proxies = {}
+		if getattr(self, "http_proxy", None) and self.http_proxy.strip():
+			proxies["http"] = self.http_proxy.strip()
+		if getattr(self, "https_proxy", None) and self.https_proxy.strip():
+			proxies["https"] = self.https_proxy.strip()
+		if not proxies:
+			conf_http = frappe.conf.get("http_proxy")
+			conf_https = frappe.conf.get("https_proxy")
+			if conf_http and conf_http.strip():
+				proxies["http"] = conf_http.strip()
+			if conf_https and conf_https.strip():
+				proxies["https"] = conf_https.strip()
+		return proxies or None
+
